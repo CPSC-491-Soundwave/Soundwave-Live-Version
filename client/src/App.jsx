@@ -5,13 +5,14 @@ import Home from "./pages/Home"
 import Search from "./pages/Search"
 import Library from "./pages/Library"
 import Login from "./pages/Login"
+import "./App.css"
 
 export default function App() {
   return (
-    <div>
+    <div className="app-shell">
       <Sidebar />
 
-      <main>
+      <main className="page-content">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Search />} />

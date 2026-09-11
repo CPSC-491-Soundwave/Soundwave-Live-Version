@@ -1,1 +1,14 @@
 /* Soundwave design tokens will go here. */
+
+:root {
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-primary: #6366f1;
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #94a3b8;
+
+    --font-family: Inter, Arial, sans-serif;
+
+    --sidebar-width: 220px;
+    --playback-height: 80px;
+}
