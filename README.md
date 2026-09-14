@@ -37,9 +37,10 @@ The current merged Sprint 1 implementation uses:
 | Source Control | Git / GitHub |
 | CI | GitHub Actions planned during Sprint 1 |
 | Database | PostgreSQL planned; implementation owned by Allison Yu |
-| Authentication | Sprint 1 implementation owned by Emmanuel De Guzman |
+| Password Hashing | Argon2id via `argon2` |
+| Access Tokens | JWT via `jsonwebtoken` |
 | Media / Streaming | Sprint 1 implementation owned by Matthew Choi |
-| Packaging / Self-host Setup | Sprint 1 implementation owned by Konner Rigby |
+| Packaging / Self-host Setup | Sprint 1 implementation owned by	 Konner Rigby |
 
 **Tailwind CSS is not being used.**
 
@@ -471,9 +472,15 @@ Current configuration:
 }
 ```
 
-The backend currently uses only Node.js built-in modules, so there are no external backend packages to install at this stage.
+The backend uses Node.js built-in modules together with external packages.
 
-If backend dependencies are added later, this section must be updated with the appropriate install command and committed lockfile.
+Current backend authentication dependencies include:
+
+| Package | Purpose |
+| --- | --- |
+| `argon2` | Argon2id password hashing and password verification |
+| `jsonwebtoken` | Signed access-token creation and verification |
+
 
 ---
 
@@ -800,19 +807,47 @@ Until Allison's implementation is merged, do not create or document a competing 
 
 Emmanuel De Guzman owns the Sprint 1 login and identity/authentication spike.
 
-Once that implementation is merged into `main`, this section should contain verified instructions for:
+The authentication implementation is currently being developed on Emmanuel's
+development branch and has not yet been merged into `main`.
 
-- authentication dependencies;
-- required environment variables;
-- login/session configuration;
-- test-user setup if required;
-- authentication tests;
-- successful authentication verification;
-- failed authentication verification.
+Current authentication work includes:
 
-The current `/health` endpoint remains intentionally public.
+- Argon2id password hashing and password verification;
+- signed JWT access-token creation and verification;
+- short-lived access-token expiration;
+- Bearer-token request authentication;
+- validation of supported authentication roles;
+- backend authentication tests using Node.js `node:test`.
 
----
+## 14.1 Authentication Dependencies
+
+The current authentication implementation uses the following external Node.js
+packages:
+
+| Package | Purpose |
+| --- | --- |
+| `argon2` | Argon2id password hashing and password verification |
+| `jsonwebtoken` | JWT creation, signing, and verification |
+
+These dependencies are currently required by Emmanuel's authentication branch.
+
+They have not yet been documented as part of the merged backend dependency
+contract because the authentication implementation has not been merged into
+`main`.
+
+The shared backend `package.json` and `package-lock.json` should only be updated
+through the team's agreed integration process.
+
+## 14.2 Authentication Source Files
+
+The current authentication implementation is organized under:
+```
+server/src/auth/
+```
+
+## 14.3 
+
+Once all dependencies have been installed, testing authentication
 
 # 15. Media and Streaming Setup — Matthew Choi
 
