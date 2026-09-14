@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import jwt from 'jsonwebtoken';
-import { createTokenService } from './token.js';
+import { createTokenService } from "../src/auth/token.js";
 
 const SECRET_KEY = 'NOT_A_REAL_SECRET';
 const SECRET_NKEY = 'THIS_KEY_IS_SUPPOSED_TO_FAIL_WRONG_SIGNINGS';
