@@ -103,4 +103,4 @@ describe('Generating tokens for this test', () => {
       assert.throws(() => createTokenService(null));
     });
   });
-}); 
+});
