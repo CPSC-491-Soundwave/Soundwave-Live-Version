@@ -842,12 +842,53 @@ through the team's agreed integration process.
 
 The current authentication implementation is organized under:
 ```
-server/src/auth/
+/auth 
+login.js for login requests
+me.js for identity handler
+auth.js for request handler
+
+/password-hasher
+hasher.js for argon password hasher and verifier
+
+/token-auth
+token.js for token generator and verifier
 ```
 
-## 14.3 
+## 14.3 Authentication Tests
 
-Once all dependencies have been installed, testing authentication
+Once the authentication dependencies are installed, run the authentication
+test suite from the current authentication development directory:
+
+```bash
+node --test
+```
+
+The latest local authentication test run produced:
+
+```text
+tests 25
+pass 25
+fail 0
+```
+
+## 14.4 Auth Config
+
+The Sprint 1 authentication implementation defines `JWT_SECRET` as the
+server-side signing secret for JWT access tokens.
+
+The secret is supplied to:
+
+`createTokenService(secretKey)`
+
+Real signing secrets must not be committed to Git, exposed to the client,
+or written to logs.
+
+The shared backend does not yet read `JWT_SECRET` during startup. This
+configuration contract will be wired into the shared server during
+integration.
+
+See `AUTHCONFIG.md` for generation, handling, testing, and deferred
+configuration details.
 
 # 15. Media and Streaming Setup — Matthew Choi
 
@@ -1179,6 +1220,25 @@ Example:
 ```bash
 PORT=8081 npm start
 ```
+
+## 24.1 Authentication Environment
+
+The Sprint 1 authentication implementation defines:
+
+```
+`JWT_SECRET` is the server-side secret used to sign and verify JWT access
+tokens.
+```
+
+The shared backend does not yet consume this environment variable during
+startup. It currently defines the authentication configuration contract that
+will be wired into the shared server during integration.
+
+Real JWT signing secrets must not be committed to Git, exposed to the client,
+or written to logs.
+
+See `AUTHCONFIG.md` for generation, handling, testing, and deferred
+configuration details.
 
 ---
 
