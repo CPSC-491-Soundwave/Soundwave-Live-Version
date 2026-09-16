@@ -33,6 +33,11 @@ jobs:
   	working-directory: server
   	run: npm test
 
+      - name: Install server dependencies
+        if: ${{ hashFiles('server/package-lock.json') != '' }}
+        working-directory: server
+        run: npm ci
+
       - name: Run server tests
         working-directory: server
         run: npm test
