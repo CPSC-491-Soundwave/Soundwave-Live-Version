@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import BackendStatus from "./BackendStatus"
 import "./Sidebar.css"
 
 export default function Sidebar() {
@@ -17,6 +18,8 @@ export default function Sidebar() {
                 <h3>Recently played</h3>
                 <p>Nothing yet</p>
             </div>
+
+            <BackendStatus />
         </aside>
     )
 }

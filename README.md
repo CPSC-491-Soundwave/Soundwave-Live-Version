@@ -814,7 +814,7 @@ Until Allison's implementation is merged, do not create or document a competing 
 Emmanuel De Guzman owns the Sprint 1 login and identity/authentication spike.
 
 The authentication implementation is currently being developed on Emmanuel's
-development branch and has not yet been merged into `main`.
+development branch. Much of what is required of it, such as a hasher, token manager, verifiers, identity handlers, request handlers and login requests have been merged into `main`
 
 Current authentication work includes:
 
@@ -837,36 +837,34 @@ packages:
 
 These dependencies are currently required by Emmanuel's authentication branch.
 
-They have not yet been documented as part of the merged backend dependency
-contract because the authentication implementation has not been merged into
-`main`.
-
-The shared backend `package.json` and `package-lock.json` should only be updated
-through the team's agreed integration process.
+They are within the server directory, under /src/auth. Because they are now within the server directory, authentication is ready to be wired into the next sprint.
 
 ## 14.2 Authentication Source Files
 
 The current authentication implementation is organized under:
 ```
-/auth 
+server/src/auth 
 login.js for login requests
 me.js for identity handler
 auth.js for request handler
-
-/password-hasher
 hasher.js for argon password hasher and verifier
+token.js for token creator and verifier
 
-/token-auth
-token.js for token generator and verifier
+server.test
+login.test.js to test login requests
+me.test.js to test identity handler
+auth.test.js to test the request handler
+hasher.test.js to test hasher and verifier
+token.test.js to test token creator and verifier
 ```
 
 ## 14.3 Authentication Tests
 
 Once the authentication dependencies are installed, run the authentication
-test suite from the current authentication development directory:
+test suite from the server development directory:
 
 ```bash
-node --test
+npm run tests
 ```
 
 The latest local authentication test run produced:
