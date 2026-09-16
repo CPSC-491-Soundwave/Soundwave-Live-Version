@@ -10,8 +10,6 @@ This threat model evaluates the Sprint 1 authentication spike and its current so
 ---
 ### 1. Spoofing (Impersonating a User)
 *   **Threat A: Credential guessing/enumeration**
-    *   *Mitigation in Code*: verify_token explicitly restricts accepted tokens to HS256 using { algorithms: ['HS256'] }, preventing tokens that specify an unexpected signing algorithm from being accepted. JWTs are also signed using the required secretKey, allowing modified claims such as role or sub to fail signature verification [token.js].
-    
     *   *Timing Side-Channel Vulnerability:* Standardized response text prevents payload/status-code enumeration, but execution timing differences remain [login.js]. Requests for non-existent users return quickly after database lookup fails, whereas valid users trigger time-heavy Argon2 verification (`verify`) [login.js, hasher.js]. An attacker can measure response latency to enumerate valid usernames.
     
 *   **Threat B: Stolen/replayed bearer token**
@@ -68,7 +66,7 @@ This threat model evaluates the Sprint 1 authentication spike and its current so
 
 1.  **Missing Rate Limiting (High Priority):**
     *   *Risk:* `/auth/login` lacks rate limiting, leaving the system exposed to brute-force attacks and CPU exhaustion from repeated Argon2 computations [login.js, hasher.js].
-    *   *Recommendation:* Later authentication hardening should evaluate application-level, account-level, and deployment-layer rate limiting. The implementation should limit repeated credential attempts and expensive Argon2 verification without exposing additional account-enumeration signals.
+	    *   *Recommendation:* Later authentication hardening should evaluate application-level, account-level, and deployment-layer rate limiting. The implementation should limit repeated credential attempts and expensive Argon2 verification without exposing additional account-enumeration signals.
 2.  **Timing Side-Channel on User Verification (Medium Priority):**
     *   *Risk:* Password verification is skipped if a user is not found, creating a measurable response time difference between existing and non-existing accounts [login.js, hasher.js].
     *   *Recommendation:* Perform a dummy Argon2 computation when `findUserByUsername` returns `null` to equalize execution time.
