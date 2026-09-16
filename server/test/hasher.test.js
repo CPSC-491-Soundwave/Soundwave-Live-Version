@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { hash_password, verify } from "./hasher.js";
+import { hash_password, verify } from "../src/auth/hasher.js";
 
 describe('First hashing multiple passwords', () => {
   const pass1 = "SuperCoolPassword_1234";

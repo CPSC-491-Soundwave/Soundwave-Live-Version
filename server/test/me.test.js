@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { handleMe } from './me.js';
-import { createTokenService } from '../token-auth/token.js';
+import { handleMe } from '../src/auth/me.js';
+import { createTokenService } from '../src/auth/token.js';
 
 const SECRET_KEY = 'ME_TEST_SECRET_KEY';
 const tokenService = createTokenService(SECRET_KEY);
