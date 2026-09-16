@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test, before } from 'node:test';
 import { EventEmitter } from 'node:events';
-import { handleLogin } from './login.js';
-import { hash_password } from '../password-hasher/hasher.js';
+import { handleLogin } from '../src/auth/login.js';
+import { hash_password } from "../src/auth/hasher.js";
 
 // --- Helper Functions to Mock HTTP Objects ---
 
