@@ -373,13 +373,19 @@ Current repository structure:
 │   │   └── styles
 │   │       └── tokens.css
 │   └── vite.config.js
-└── server
-    ├── package.json
-    ├── src
-    │   ├── app.js
-    │   └── server.js
-    └── test
-        └── health.test.js
+├── server
+│   ├── package.json
+│   ├── src
+│   │   ├── app.js
+│   │   └── server.js
+│   └── test
+│       └── health.test.js
+├── playback
+│   ├── metadata.js
+│   ├── playback.js
+│   ├── server.js
+│
+
 
 11 directories, 29 files
 ```
