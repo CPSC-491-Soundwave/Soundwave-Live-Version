@@ -1,0 +1,16 @@
+{
+  "name": "soundwave-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Soundwave backend server",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "argon2": "^0.45.1",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
