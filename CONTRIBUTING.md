@@ -158,10 +158,11 @@ The Node.js backend is located in:
 server/
 ```
 
-Run the current backend tests with:
+Install the backend dependencies from the committed lockfile and run the current backend tests with:
 
 ```bash
 cd ~/Soundwave-Live-Version/server
+npm ci
 npm test
 ```
 
@@ -173,9 +174,9 @@ The current backend tests verify:
 
 Backend changes should not be submitted for review if the applicable backend tests fail.
 
-The current server uses Node.js built-in modules and does not yet require an external dependency installation step.
+The backend uses Node.js built-in modules together with external packages.
 
-If external backend dependencies are added later, the backend setup and CI instructions must be updated accordingly.
+The committed `server/package-lock.json` defines the reproducible backend dependency tree. From a fresh checkout, use `npm ci` before running tests or starting the backend.
 
 ---
 
@@ -220,6 +221,7 @@ Before opening a pull request that affects the existing backend or client, run t
 
 ```bash
 cd ~/Soundwave-Live-Version/server
+npm ci
 npm test
 ```
 
@@ -403,6 +405,7 @@ Examples include:
 README.md
 CONTRIBUTING.md
 server/package.json
+server/package-lock.json
 client/package.json
 client/package-lock.json
 .github/
@@ -431,9 +434,11 @@ Before adding a new dependency:
 4. Commit the appropriate lockfile when dependencies change.
 5. Document new setup requirements when necessary.
 
-The current client uses a committed `package-lock.json`.
+Both the client and backend use committed `package-lock.json` files.
 
-The backend should gain its own lockfile when external backend dependencies are introduced.
+From a clean checkout, use `npm ci` in the relevant package directory to install the exact dependency versions recorded by the lockfile.
+
+When dependencies are intentionally added or changed, commit the corresponding `package.json` and `package-lock.json` changes together.
 
 ---
 
