@@ -1,4 +1,4 @@
-import { verify } from '../password-hasher/hasher.js';
+import { verify } from './hasher.js';
 
 const MAX_BODY_BYTES = 16 * 1024;
 
