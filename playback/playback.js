@@ -1,7 +1,7 @@
 /* Matthew Choi
  * This is the code responsible for music file reading and playback
- *
  */
+
 let music;
 
 function loadSong(path) {
@@ -12,6 +12,10 @@ function loadSong(path) {
   music = new Howl({
     src: [path],
     volume: 0.5,
+
+    // Force Howler to use HTML5 Audio instead of Web Audio.
+    // This is better suited for testing streamed audio.
+    html5: true,
 
     onload: () => {
       console.log("Loading successful");
@@ -36,15 +40,35 @@ function loadSong(path) {
   });
 }
 
-function playMusic(){ music.play(); }
+/*
+ * Load a track using its stable catalog ID.
+ * The client does not need to know the physical file location.
+ */
+function loadTrack(trackId) {
+  const streamUrl =
+  `http://localhost:4000/api/tracks/${trackId}/stream`;
 
-function pauseMusic(){ music.pause(); }
+  loadSong(streamUrl);
+}
 
-function setMusicVol(volume){ music.volume(volume); }
+function playMusic() {
+  music.play();
+}
 
-function setMusicProg(seconds){ music.seek(seconds); }
+function pauseMusic() {
+  music.pause();
+}
 
-loadSong("./mediaFiles/test.mp3");
+function setMusicVol(volume) {
+  music.volume(volume);
+}
+
+function setMusicProg(seconds) {
+  music.seek(seconds);
+}
+
+// Temporary Sprint 1 test track.
+loadTrack(1);
 
 document.getElementById("play").addEventListener("click", () => {
   playMusic();
@@ -59,6 +83,9 @@ document.getElementById("volume").addEventListener("input", (event) => {
 });
 
 document.getElementById("seekButton").addEventListener("click", () => {
-  const seconds = Number(document.getElementById("seek").value);
+  const seconds = Number(
+    document.getElementById("seek").value
+  );
+
   setMusicProg(seconds);
 });
