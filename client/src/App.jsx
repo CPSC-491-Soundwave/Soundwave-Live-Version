@@ -5,6 +5,7 @@ import Home from "./pages/Home"
 import Search from "./pages/Search"
 import Library from "./pages/Library"
 import Login from "./pages/Login"
+import CatalogDebug from "./pages/CatalogDebug"
 import "./App.css"
 
 export default function App() {
@@ -18,6 +19,8 @@ export default function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/library" element={<Library />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/catalog-debug"element={<CatalogDebug />}
+          />
         </Routes>
       </main>
 
