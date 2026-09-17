@@ -44,7 +44,7 @@ function setMusicVol(volume){ music.volume(volume); }
 
 function setMusicProg(seconds){ music.seek(seconds); }
 
-loadSong("./mediaFiles/doomTest.mp3");
+loadSong("./mediaFiles/test.mp3");
 
 document.getElementById("play").addEventListener("click", () => {
   playMusic();
