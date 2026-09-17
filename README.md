@@ -864,14 +864,14 @@ Once the authentication dependencies are installed, run the authentication
 test suite from the server development directory:
 
 ```bash
-npm run tests
+npm test
 ```
 
 The latest local authentication test run produced:
 
 ```text
-tests 25
-pass 25
+tests 42
+pass 42
 fail 0
 ```
 
