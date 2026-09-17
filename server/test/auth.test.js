@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import jwt from 'jsonwebtoken';
-import { authenticateRequest, write401Response } from './auth.js';
-import { createTokenService } from "../token-auth/token.js";
+import { authenticateRequest, write401Response } from '../src/auth/auth.js';
+import { createTokenService } from "../src/auth/token.js";
 
 const SECRET_KEY = 'TEST_SECRET_KEY';
 const tokenService = createTokenService(SECRET_KEY);
