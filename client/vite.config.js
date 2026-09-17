@@ -1,18 +1,22 @@
-import process from 'node:process'
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import process from "node:process";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 const backendTarget =
-  process.env.VITE_PROXY_TARGET ?? 'http://localhost:8080'
+  process.env.VITE_PROXY_TARGET || "http://localhost:8080";
 
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/health': {
+      "/health": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/auth": {
         target: backendTarget,
         changeOrigin: true,
       },
     },
   },
-})
+});
