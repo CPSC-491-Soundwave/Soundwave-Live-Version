@@ -1,6 +1,10 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = 4000;
 const CHUNK_SIZE = 1024 * 1024; // 1 MiB
@@ -184,7 +188,7 @@ function streamTrack(req, res, trackId) {
     const { start, end } = range;
 
     const contentLength =
-      end - start + 1;
+    end - start + 1;
 
     console.log(
       `Streaming bytes ${start}-${end}/${fileSize}`
@@ -199,7 +203,7 @@ function streamTrack(req, res, trackId) {
       "Accept-Ranges": "bytes",
       "Content-Length": contentLength,
       "Content-Range":
-        `bytes ${start}-${end}/${fileSize}`,
+      `bytes ${start}-${end}/${fileSize}`,
     });
 
     const fileStream = fs.createReadStream(
@@ -224,8 +228,9 @@ function streamTrack(req, res, trackId) {
 }
 
 const server = http.createServer((req, res) => {
-  /* We only need URL() so that pathname is parsed cleanly.
-   * Routing does not need to depend on the client's Host header.
+  /*
+   * We only need URL() so pathname is parsed cleanly.
+   * Routing does not depend on the client's Host header.
    */
   const url = new URL(
     req.url,
@@ -237,16 +242,16 @@ const server = http.createServer((req, res) => {
   // GET /api/tracks/1/stream
   // GET /api/tracks/25/stream
   const trackRoute =
-    /^\/api\/tracks\/(\d+)\/stream$/.exec(
-      url.pathname
-    );
+  /^\/api\/tracks\/(\d+)\/stream$/.exec(
+    url.pathname
+  );
 
   if (
     req.method === "GET" &&
     trackRoute
   ) {
     const trackId =
-      Number(trackRoute[1]);
+    Number(trackRoute[1]);
 
     streamTrack(
       req,
