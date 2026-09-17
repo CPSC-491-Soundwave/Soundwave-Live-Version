@@ -1,0 +1,17 @@
+{
+  "name": "soundwave-database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Soundwave PostgreSQL schema, migration, seed, and database test tooling",
+  "scripts": {
+    "db:migrate": "node --env-file=.env migrate.js",
+    "db:migrate:test": "node --env-file=.env.test migrate.js",
+    "db:seed": "node --env-file=.env seed.js",
+    "db:seed:test": "node --env-file=.env.test seed.js",
+    "test:db": "node --env-file=.env.test --test test/catalog-db.integration.test.js"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}
