@@ -8,7 +8,10 @@ function createClient() {
   return new Client();
 }
 
-test("database tests run only against the dedicated test database", async () => {
+/*
+ * Safety check
+ */
+test("database tests run against the dedicated test database", async () => {
   const client = createClient();
 
   try {
@@ -34,6 +37,9 @@ test("database tests run only against the dedicated test database", async () => 
   }
 });
 
+/*
+ * Catalog schema tests
+ */
 test("Sprint 1 catalog tables exist", async () => {
   const client = createClient();
 
@@ -59,7 +65,7 @@ test("Sprint 1 catalog tables exist", async () => {
         "albums",
         "artists",
         "schema_migrations",
-        "tracks",
+        "tracks"
       ]
     );
   } finally {
@@ -67,21 +73,25 @@ test("Sprint 1 catalog tables exist", async () => {
   }
 });
 
-test("Migration 001 is recorded as applied", async () => {
+test("Migration 001 is recorded exactly once", async () => {
   const client = createClient();
 
   try {
     await client.connect();
 
-    const result = await client.query(`
+    const result = await client.query(
+      `
       SELECT filename
       FROM schema_migrations
       WHERE filename = $1
-    `, [
-      "20260915_ayu_001_catalog_core.sql",
-    ]);
+      `,
+      [
+        "20260915_ayu_001_catalog_core.sql"
+      ]
+    );
 
     assert.equal(result.rows.length, 1);
+
     assert.equal(
       result.rows[0].filename,
       "20260915_ayu_001_catalog_core.sql"
@@ -91,6 +101,9 @@ test("Migration 001 is recorded as applied", async () => {
   }
 });
 
+/*
+ * Deterministic seed tests
+ */
 test("deterministic artist fixtures exist", async () => {
   const client = createClient();
 
@@ -104,22 +117,20 @@ test("deterministic artist fixtures exist", async () => {
       ORDER BY id
     `);
 
-    assert.equal(result.rows.length, 2);
-
     assert.deepEqual(
       result.rows.map((row) => ({
         id: Number(row.id),
-        name: row.name,
+        name: row.name
       })),
       [
         {
           id: 1001,
-          name: "Fixture Artist One",
+          name: "Fixture Artist One"
         },
         {
           id: 1002,
-          name: "Fixture Artist Two",
-        },
+          name: "Fixture Artist Two"
+        }
       ]
     );
   } finally {
@@ -127,14 +138,17 @@ test("deterministic artist fixtures exist", async () => {
   }
 });
 
-test("deterministic album fixtures reference the expected artists", async () => {
+test("deterministic albums reference expected artists", async () => {
   const client = createClient();
 
   try {
     await client.connect();
 
     const result = await client.query(`
-      SELECT id, artist_id, title
+      SELECT
+        id,
+        artist_id,
+        title
       FROM albums
       WHERE id IN (2001, 2002)
       ORDER BY id
@@ -144,19 +158,19 @@ test("deterministic album fixtures reference the expected artists", async () => 
       result.rows.map((row) => ({
         id: Number(row.id),
         artistId: Number(row.artist_id),
-        title: row.title,
+        title: row.title
       })),
       [
         {
           id: 2001,
           artistId: 1001,
-          title: "Fixture Album Alpha",
+          title: "Fixture Album Alpha"
         },
         {
           id: 2002,
           artistId: 1002,
-          title: "Fixture Album Beta",
-        },
+          title: "Fixture Album Beta"
+        }
       ]
     );
   } finally {
@@ -164,14 +178,18 @@ test("deterministic album fixtures reference the expected artists", async () => 
   }
 });
 
-test("deterministic track fixtures reference the expected albums", async () => {
+test("deterministic tracks reference expected albums", async () => {
   const client = createClient();
 
   try {
     await client.connect();
 
     const result = await client.query(`
-      SELECT id, album_id, title, duration_ms
+      SELECT
+        id,
+        album_id,
+        title,
+        duration_ms
       FROM tracks
       WHERE id IN (3001, 3002, 3003, 3004)
       ORDER BY id
@@ -182,33 +200,33 @@ test("deterministic track fixtures reference the expected albums", async () => {
         id: Number(row.id),
         albumId: Number(row.album_id),
         title: row.title,
-        durationMs: row.duration_ms,
+        durationMs: row.duration_ms
       })),
       [
         {
           id: 3001,
           albumId: 2001,
           title: "Fixture Track One",
-          durationMs: 180000,
+          durationMs: 180000
         },
         {
           id: 3002,
           albumId: 2001,
           title: "Fixture Track Two",
-          durationMs: 205000,
+          durationMs: 205000
         },
         {
           id: 3003,
           albumId: 2002,
           title: "Fixture Track Three",
-          durationMs: 195000,
+          durationMs: 195000
         },
         {
           id: 3004,
           albumId: 2002,
           title: "Fixture Track Four",
-          durationMs: 222000,
-        },
+          durationMs: 222000
+        }
       ]
     );
   } finally {
@@ -216,6 +234,9 @@ test("deterministic track fixtures reference the expected albums", async () => {
   }
 });
 
+/*
+ * Catalog relationship test
+ */
 test("catalog join returns track, album, and artist metadata", async () => {
   const client = createClient();
 
@@ -250,7 +271,7 @@ test("catalog join returns track, album, and artist metadata", async () => {
         albumId: Number(result.rows[0].album_id),
         albumTitle: result.rows[0].album_title,
         artistId: Number(result.rows[0].artist_id),
-        artistName: result.rows[0].artist_name,
+        artistName: result.rows[0].artist_name
       },
       {
         trackId: 3001,
@@ -259,7 +280,7 @@ test("catalog join returns track, album, and artist metadata", async () => {
         albumId: 2001,
         albumTitle: "Fixture Album Alpha",
         artistId: 1001,
-        artistName: "Fixture Artist One",
+        artistName: "Fixture Artist One"
       }
     );
   } finally {
@@ -267,7 +288,10 @@ test("catalog join returns track, album, and artist metadata", async () => {
   }
 });
 
-test("album foreign key rejects a nonexistent artist", async () => {
+/*
+ * Catalog foreign-key constraint tests
+ */
+test("albums reject nonexistent artist references", async () => {
   const client = createClient();
 
   try {
@@ -276,12 +300,15 @@ test("album foreign key rejects a nonexistent artist", async () => {
     await assert.rejects(
       client.query(
         `
-        INSERT INTO albums (artist_id, title)
+        INSERT INTO albums (
+          artist_id,
+          title
+        )
         VALUES ($1, $2)
         `,
         [
           999999999,
-          "Invalid Artist FK Album",
+          "Invalid Artist FK Album"
         ]
       ),
       (error) => {
@@ -294,7 +321,7 @@ test("album foreign key rejects a nonexistent artist", async () => {
   }
 });
 
-test("track foreign key rejects a nonexistent album", async () => {
+test("tracks reject nonexistent album references", async () => {
   const client = createClient();
 
   try {
@@ -303,13 +330,17 @@ test("track foreign key rejects a nonexistent album", async () => {
     await assert.rejects(
       client.query(
         `
-        INSERT INTO tracks (album_id, title, duration_ms)
+        INSERT INTO tracks (
+          album_id,
+          title,
+          duration_ms
+        )
         VALUES ($1, $2, $3)
         `,
         [
           999999999,
           "Invalid Album FK Track",
-          120000,
+          120000
         ]
       ),
       (error) => {
@@ -318,6 +349,443 @@ test("track foreign key rejects a nonexistent album", async () => {
       }
     );
   } finally {
+    await client.end();
+  }
+});
+
+/*
+ * Authentication persistence schema tests
+ */
+test("authentication users table exists", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = 'users'
+    `);
+
+    assert.equal(result.rows.length, 1);
+    assert.equal(
+      result.rows[0].table_name,
+      "users"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("Migration 002 auth users migration is recorded exactly once", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(
+      `
+      SELECT filename
+      FROM schema_migrations
+      WHERE filename = $1
+      `,
+      [
+        "20260916_ayu_002_auth_users.sql"
+      ]
+    );
+
+    assert.equal(result.rows.length, 1);
+
+    assert.equal(
+      result.rows[0].filename,
+      "20260916_ayu_002_auth_users.sql"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("users table contains the fields required by the authentication contract", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'users'
+        AND column_name IN (
+          'id',
+          'username',
+          'password_hash',
+          'role',
+          'created_at'
+        )
+      ORDER BY column_name
+    `);
+
+    assert.deepEqual(
+      result.rows.map((row) => row.column_name),
+      [
+        "created_at",
+        "id",
+        "password_hash",
+        "role",
+        "username"
+      ]
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("users reject unsupported authentication roles", async () => {
+  const client = createClient();
+
+  const username =
+    "ayu-invalid-role-db-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO users (
+          username,
+          password_hash,
+          role
+        )
+        VALUES ($1, $2, $3)
+        `,
+        [
+          username,
+          "$argon2id$test-placeholder",
+          "superuser"
+        ]
+      ),
+      (error) => {
+        /*
+         * PostgreSQL SQLSTATE 23514:
+         * check_violation
+         */
+        assert.equal(error.code, "23514");
+        return true;
+      }
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("users enforce unique usernames", async () => {
+  const client = createClient();
+
+  const username =
+    "ayu-db-unique-test-user";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      `,
+      [
+        username,
+        "$argon2id$first-test-placeholder",
+        "user"
+      ]
+    );
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO users (
+          username,
+          password_hash,
+          role
+        )
+        VALUES ($1, $2, $3)
+        `,
+        [
+          username,
+          "$argon2id$second-test-placeholder",
+          "user"
+        ]
+      ),
+      (error) => {
+        /*
+         * PostgreSQL SQLSTATE 23505:
+         * unique_violation
+         */
+        assert.equal(error.code, "23505");
+        return true;
+      }
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("users reject blank usernames", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO users (
+          username,
+          password_hash,
+          role
+        )
+        VALUES ($1, $2, $3)
+        `,
+        [
+          "   ",
+          "$argon2id$test-placeholder",
+          "user"
+        ]
+      ),
+      (error) => {
+        assert.equal(error.code, "23514");
+        return true;
+      }
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("users reject blank password hashes", async () => {
+  const client = createClient();
+
+  const username =
+    "ayu-blank-password-hash-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO users (
+          username,
+          password_hash,
+          role
+        )
+        VALUES ($1, $2, $3)
+        `,
+        [
+          username,
+          "   ",
+          "user"
+        ]
+      ),
+      (error) => {
+        assert.equal(error.code, "23514");
+        return true;
+      }
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("users accept supported user role", async () => {
+  const client = createClient();
+
+  const username =
+    "ayu-valid-user-role-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const result = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING
+        id,
+        username,
+        password_hash,
+        role
+      `,
+      [
+        username,
+        "$argon2id$valid-user-placeholder",
+        "user"
+      ]
+    );
+
+    assert.equal(result.rows.length, 1);
+
+    assert.equal(
+      result.rows[0].username,
+      username
+    );
+
+    assert.equal(
+      result.rows[0].role,
+      "user"
+    );
+
+    assert.equal(
+      typeof result.rows[0].password_hash,
+      "string"
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("users accept supported admin role", async () => {
+  const client = createClient();
+
+  const username =
+    "ayu-valid-admin-role-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const result = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING
+        id,
+        username,
+        role
+      `,
+      [
+        username,
+        "$argon2id$valid-admin-placeholder",
+        "admin"
+      ]
+    );
+
+    assert.equal(result.rows.length, 1);
+
+    assert.equal(
+      result.rows[0].username,
+      username
+    );
+
+    assert.equal(
+      result.rows[0].role,
+      "admin"
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
     await client.end();
   }
 });

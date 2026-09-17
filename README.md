@@ -807,6 +807,405 @@ Once that implementation is merged into `main`, this section should include exac
 
 Until Allison's implementation is merged, do not create or document a competing database setup.
 
+# Soundwave Database Setup
+
+## Purpose
+
+The root-level `database/` package contains Soundwave's PostgreSQL migration, seed, and database-test tooling.
+
+It currently provides:
+
+- Catalog schema for `artists`, `albums`, and `tracks`
+- Authentication persistence schema for `users`
+- Deterministic catalog seed data
+- Development and test migration commands
+- Database integration tests
+- A runtime authentication-user repository under `server/src/data/`
+
+Shared server startup wiring is intentionally not included here. The database and repository are ready for feature owners to consume without changing `server.js`.
+
+---
+
+## Current Structure
+
+```text
+Soundwave-Live-Version/
+├── database/
+│   ├── migrations/
+│   │   ├── 20260915_ayu_001_catalog_core.sql
+│   │   └── 20260916_ayu_002_auth_users.sql
+│   ├── seeds/
+│   │   └── 20260915_ayu_catalog_seed.sql
+│   ├── test/
+│   │   └── catalog-db.integration.test.js
+│   ├── .env
+│   ├── .env.test
+│   ├── migrate.js
+│   ├── seed.js
+│   ├── package.json
+│   └── package-lock.json
+└── server/
+    └── src/
+        └── data/
+            ├── auth-user.repository.js
+            └── catalog.repository.js
+```
+
+`database/.env`, `database/.env.test`, and all `node_modules/` directories are local-only and must not be committed.
+
+---
+
+## Prerequisites
+
+- PostgreSQL installed and running
+- Node.js installed
+- PostgreSQL role with access to a development and test database
+
+Allison's current local setup uses:
+
+```text
+Role: soundwave_app
+Development DB: soundwave_allison_dev
+Test DB: soundwave_allison_test
+Host: localhost
+Port: 5432
+```
+
+Other developers can use different local database names as long as their environment files point to the correct databases.
+
+---
+
+## 1. Configure the Development Database
+
+Create:
+
+```text
+database/.env
+```
+
+Example:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+```
+
+Do not commit this file.
+
+---
+
+## 2. Configure the Test Database
+
+Create:
+
+```text
+database/.env.test
+```
+
+Example:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-test-database>
+```
+
+Use a separate database for integration tests.
+
+Do not point `.env.test` at the development database.
+
+---
+
+## 3. Install Database Dependencies
+
+From the repository root:
+
+```powershell
+cd database
+npm ci
+```
+
+If the lockfile has not yet been installed locally and `npm ci` cannot run, use:
+
+```powershell
+npm install
+```
+
+The database package currently uses `pg`.
+
+---
+
+## 4. Apply Development Migrations
+
+From `database/`:
+
+```powershell
+npm run db:migrate
+```
+
+Current migrations:
+
+```text
+20260915_ayu_001_catalog_core.sql
+20260916_ayu_002_auth_users.sql
+```
+
+The migration runner:
+
+1. Creates `schema_migrations` if it does not exist.
+2. Reads migration files in filename order.
+3. Skips migrations already recorded as applied.
+4. Runs each new migration inside a transaction.
+5. Records each successful migration in `schema_migrations`.
+
+Run the command a second time to verify that already-applied migrations are skipped.
+
+---
+
+## 5. Seed the Development Catalog
+
+Run:
+
+```powershell
+npm run db:seed
+```
+
+The current deterministic catalog seed creates:
+
+```text
+2 artists
+2 albums
+4 tracks
+```
+
+The seed is designed to be rerunnable without duplicating the known catalog fixtures.
+
+The catalog seed does not create an authentication user and does not store plaintext passwords.
+
+---
+
+## 6. Prepare the Test Database
+
+Run:
+
+```powershell
+npm run db:migrate:test
+npm run db:seed:test
+```
+
+Then run the database integration tests:
+
+```powershell
+npm run test:db
+```
+
+The test suite verifies the catalog schema, deterministic fixtures, foreign keys, migration history, and authentication-user constraints.
+
+The required result is:
+
+```text
+fail 0
+```
+
+---
+
+## Current Schema
+
+### Catalog
+
+```text
+artists
+  |
+  | 1:N
+  v
+albums
+  |
+  | 1:N
+  v
+tracks
+```
+
+### Authentication Persistence
+
+The `users` table currently contains:
+
+```text
+id
+username
+password_hash
+role
+created_at
+```
+
+Current constraints include:
+
+- `username` is required
+- `username` cannot be blank
+- `username` is unique
+- `password_hash` is required
+- `password_hash` cannot be blank
+- `role` is restricted to `user` or `admin`
+
+There is intentionally no Sprint 1 foreign key between `users` and the catalog tables.
+
+Future user-scoped features such as favorites or playlists can add their own relationships through later migrations.
+
+---
+
+## Authentication Handoff for Emmanuel
+
+The PostgreSQL persistence side of login is available in:
+
+```text
+server/src/data/auth-user.repository.js
+```
+
+The repository factory is:
+
+```js
+createAuthUserRepository(database)
+```
+
+It exposes:
+
+```js
+findUserByUsername(username)
+```
+
+The lookup returns:
+
+```js
+{
+  id,
+  username,
+  password_hash,
+  role
+}
+```
+
+or:
+
+```js
+null
+```
+
+when no matching user exists.
+
+The repository uses a parameterized PostgreSQL query rather than interpolating the username into SQL.
+
+### Example Consumption
+
+The repository is designed to receive a `pg` database object such as a `Pool`:
+
+```js
+import pg from "pg";
+import {
+  createAuthUserRepository
+} from "./src/data/auth-user.repository.js";
+
+const { Pool } = pg;
+
+const pool = new Pool();
+
+const authUserRepository =
+  createAuthUserRepository(pool);
+
+const findUserByUsername =
+  authUserRepository.findUserByUsername;
+```
+
+This provides the persistence callback expected by the authentication layer.
+
+Shared application startup wiring is intentionally deferred so it can be coordinated with the owner of `server.js`.
+
+---
+
+## Runtime PostgreSQL Environment
+
+When running server-side code that creates a `pg.Pool`, the process must receive the same PostgreSQL environment variables:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+```
+
+Do not make the browser/client connect directly to PostgreSQL.
+
+Do not expose PostgreSQL credentials to client code.
+
+---
+
+## Authentication Test User
+
+The database migration creates the `users` table but does not create a real login account.
+
+For an actual login test, the stored `password_hash` must be a real Argon2 hash generated by the authentication hashing implementation.
+
+Do not insert plaintext passwords into `password_hash`.
+
+Do not use placeholder values from schema-only constraint tests as real authentication credentials.
+
+The authentication feature owner should generate the hash through the existing Argon2 hashing code and insert the resulting encoded hash into `users`.
+
+---
+
+## Migration Convention
+
+Migration filenames use:
+
+```text
+YYYYMMDD_author_sequence_description.sql
+```
+
+Examples:
+
+```text
+20260915_ayu_001_catalog_core.sql
+20260916_ayu_002_auth_users.sql
+```
+
+Migrations are forward-only.
+
+Once a migration is merged and applied, later schema changes should use a new migration instead of editing the existing applied migration.
+
+A migration that fails during initial application is rolled back and is not recorded as applied.
+
+Sprint 1 does not implement automatic rollback of previously applied migrations.
+
+---
+
+## Verification Checklist
+
+A local database setup is ready when all of the following succeed:
+
+```text
+database > npm ci
+database > npm run db:migrate
+database > npm run db:migrate          # second run skips applied migrations
+database > npm run db:seed
+database > npm run db:seed             # second run succeeds
+database > npm run db:migrate:test
+database > npm run db:seed:test
+database > npm run test:db             # fail 0
+```
+
+For authentication work, also verify that:
+
+```text
+users table exists
+auth-user.repository.js is available
+a real Argon2 test hash is used for real login testing
+no database credentials or plaintext passwords are committed
+```
+
 ---
 
 # 14. Authentication Setup — Emmanuel De Guzman
