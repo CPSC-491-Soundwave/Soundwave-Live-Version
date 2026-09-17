@@ -5,6 +5,7 @@ import { handleMe } from "./auth/me.js";
 export function createApp({
   tokenService,
   findUserByUsername,
+  handleCatalogRequest,
 } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/health") {
@@ -59,7 +60,16 @@ export function createApp({
 
       return;
     }
+    if (
+      typeof handleCatalogRequest === "function"
+    ) {
+      const handled =
+        await handleCatalogRequest(req, res);
 
+    if (handled) {
+      return;
+      }
+    }
     res.writeHead(404, {
       "Content-Type": "application/json",
     });
