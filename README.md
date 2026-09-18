@@ -65,7 +65,9 @@ The current merged Sprint 1 implementation uses:
 
 | Access Tokens | JWT via `jsonwebtoken` |
 
-| Media / Streaming | Sprint 1 implementation owned by Matthew Choi |
+| Howl | Audio playback |
+
+| music-metadata | Metadata grabbing |
 
 | Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-tesgt tooling |
 
