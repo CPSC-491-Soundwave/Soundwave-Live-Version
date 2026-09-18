@@ -22,18 +22,9 @@ function loadSong(path) {
       console.log("Duration:", music.duration());
     },
 
-    onplay: () => {
-      console.log("Song playing");
-    },
-
-    onpause: () => {
-      console.log("Song paused");
-    },
-
-    onend: () => {
-      console.log("Finished");
-    },
-
+    onplay: () => { console.log("Song playing"); },
+    onpause: () => { console.log("Song paused"); },
+    onend: () => { console.log("Finished"); },
     onloaderror: (id, error) => {
       console.error("Failure on load:", error);
     }
@@ -51,41 +42,21 @@ function loadTrack(trackId) {
   loadSong(streamUrl);
 }
 
-function playMusic() {
-  music.play();
-}
+function playMusic() { music.play(); }
+function pauseMusic() { music.pause(); }
+function setMusicVol(volume) { music.volume(volume); }
+function setMusicProg(seconds) { music.seek(seconds); }
 
-function pauseMusic() {
-  music.pause();
-}
-
-function setMusicVol(volume) {
-  music.volume(volume);
-}
-
-function setMusicProg(seconds) {
-  music.seek(seconds);
-}
 
 // Temporary Sprint 1 test track.
 loadTrack(1);
 
-document.getElementById("play").addEventListener("click", () => {
-  playMusic();
-});
-
-document.getElementById("pause").addEventListener("click", () => {
-  pauseMusic();
-});
-
-document.getElementById("volume").addEventListener("input", (event) => {
-  setMusicVol(Number(event.target.value));
-});
-
+document.getElementById("play").addEventListener("click", () => { playMusic(); });
+document.getElementById("pause").addEventListener("click", () => { pauseMusic(); });
+document.getElementById("volume").addEventListener("input", (event) => { setMusicVol(Number(event.target.value)); });
 document.getElementById("seekButton").addEventListener("click", () => {
   const seconds = Number(
     document.getElementById("seek").value
   );
-
   setMusicProg(seconds);
 });
