@@ -639,14 +639,69 @@ Christian consumes the packaging contract in CI after it is established.
 
 Christian does not independently create a competing Docker or Compose architecture.
 
-When the packaging contract is merged, CI may add stable checks such as:
+## Verified Packaging Checks
+
+The current Sprint 1 packaging artifacts have been verified for configuration
+parsing and image construction.
+
+The following checks completed successfully:
+
+```text
+sudo docker compose config
+sudo docker compose build
+```
+
+Verified results:
+
+- `compose.yml` parses successfully with Docker Compose.
+- the server Docker image builds successfully;
+- the client Docker image builds successfully;
+- Docker builds do not introduce tracked repository changes.
+
+These checks verify the packaging definition and image-build path. They do not
+by themselves verify the complete container runtime integration.
+
+## Current Runtime Integration Limitation
+
+The merged backend startup contract now requires `JWT_SECRET`.
+
+The current `compose.yml` supplies the server with:
+
+```text
+PORT=8080
+```
+
+but does not currently supply `JWT_SECRET`.
+
+The current Compose definition also does not define a PostgreSQL service or
+provide the backend PostgreSQL connection variables:
+
+```text
+PGHOST
+PGPORT
+PGUSER
+PGPASSWORD
+PGDATABASE
+```
+
+Because of this configuration gap, full `docker compose up` runtime verification
+is not considered complete for the integrated Sprint 1 application.
+
+This limitation is recorded as a cross-team packaging integration finding.
+Christian does not independently replace Konner's Docker or Compose architecture
+to conceal the mismatch.
+
+Once the packaging owner establishes the final runtime configuration contract,
+CI may add stable checks such as:
 
 ```text
 container configuration validation
 container build validation
+container runtime health validation
 ```
 
-only after the commands have been verified by the packaging owner.
+only after those commands have been verified against the shared integration
+configuration.
 
 ---
 
