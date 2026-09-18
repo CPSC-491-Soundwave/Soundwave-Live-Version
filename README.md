@@ -36,7 +36,7 @@ The current merged Sprint 1 implementation uses:
 | Frontend Styling | CSS and shared design tokens |
 | Source Control | Git / GitHub |
 | CI | GitHub Actions planned during Sprint 1 |
-| Database | PostgreSQ; implementation owned by Allison Yu |
+| Database | PostgreSQL; Sprint 1 database foundation authored by Allison Yu |
 | PostgreSQL Client | `pg` |
 | Password Hashing | Argon2id via `argon2` |
 | Access Tokens | JWT via `jsonwebtoken` |
@@ -100,11 +100,39 @@ cd ..
 
 ## 2.3 Start the Backend
 
+The shared backend requires PostgreSQL configuration and `JWT_SECRET` at startup.
+
+Before starting the server:
+
+1. PostgreSQL should be running.
+2. Development migrations should already be applied.
+3. `server/.env` should exist locally with the required development values.
+4. Server dependencies should be installed.
+
 From the repository root:
 
 ```bash
 cd server
-npm start
+npm ci
+```
+
+Create `server/.env` if it does not already exist:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+JWT_SECRET=<development-only-secret>
+```
+
+Do not commit `server/.env` or any real secret values.
+
+Start the backend with the environment file loaded explicitly:
+
+```bash
+node --env-file=.env src/server.js
 ```
 
 Expected output:
@@ -114,6 +142,32 @@ Soundwave API listening on http://localhost:8080
 ```
 
 Leave this terminal running.
+
+If the required variables are already exported in the current shell, the normal npm command can also be used:
+
+```bash
+npm start
+```
+
+For example, from the repository root:
+
+```bash
+set -a
+source database/.env
+source server/.env
+set +a
+
+cd server
+npm start
+```
+
+If startup fails with:
+
+```text
+A valid secretKey string is required to initialize the token service.
+```
+
+the server did not receive a valid `JWT_SECRET`.
 
 ---
 
@@ -493,9 +547,13 @@ Current backend authentication dependencies include:
 
 ## 8.3 Start the Backend
 
+The recommended local-development startup command is:
+
 ```bash
-npm start
+node --env-file=.env src/server.js
 ```
+
+This loads the PostgreSQL settings and `JWT_SECRET` from `server/.env`.
 
 Expected output:
 
@@ -503,13 +561,22 @@ Expected output:
 Soundwave API listening on http://localhost:8080
 ```
 
+If the required variables are already exported in the current shell, this also works:
+
+```bash
+npm start
+```
+
 ---
 
 ## 8.4 Development Watch Mode
 
-During backend development:
+Because the current `npm run dev` script does not load `server/.env` automatically, export the environment first:
 
 ```bash
+set -a
+source .env
+set +a
 npm run dev
 ```
 
@@ -529,13 +596,16 @@ Ctrl+C
 npm test
 ```
 
-Expected current result:
+Verified Sprint 1 result:
 
 ```text
-tests 2
-pass 2
+tests 49
+suites 12
+pass 49
 fail 0
 ```
+
+The durable requirement is `fail 0` because later sprints may add more tests.
 
 ---
 
@@ -543,10 +613,10 @@ fail 0
 
 The backend defaults to port `8080`.
 
-To use another port:
+To use another port while loading `server/.env`:
 
 ```bash
-PORT=8081 npm start
+PORT=8081 node --env-file=.env src/server.js
 ```
 
 Verify it:
@@ -704,11 +774,14 @@ Ctrl+C
 
 The current frontend and backend run as separate development processes.
 
+Before starting the backend, make sure PostgreSQL is running, the development migrations have been applied, and `server/.env` exists locally.
+
 ## Terminal 1 — Backend
 
 ```bash
 cd ~/Soundwave-Live-Version/server
-npm start
+npm ci
+node --env-file=.env src/server.js
 ```
 
 Expected:
@@ -716,6 +789,8 @@ Expected:
 ```text
 Soundwave API listening on http://localhost:8080
 ```
+
+If the environment variables are already exported in this terminal, `npm start` may be used instead.
 
 ## Terminal 2 — Client
 
@@ -2663,12 +2738,24 @@ Leave that terminal running.
 
 ## Start Backend in Another Terminal
 
+Before starting the backend, make sure:
+
+- PostgreSQL is running;
+- the development database has been migrated;
+- `server/.env` exists locally;
+- server dependencies are installed.
+
+Then:
+
 ```bash
 cd ~/Soundwave-Live-Version/server
-npm start
+npm ci
+node --env-file=.env src/server.js
 ```
 
 Leave that terminal running.
+
+If the required PostgreSQL variables and `JWT_SECRET` are already exported in the shell, `npm start` may be used instead.
 
 ## Verify Backend in Another Terminal
 
@@ -2693,15 +2780,18 @@ cd ~/Soundwave-Live-Version/server
 npm test
 ```
 
-Expected:
+Verified Sprint 1 baseline:
 
 ```text
-tests 2
-pass 2
+tests 49
+suites 12
+pass 49
 fail 0
 ```
 
-If all of these steps succeed, the current Sprint 1 Soundwave skeleton is installed and functioning correctly.
+Later sprints may increase the test count; the durable requirement is `fail 0`.
+
+If all of these steps succeed, the current Soundwave development checkout is installed and functioning correctly.
 
 ---
 
