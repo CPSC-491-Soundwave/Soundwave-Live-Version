@@ -7,6 +7,7 @@ const backendTarget =
 
 export default defineConfig({
   plugins: [react()],
+
   server: {
     proxy: {
       "/health": {
@@ -22,5 +23,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.js",
   },
 });
