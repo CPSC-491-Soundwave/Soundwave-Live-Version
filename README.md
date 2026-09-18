@@ -19,7 +19,6 @@ This repository contains the shared Soundwave application. Development is comple
 - Konner Rigby
 
 ******Course:****** CPSC 491-05  
-
 ******Semester:****** Fall 2026
 
 ---
@@ -68,7 +67,7 @@ The current merged Sprint 1 implementation uses:
 
 | Media / Streaming | Sprint 1 implementation owned by Matthew Choi |
 
-| Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-test tooling |
+| Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-tesgt tooling |
 
 ******Tailwind CSS is not being used.******
 
