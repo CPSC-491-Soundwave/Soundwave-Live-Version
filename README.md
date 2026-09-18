@@ -36,7 +36,8 @@ The current merged Sprint 1 implementation uses:
 | Frontend Styling | CSS and shared design tokens |
 | Source Control | Git / GitHub |
 | CI | GitHub Actions planned during Sprint 1 |
-| Database | PostgreSQL planned; implementation owned by Allison Yu |
+| Database | PostgreSQL; Sprint 1 database foundation authored by Allison Yu |
+| PostgreSQL Client | `pg` |
 | Password Hashing | Argon2id via `argon2` |
 | Access Tokens | JWT via `jsonwebtoken` |
 | Media / Streaming | Sprint 1 implementation owned by Matthew Choi |
@@ -99,11 +100,39 @@ cd ..
 
 ## 2.3 Start the Backend
 
+The shared backend requires PostgreSQL configuration and `JWT_SECRET` at startup.
+
+Before starting the server:
+
+1. PostgreSQL should be running.
+2. Development migrations should already be applied.
+3. `server/.env` should exist locally with the required development values.
+4. Server dependencies should be installed.
+
 From the repository root:
 
 ```bash
 cd server
-npm start
+npm ci
+```
+
+Create `server/.env` if it does not already exist:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+JWT_SECRET=<development-only-secret>
+```
+
+Do not commit `server/.env` or any real secret values.
+
+Start the backend with the environment file loaded explicitly:
+
+```bash
+node --env-file=.env src/server.js
 ```
 
 Expected output:
@@ -113,6 +142,32 @@ Soundwave API listening on http://localhost:8080
 ```
 
 Leave this terminal running.
+
+If the required variables are already exported in the current shell, the normal npm command can also be used:
+
+```bash
+npm start
+```
+
+For example, from the repository root:
+
+```bash
+set -a
+source database/.env
+source server/.env
+set +a
+
+cd server
+npm start
+```
+
+If startup fails with:
+
+```text
+A valid secretKey string is required to initialize the token service.
+```
+
+the server did not receive a valid `JWT_SECRET`.
 
 ---
 
@@ -492,9 +547,13 @@ Current backend authentication dependencies include:
 
 ## 8.3 Start the Backend
 
+The recommended local-development startup command is:
+
 ```bash
-npm start
+node --env-file=.env src/server.js
 ```
+
+This loads the PostgreSQL settings and `JWT_SECRET` from `server/.env`.
 
 Expected output:
 
@@ -502,13 +561,22 @@ Expected output:
 Soundwave API listening on http://localhost:8080
 ```
 
+If the required variables are already exported in the current shell, this also works:
+
+```bash
+npm start
+```
+
 ---
 
 ## 8.4 Development Watch Mode
 
-During backend development:
+Because the current `npm run dev` script does not load `server/.env` automatically, export the environment first:
 
 ```bash
+set -a
+source .env
+set +a
 npm run dev
 ```
 
@@ -528,13 +596,16 @@ Ctrl+C
 npm test
 ```
 
-Expected current result:
+Verified Sprint 1 result:
 
 ```text
-tests 2
-pass 2
+tests 49
+suites 12
+pass 49
 fail 0
 ```
+
+The durable requirement is `fail 0` because later sprints may add more tests.
 
 ---
 
@@ -542,10 +613,10 @@ fail 0
 
 The backend defaults to port `8080`.
 
-To use another port:
+To use another port while loading `server/.env`:
 
 ```bash
-PORT=8081 npm start
+PORT=8081 node --env-file=.env src/server.js
 ```
 
 Verify it:
@@ -703,11 +774,14 @@ Ctrl+C
 
 The current frontend and backend run as separate development processes.
 
+Before starting the backend, make sure PostgreSQL is running, the development migrations have been applied, and `server/.env` exists locally.
+
 ## Terminal 1 — Backend
 
 ```bash
 cd ~/Soundwave-Live-Version/server
-npm start
+npm ci
+node --env-file=.env src/server.js
 ```
 
 Expected:
@@ -715,6 +789,8 @@ Expected:
 ```text
 Soundwave API listening on http://localhost:8080
 ```
+
+If the environment variables are already exported in this terminal, `npm start` may be used instead.
 
 ## Terminal 2 — Client
 
@@ -796,16 +872,9 @@ Allison Yu owns the Sprint 1 catalog-data/database foundation.
 
 Once that implementation is merged into `main`, this section should include exact commands for:
 
-- PostgreSQL installation or startup;
-- database configuration;
-- database creation;
-- migrations;
-- migration rollback where supported;
-- deterministic seed data;
-- database verification;
-- database-related tests.
-
-Until Allison's implementation is merged, do not create or document a competing database setup.
+Sprint 1 establishes the PostgreSQL catalog-data foundation, migration tooling,
+deterministic catalog seed, database integration tests, and authentication
+persistence boundary.
 
 # Soundwave Database Setup
 
@@ -826,10 +895,26 @@ Shared server startup wiring is intentionally not included here. The database an
 
 ---
 
-## Current Structure
+# 3. Repository Structure
+
+The repository is organized by subsystem:
 
 ```text
 Soundwave-Live-Version/
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   │   ├── CatalogDebug.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── Library.jsx
+│   │   │   ├── Login.jsx
+│   │   │   └── Search.jsx
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
 ├── database/
 │   ├── migrations/
 │   │   ├── 20260915_ayu_001_catalog_core.sql
@@ -838,20 +923,30 @@ Soundwave-Live-Version/
 │   │   └── 20260915_ayu_catalog_seed.sql
 │   ├── test/
 │   │   └── catalog-db.integration.test.js
-│   ├── .env
-│   ├── .env.test
 │   ├── migrate.js
 │   ├── seed.js
-│   ├── package.json
-│   └── package-lock.json
-└── server/
-    └── src/
-        └── data/
-            ├── auth-user.repository.js
-            └── catalog.repository.js
+│   └── package.json
+├── docs/
+│   └── contracts/
+│       ├── catalog-fixtures.md
+│       └── catalog-media-boundary.md
+├── playback/
+├── server/
+│   ├── src/
+│   │   ├── auth/
+│   │   ├── catalog/
+│   │   ├── data/
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── test/
+│   └── package.json
+├── CONTRIBUTING.md
+└── README.md
 ```
 
-`database/.env`, `database/.env.test`, and all `node_modules/` directories are local-only and must not be committed.
+The exact tree will continue to evolve as later sprint work is merged.
+
+`database/.env`, `database/.env.test`, `server/.env.` ' and all `node_modules/` directories are local-only and must not be committed.
 
 ---
 
@@ -859,6 +954,7 @@ Soundwave-Live-Version/
 
 - PostgreSQL installed and running
 - Node.js installed
+- npm
 - PostgreSQL role with access to a development and test database
 
 Allison's current local setup uses:
@@ -875,7 +971,109 @@ Other developers can use different local database names as long as their environ
 
 ---
 
-## 1. Configure the Development Database
+Verify:
+
+```bash
+node --version
+npm --version
+psql --version
+```
+
+Course work must be attributable to the developer who authored it.
+
+# 6. Install Dependencies
+
+The repository uses separate Node packages for the client, server, and database tooling.
+
+## Client
+
+```bash
+cd client
+npm ci
+cd ..
+```
+
+## Server
+
+```bash
+cd server
+npm ci
+cd ..
+```
+
+## Database
+
+```bash
+cd database
+npm ci
+cd ..
+```
+
+Do not commit any `node_modules/` directory.
+
+---
+
+# 7. PostgreSQL Database Setup
+
+The root-level `database/` package contains Soundwave's PostgreSQL migration, seed, and database-test tooling.
+
+It currently provides:
+
+- `artists`
+- `albums`
+- `tracks`
+- `users`
+- `schema_migrations`
+- deterministic catalog fixtures
+- development and test migration commands
+- development and test seed commands
+- database integration tests
+
+The browser/client must never connect directly to PostgreSQL.
+
+## 7.1 PostgreSQL Role and Databases
+
+Each developer needs:
+
+1. A PostgreSQL role that can connect to the project databases.
+2. A development database.
+3. A separate test database.
+
+Allison's current local example is:
+
+```text
+Role:           soundwave_app
+Development DB: soundwave_allison_dev
+Test DB:        soundwave_allison_test
+Host:           localhost
+Port:           5432
+```
+
+Other developers may use different database names. The environment files control which databases the tooling uses.
+
+Example SQL, run from `psql` as a PostgreSQL administrator:
+
+```sql
+CREATE ROLE soundwave_app
+WITH LOGIN
+PASSWORD '<choose-a-local-password>';
+
+CREATE DATABASE soundwave_allison_dev
+OWNER soundwave_app;
+
+CREATE DATABASE soundwave_allison_test
+OWNER soundwave_app;
+```
+
+If the role or databases already exist, do not recreate them.
+
+Do not commit the PostgreSQL password.
+
+---
+
+# 8. Configure Database Environment Files
+
+## Development database
 
 Create:
 
@@ -893,11 +1091,15 @@ PGPASSWORD=<your-local-postgres-password>
 PGDATABASE=<your-development-database>
 ```
 
-Do not commit this file.
+Allison's local example uses:
 
----
+```dotenv
+PGDATABASE=soundwave_allison_dev
+```
 
-## 2. Configure the Test Database
+Do not commit `database/.env`.
+
+## Test database
 
 Create:
 
@@ -915,36 +1117,43 @@ PGPASSWORD=<your-local-postgres-password>
 PGDATABASE=<your-test-database>
 ```
 
-Use a separate database for integration tests.
+Allison's local example uses:
 
-Do not point `.env.test` at the development database.
+```dotenv
+PGDATABASE=soundwave_allison_test
+```
+
+The test database must be separate from the development database.
+
+Do not commit `database/.env.test`.
 
 ---
 
-## 3. Install Database Dependencies
+# 9. Database Commands
 
-From the repository root:
+All commands below are run from:
 
-```powershell
-cd database
-npm ci
+```text
+Soundwave-Live-Version/database
 ```
 
-If the lockfile has not yet been installed locally and `npm ci` cannot run, use:
+Available commands:
 
-```powershell
-npm install
+```text
+npm run db:migrate
+npm run db:migrate:test
+npm run db:seed
+npm run db:seed:test
+npm run test:db
 ```
-
-The database package currently uses `pg`.
 
 ---
 
-## 4. Apply Development Migrations
+# 10. Apply Development Migrations
 
 From `database/`:
 
-```powershell
+```bash
 npm run db:migrate
 ```
 
@@ -959,23 +1168,32 @@ The migration runner:
 
 1. Creates `schema_migrations` if it does not exist.
 2. Reads migration files in filename order.
-3. Skips migrations already recorded as applied.
-4. Runs each new migration inside a transaction.
-5. Records each successful migration in `schema_migrations`.
+3. Checks which migrations are already applied.
+4. Skips already-applied migrations.
+5. Runs each new migration inside a transaction.
+6. Records successful migrations in `schema_migrations`.
 
-Run the command a second time to verify that already-applied migrations are skipped.
+Running the migration command a second time should safely skip already-applied migrations.
+
+Verified Sprint 1 rerun behavior:
+
+```text
+skip 20260915_ayu_001_catalog_core.sql
+skip 20260916_ayu_002_auth_users.sql
+Database migrations complete.
+```
 
 ---
 
-## 5. Seed the Development Catalog
+# 11. Seed the Development Database
 
-Run:
+From `database/`:
 
-```powershell
+```bash
 npm run db:seed
 ```
 
-The current deterministic catalog seed creates:
+The deterministic catalog seed creates:
 
 ```text
 2 artists
@@ -983,40 +1201,108 @@ The current deterministic catalog seed creates:
 4 tracks
 ```
 
-The seed is designed to be rerunnable without duplicating the known catalog fixtures.
+Verified Sprint 1 behavior:
 
-The catalog seed does not create an authentication user and does not store plaintext passwords.
+```text
+Seeding database: soundwave_allison_dev
+Reading seed file: .../20260915_ayu_catalog_seed.sql
+Catalog seed complete.
+```
+
+The seed is intended to be rerunnable without duplicating the known logical fixtures.
+
+The catalog seed does not create authentication users and does not contain plaintext passwords.
 
 ---
 
-## 6. Prepare the Test Database
+# 12. Deterministic Catalog Fixtures
 
-Run:
+Source of truth:
 
-```powershell
-npm run db:migrate:test
-npm run db:seed:test
+```text
+database/seeds/20260915_ayu_catalog_seed.sql
 ```
 
-Then run the database integration tests:
+Shared fixture contract:
 
-```powershell
+```text
+docs/contracts/catalog-fixtures.md
+```
+
+## Artists
+
+| ID | Name |
+| ---: | --- |
+| 1001 | Fixture Artist One |
+| 1002 | Fixture Artist Two |
+
+## Albums
+
+| ID | Title | Artist ID |
+| ---: | --- | ---: |
+| 2001 | Fixture Album Alpha | 1001 |
+| 2002 | Fixture Album Beta | 1002 |
+
+## Tracks
+
+| ID | Title | Album ID | Artist ID | Duration |
+| ---: | --- | ---: | ---: | ---: |
+| 3001 | Fixture Track One | 2001 | 1001 | 180000 ms |
+| 3002 | Fixture Track Two | 2001 | 1001 | 205000 ms |
+| 3003 | Fixture Track Three | 2002 | 1002 | 195000 ms |
+| 3004 | Fixture Track Four | 2002 | 1002 | 222000 ms |
+
+Fixture IDs are stable development/test contracts.
+
+They may be hardcoded in tests, but production feature logic must not assume fixture IDs such as `3001` always exist.
+
+---
+
+# 13. Prepare and Test the Test Database
+
+From `database/`:
+
+```bash
+npm run db:migrate:test
+npm run db:seed:test
 npm run test:db
 ```
 
-The test suite verifies the catalog schema, deterministic fixtures, foreign keys, migration history, and authentication-user constraints.
+The test suite verifies:
 
-The required result is:
+- dedicated test database usage
+- catalog tables
+- migration history
+- deterministic artist fixtures
+- deterministic album relationships
+- deterministic track relationships
+- catalog joins
+- catalog foreign-key constraints
+- `users` table
+- authentication-user fields
+- role constraints
+- username uniqueness
+- username nonblank behavior
+- password-hash nonblank behavior
+
+Verified Sprint 1 result:
 
 ```text
+tests 18
+pass 18
 fail 0
+cancelled 0
+skipped 0
+todo 0
 ```
+
+A database change should not be submitted if `npm run test:db` reports any failure.
 
 ---
 
-## Current Schema
+# 14. Current Database Schema
 
-### Catalog
+Catalog relationship:
 
 ```text
 artists
@@ -1030,134 +1316,58 @@ albums
 tracks
 ```
 
-### Authentication Persistence
-
-The `users` table currently contains:
+Authentication persistence:
 
 ```text
-id
-username
-password_hash
-role
-created_at
+users
 ```
-
-Current constraints include:
-
-- `username` is required
-- `username` cannot be blank
-- `username` is unique
-- `password_hash` is required
-- `password_hash` cannot be blank
-- `role` is restricted to `user` or `admin`
 
 There is intentionally no Sprint 1 foreign key between `users` and the catalog tables.
 
-Future user-scoped features such as favorites or playlists can add their own relationships through later migrations.
+Future user-scoped features such as favorites and playlists should introduce their own relationship tables through later migrations.
+
+## ERD
+
+```mermaid
+erDiagram
+    ARTISTS ||--o{ ALBUMS : has
+    ALBUMS ||--o{ TRACKS : contains
+
+    ARTISTS {
+        BIGINT id PK
+        TEXT name
+        TIMESTAMPTZ created_at
+    }
+
+    ALBUMS {
+        BIGINT id PK
+        BIGINT artist_id FK
+        TEXT title
+        TIMESTAMPTZ created_at
+    }
+
+    TRACKS {
+        BIGINT id PK
+        BIGINT album_id FK
+        TEXT title
+        INTEGER duration_ms
+        TIMESTAMPTZ created_at
+    }
+
+    USERS {
+        BIGINT id PK
+        TEXT username UK
+        TEXT password_hash
+        TEXT role
+        TIMESTAMPTZ created_at
+    }
+```
+
+`schema_migrations` is migration bookkeeping and is intentionally omitted from the domain ERD.
 
 ---
 
-## Authentication Handoff for Emmanuel
-
-The PostgreSQL persistence side of login is available in:
-
-```text
-server/src/data/auth-user.repository.js
-```
-
-The repository factory is:
-
-```js
-createAuthUserRepository(database)
-```
-
-It exposes:
-
-```js
-findUserByUsername(username)
-```
-
-The lookup returns:
-
-```js
-{
-  id,
-  username,
-  password_hash,
-  role
-}
-```
-
-or:
-
-```js
-null
-```
-
-when no matching user exists.
-
-The repository uses a parameterized PostgreSQL query rather than interpolating the username into SQL.
-
-### Example Consumption
-
-The repository is designed to receive a `pg` database object such as a `Pool`:
-
-```js
-import pg from "pg";
-import {
-  createAuthUserRepository
-} from "./src/data/auth-user.repository.js";
-
-const { Pool } = pg;
-
-const pool = new Pool();
-
-const authUserRepository =
-  createAuthUserRepository(pool);
-
-const findUserByUsername =
-  authUserRepository.findUserByUsername;
-```
-
-This provides the persistence callback expected by the authentication layer.
-
-Shared application startup wiring is intentionally deferred so it can be coordinated with the owner of `server.js`.
-
----
-
-## Runtime PostgreSQL Environment
-
-When running server-side code that creates a `pg.Pool`, the process must receive the same PostgreSQL environment variables:
-
-```dotenv
-PGHOST=localhost
-PGPORT=5432
-PGUSER=soundwave_app
-PGPASSWORD=<your-local-postgres-password>
-PGDATABASE=<your-development-database>
-```
-
-Do not make the browser/client connect directly to PostgreSQL.
-
-Do not expose PostgreSQL credentials to client code.
-
----
-
-## Authentication Test User
-
-The database migration creates the `users` table but does not create a real login account.
-
-For an actual login test, the stored `password_hash` must be a real Argon2 hash generated by the authentication hashing implementation.
-
-Do not insert plaintext passwords into `password_hash`.
-
-Do not use placeholder values from schema-only constraint tests as real authentication credentials.
-
-The authentication feature owner should generate the hash through the existing Argon2 hashing code and insert the resulting encoded hash into `users`.
-
----
-
-## Migration Convention
+# 15. Migration Convention
 
 Migration filenames use:
 
@@ -1172,39 +1382,602 @@ Examples:
 20260916_ayu_002_auth_users.sql
 ```
 
-Migrations are forward-only.
+Rules:
 
-Once a migration is merged and applied, later schema changes should use a new migration instead of editing the existing applied migration.
-
-A migration that fails during initial application is rolled back and is not recorded as applied.
+1. Migrations are forward-only.
+2. Migration files execute in filename order.
+3. A new migration runs inside a transaction.
+4. Successful migrations are recorded in `schema_migrations`.
+5. Already-applied migrations are skipped.
+6. Once a migration is merged and applied, do not edit it to make a later schema change.
+7. Create a new migration for every later schema change.
+8. Feature-specific migrations should be authored by the feature owner rather than making one teammate the permanent database owner.
 
 Sprint 1 does not implement automatic rollback of previously applied migrations.
 
 ---
 
-## Verification Checklist
+# 16. Manual Database Verification
 
-A local database setup is ready when all of the following succeed:
+Optional verification with `psql`:
 
-```text
-database > npm ci
-database > npm run db:migrate
-database > npm run db:migrate          # second run skips applied migrations
-database > npm run db:seed
-database > npm run db:seed             # second run succeeds
-database > npm run db:migrate:test
-database > npm run db:seed:test
-database > npm run test:db             # fail 0
+```bash
+psql -U soundwave_app -d soundwave_allison_dev
 ```
 
-For authentication work, also verify that:
+Then:
+
+```sql
+SELECT id, name
+FROM artists
+ORDER BY id;
+```
+
+```sql
+SELECT id, artist_id, title
+FROM albums
+ORDER BY id;
+```
+
+```sql
+SELECT id, album_id, title, duration_ms
+FROM tracks
+ORDER BY id;
+```
+
+Full catalog join:
+
+```sql
+SELECT
+    t.id AS track_id,
+    t.title AS track_title,
+    t.duration_ms,
+    a.id AS album_id,
+    a.title AS album_title,
+    ar.id AS artist_id,
+    ar.name AS artist_name
+FROM tracks t
+JOIN albums a
+    ON a.id = t.album_id
+JOIN artists ar
+    ON ar.id = a.artist_id
+ORDER BY t.id;
+```
+
+Exit with:
 
 ```text
-users table exists
-auth-user.repository.js is available
-a real Argon2 test hash is used for real login testing
-no database credentials or plaintext passwords are committed
+\q
 ```
+
+---
+
+# 17. Server Environment Setup
+
+The shared server uses PostgreSQL-backed repositories and JWT authentication.
+
+Create:
+
+```text
+server/.env
+```
+
+Example:
+
+```dotenv
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+JWT_SECRET=<development-only-secret>
+```
+
+Do not commit `server/.env`.
+
+Do not commit database passwords, JWT secrets, access tokens, private keys, or plaintext authentication passwords.
+
+---
+
+# 18. Start the Backend
+
+From `server/`:
+
+```bash
+node --env-file=.env src/server.js
+```
+
+The backend listens on port `8080` by default.
+
+Expected startup behavior:
+
+```text
+Soundwave API listening on http://localhost:8080
+```
+
+If the required environment variables are already exported in the shell, `npm start` may also be used:
+
+```bash
+npm start
+```
+
+Stop with `Ctrl+C`.
+
+---
+
+# 19. Verify Backend Health
+
+With the backend running:
+
+```bash
+curl -i http://localhost:8080/health
+```
+
+Expected body:
+
+```json
+{"status":"ok"}
+```
+
+Unknown routes should return HTTP `404` with:
+
+```json
+{"error":"not_found"}
+```
+
+---
+
+# 20. Verify the Catalog API
+
+With migrations applied, the database seeded, and the backend running:
+
+```bash
+curl -i http://localhost:8080/api/catalog/tracks
+```
+
+Expected status:
+
+```text
+HTTP/1.1 200 OK
+```
+
+Expected response shape:
+
+```json
+[
+  {
+    "id": 3001,
+    "title": "Fixture Track One",
+    "durationMs": 180000,
+    "album": {
+      "id": 2001,
+      "title": "Fixture Album Alpha"
+    },
+    "artist": {
+      "id": 1001,
+      "name": "Fixture Artist One"
+    }
+  }
+]
+```
+
+The seeded development database returns four deterministic track records.
+
+The catalog API must not expose local filesystem paths, media storage paths, storage keys, or media implementation details.
+
+Shared contract:
+
+```text
+docs/contracts/catalog-media-boundary.md
+```
+
+---
+
+# 21. Run Server Tests
+
+From `server/`:
+
+```bash
+npm test
+```
+
+The suite currently covers:
+
+- authentication route behavior
+- authentication middleware
+- password hashing
+- access tokens
+- `/health`
+- unknown-route behavior
+- catalog/media identity contract
+- catalog storage-isolation contract
+- catalog HTTP success contract
+- catalog HTTP controlled failure behavior
+- catalog route isolation
+
+Verified Sprint 1 result:
+
+```text
+tests 49
+suites 12
+pass 49
+fail 0
+cancelled 0
+skipped 0
+todo 0
+```
+
+The durable requirement is `fail 0` because later sprints may add more tests and change the total count.
+
+---
+
+# 22. Start the Client
+
+From `client/`:
+
+```bash
+npm ci
+npm run dev
+```
+
+Vite will print the local development URL, typically:
+
+```text
+http://localhost:5173/
+```
+
+Use the actual port printed by Vite.
+
+The Vite development server proxies:
+
+```text
+/health
+/auth
+/api
+```
+
+The default backend target is:
+
+```text
+http://localhost:8080
+```
+
+---
+
+# 23. Catalog Debug Browser Proof
+
+With the backend and client running, open:
+
+```text
+http://localhost:5173/catalog-debug
+```
+
+Use the actual Vite port if it differs.
+
+Expected page result:
+
+```text
+Catalog Debug
+
+Loaded 4 tracks.
+```
+
+Expected rows:
+
+```text
+3001  Fixture Track One    Fixture Artist One  Fixture Album Alpha  180000 ms
+3002  Fixture Track Two    Fixture Artist One  Fixture Album Alpha  205000 ms
+3003  Fixture Track Three  Fixture Artist Two  Fixture Album Beta   195000 ms
+3004  Fixture Track Four   Fixture Artist Two  Fixture Album Beta   222000 ms
+```
+
+Browser Developer Tools should show:
+
+```text
+GET /api/catalog/tracks
+200 OK
+```
+
+This proves the Sprint 1 vertical read path:
+
+```text
+PostgreSQL
+    ↓
+catalog repository
+    ↓
+catalog service
+    ↓
+catalog HTTP handler
+    ↓
+GET /api/catalog/tracks
+    ↓
+Vite /api proxy
+    ↓
+CatalogDebug.jsx
+    ↓
+browser
+```
+
+---
+
+# 24. Verify the Client
+
+From `client/`:
+
+```bash
+npm run lint
+npm run build
+```
+
+Verified Sprint 1 result:
+
+```text
+Client lint: PASS
+Client build: PASS
+```
+
+The verified production build transformed 38 modules successfully.
+
+The client currently does not define an automated `npm test` script.
+
+---
+
+# 25. Authentication Persistence
+
+The Sprint 1 `users` table contains:
+
+```text
+id
+username
+password_hash
+role
+created_at
+```
+
+Current constraints include:
+
+- username is required
+- username cannot be blank
+- username is unique
+- password hash is required
+- password hash cannot be blank
+- role must be `user` or `admin`
+
+The persistence adapter is located at:
+
+```text
+server/src/data/auth-user.repository.js
+```
+
+It exposes:
+
+```text
+findUserByUsername(username)
+```
+
+Passwords must never be stored as plaintext.
+
+Real authentication testing requires an Argon2 hash generated through the authentication hashing implementation.
+
+---
+
+# 26. Catalog Persistence
+
+The catalog persistence adapter is located at:
+
+```text
+server/src/data/catalog.repository.js
+```
+
+Runtime path:
+
+```text
+PostgreSQL
+    ↓
+catalog.repository.js
+    ↓
+catalog.service.js
+    ↓
+catalog.handler.js
+    ↓
+GET /api/catalog/tracks
+```
+
+The backend is the only application layer that should directly access PostgreSQL.
+
+The React client consumes HTTP APIs only.
+
+---
+
+# 27. Catalog / Media Boundary
+
+The canonical cross-feature catalog track identity is:
+
+```text
+tracks.id
+```
+
+The media subsystem owns:
+
+- resolving `trackId` to an audio resource
+- storage representation
+- file availability
+- byte-range streaming
+- buffering
+- transcoding
+- media-specific errors
+- media-specific authorization behavior
+
+The catalog does not expose local filesystem paths or internal media storage details.
+
+Full contract:
+
+```text
+docs/contracts/catalog-media-boundary.md
+```
+
+---
+
+# 28. Full Local Startup Sequence
+
+## Terminal 1 - Database
+
+```bash
+cd Soundwave-Live-Version/database
+npm ci
+npm run db:migrate
+npm run db:seed
+```
+
+Optional verification:
+
+```bash
+npm run test:db
+```
+
+## Terminal 2 - Backend
+
+```bash
+cd Soundwave-Live-Version/server
+npm ci
+node --env-file=.env src/server.js
+```
+
+Leave this terminal running.
+
+## Terminal 3 - Client
+
+```bash
+cd Soundwave-Live-Version/client
+npm ci
+npm run dev
+```
+
+Leave this terminal running.
+
+Open the Vite URL and navigate to:
+
+```text
+/catalog-debug
+```
+
+---
+
+# 29. Full Verification Sequence
+
+## Database
+
+```bash
+cd database
+npm run db:migrate
+npm run db:seed
+npm run db:migrate:test
+npm run db:seed:test
+npm run test:db
+```
+
+Required:
+
+```text
+fail 0
+```
+
+## Server
+
+```bash
+cd server
+npm test
+```
+
+Required:
+
+```text
+fail 0
+```
+
+## Client
+
+```bash
+cd client
+npm run lint
+npm run build
+```
+
+Both commands must complete successfully.
+
+## Browser
+
+With backend and client running:
+
+```text
+/catalog-debug
+```
+
+Verify:
+
+```text
+Loaded 4 tracks.
+GET /api/catalog/tracks -> HTTP 200
+```
+
+---
+
+# 30. Troubleshooting
+
+## PostgreSQL password / SCRAM error
+
+If Node reports an error similar to:
+
+```text
+SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+```
+
+verify that:
+
+1. The process is loading the expected environment file.
+2. `PGPASSWORD` exists.
+3. The environment file is in the package directory from which the command is being run.
+
+Database scripts already load `.env` or `.env.test` through package scripts.
+
+For server runtime, use:
+
+```bash
+node --env-file=.env src/server.js
+```
+
+unless the PostgreSQL variables are already exported.
+
+## Migration is skipped
+
+This is expected when a migration is already recorded in `schema_migrations`.
+
+Do not delete migration-history rows merely to force migrations to rerun.
+
+Create a new migration for later schema changes.
+
+## Catalog page shows an error
+
+Check in this order:
+
+1. PostgreSQL is running.
+2. Development migrations are applied.
+3. Development seed completed.
+4. Backend is running on port `8080`.
+5. `GET http://localhost:8080/api/catalog/tracks` returns HTTP `200`.
+6. Vite is running.
+7. Browser is using `/catalog-debug`.
+8. Network panel shows `/api/catalog/tracks`.
+
+Do not hardcode `http://localhost:8080` into `CatalogDebug.jsx`.
+
+Use the relative path:
+
+```text
+/api/catalog/tracks
+```
+
+through the Vite development proxy.
 
 ---
 
@@ -1965,12 +2738,24 @@ Leave that terminal running.
 
 ## Start Backend in Another Terminal
 
+Before starting the backend, make sure:
+
+- PostgreSQL is running;
+- the development database has been migrated;
+- `server/.env` exists locally;
+- server dependencies are installed.
+
+Then:
+
 ```bash
 cd ~/Soundwave-Live-Version/server
-npm start
+npm ci
+node --env-file=.env src/server.js
 ```
 
 Leave that terminal running.
+
+If the required PostgreSQL variables and `JWT_SECRET` are already exported in the shell, `npm start` may be used instead.
 
 ## Verify Backend in Another Terminal
 
@@ -1995,15 +2780,18 @@ cd ~/Soundwave-Live-Version/server
 npm test
 ```
 
-Expected:
+Verified Sprint 1 baseline:
 
 ```text
-tests 2
-pass 2
+tests 49
+suites 12
+pass 49
 fail 0
 ```
 
-If all of these steps succeed, the current Sprint 1 Soundwave skeleton is installed and functioning correctly.
+Later sprints may increase the test count; the durable requirement is `fail 0`.
+
+If all of these steps succeed, the current Soundwave development checkout is installed and functioning correctly.
 
 ---
 
