@@ -1984,12 +1984,14 @@ The secret is supplied to:
 Real signing secrets must not be committed to Git, exposed to the client,
 or written to logs.
 
-The shared backend does not yet read `JWT_SECRET` during startup. This
-configuration contract will be wired into the shared server during
-integration.
+The shared backend now reads `JWT_SECRET` during startup and passes it to
+`createTokenService(secretKey)`.
 
-See `AUTHCONFIG.md` for generation, handling, testing, and deferred
-configuration details.
+Server startup requires a valid `JWT_SECRET`. The value must be supplied
+through the server environment and must not be hardcoded in source control.
+
+See `AUTHCONFIG.md` for generation, handling, testing, and configuration
+details.
 
 # 15. Media and Streaming Setup — Matthew Choi
 
@@ -2331,9 +2333,10 @@ The Sprint 1 authentication implementation defines:
 tokens.
 ```
 
-The shared backend does not yet consume this environment variable during
-startup. It currently defines the authentication configuration contract that
-will be wired into the shared server during integration.
+The shared backend consumes this environment variable during startup.
+
+`server/src/server.js` reads `JWT_SECRET` and passes it to the token service.
+Startup fails intentionally when a valid signing secret is not supplied.
 
 Real JWT signing secrets must not be committed to Git, exposed to the client,
 or written to logs.
