@@ -361,31 +361,265 @@ required environment variables
 
 Matthew Choi
 
-## Current Area
+## Sprint 1 Responsibility
 
-Media and playback work exists under the teammate-owned playback/media implementation.
+Matthew owns the Sprint 1 media playback spike, including track-to-file resolution, HTTP byte-range handling, media-specific response behavior, and playback experimentation.
+
+Christian owns the shared integration boundary and documents how the walking skeleton consumes the media subsystem without replacing Matthew's implementation.
+
+## Current Media Route Namespace
+
+The current Sprint 1 media server exposes:
+
+```text
+GET /api/tracks/:trackId/stream
+```
+
+The standalone playback service currently listens on:
+
+```text
+http://localhost:4000
+```
+
+The current Sprint 1 smoke route is:
+
+```text
+GET http://localhost:4000/api/tracks/1/stream
+```
+
+This is the current media-owned route namespace for the playback spike.
+
+The catalog contract does not require this route to remain the final production streaming API. Any future shared route change must preserve the canonical catalog track identity contract.
+
+## Smoke Fixture Contract
+
+The current Sprint 1 playback spike resolves temporary track ID `1` to:
+
+```text
+playback/mediaFiles/test.mp3
+```
+
+The `playback/mediaFiles` directory is intentionally ignored by Git.
+
+The smoke fixture is therefore local-only and must not be treated as committed application media.
+
+The fixture exists only to verify the media-delivery behavior of the Sprint 1 playback spike.
+
+## Verified HTTP Behavior
+
+The media spike was locally verified against the smoke fixture.
+
+### Full-File Request
+
+A request without a `Range` header:
+
+```text
+GET /api/tracks/1/stream
+```
+
+returns:
+
+```text
+200 OK
+Content-Type: audio/mpeg
+Accept-Ranges: bytes
+Content-Length: <file-size>
+```
+
+The verified local smoke fixture returned a complete MP3 response.
+
+### Valid Byte-Range Request
+
+A request using:
+
+```text
+Range: bytes=0-99
+```
+
+returns:
+
+```text
+206 Partial Content
+Content-Type: audio/mpeg
+Accept-Ranges: bytes
+Content-Length: 100
+Content-Range: bytes 0-99/<file-size>
+```
+
+Sprint 1 verification confirmed that exactly 100 bytes were returned for this request.
+
+### Invalid Byte-Range Request
+
+A range beginning beyond the end of the file returns:
+
+```text
+416 Range Not Satisfiable
+Content-Range: bytes */<file-size>
+```
+
+### Unknown Track Request
+
+A request for an unresolved track ID returns:
+
+```text
+404 Not Found
+```
+
+### Missing Media File
+
+If a configured media path does not exist or is not a file, the current media spike returns:
+
+```text
+404
+Audio file not found
+```
+
+## Range Support Boundary
+
+The current implementation supports single HTTP byte ranges in these forms:
+
+```text
+bytes=0-999
+bytes=1000-
+```
+
+The current implementation does not support:
+
+```text
+bytes=-500
+bytes=0-99,200-299
+```
+
+Open-ended ranges are capped to the media spike's configured chunk size.
+
+Range parsing and partial-content implementation remain Matthew's responsibility.
+
+Christian's integration work consumes and documents this behavior rather than replacing the Range implementation.
+
+## Catalog-to-Media Identity Contract
+
+The canonical cross-feature track identifier is:
+
+```text
+tracks.id
+```
+
+The catalog exposes this value as:
+
+```text
+track.id
+```
+
+The media subsystem consumes the corresponding:
+
+```text
+trackId
+```
+
+The current deterministic catalog fixture track IDs are:
+
+```text
+3001
+3002
+3003
+3004
+```
+
+The catalog must not expose media-storage implementation details such as:
+
+```text
+filePath
+mediaPath
+storageKey
+mediaId
+local filesystem paths
+```
+
+Media resolution remains a media-owned concern.
+
+## Temporary Sprint 1 Identity Limitation
+
+The current standalone playback spike uses:
+
+```text
+trackId = 1
+```
+
+for its local smoke fixture.
+
+This temporary media-spike identifier is not one of the deterministic catalog fixture IDs `3001` through `3004`.
+
+Sprint 1 verification therefore distinguishes between:
+
+```text
+media smoke verification
+    trackId 1
+    -> local playback/mediaFiles/test.mp3
+
+shared catalog identity contract
+    tracks.id
+    -> canonical cross-feature trackId
+```
+
+Future shared catalog/media integration must resolve media resources from canonical `tracks.id` values rather than relying on the temporary hardcoded smoke ID.
+
+Christian does not change Matthew's Sprint 1 playback spike solely to hide this temporary integration boundary.
+
+## Metadata Boundary
+
+Metadata extraction exists under:
+
+```text
+playback/metadata.js
+```
+
+and currently reads media metadata such as:
+
+```text
+title
+artist
+album
+duration
+```
+
+Sprint 1 does not define automatic writes from extracted media metadata into the catalog database.
+
+Any future metadata-ingestion workflow requires a separately reviewed mapping and ownership contract.
+
+## Authentication Boundary
+
+Authentication must not break valid HTTP Range behavior when protected media is introduced.
+
+The existing authentication/media requirements establish that authenticated valid Range requests must continue to support:
+
+```text
+206 Partial Content
+```
+
+Credential handling and protected-media authorization remain separate integration responsibilities and do not change Matthew's Sprint 1 Range implementation in this contract.
 
 ## Christian Integration Responsibility
 
-Christian should consume Matthew's media interface rather than implementing a competing streaming solution.
+Christian's Sprint 1 media integration responsibility is to:
 
-Christian does not own:
+- reserve and document the media route namespace
+- document the local smoke fixture path
+- verify the current media HTTP behavior
+- preserve the canonical catalog track identity boundary
+- identify the temporary `trackId = 1` smoke limitation
+- keep filesystem and storage details out of the catalog contract
+- avoid duplicating Matthew's Range and media-resolution implementation
 
-- media ingest
-- HTTP Range parsing
-- byte-range response implementation
-- media metadata extraction
-- streaming route implementation
+Christian does not own or replace:
 
-## Shared Backend Requirement
+- media file storage
+- byte-range parsing
+- partial-content streaming
+- media-specific error handling
+- playback internals
+- metadata extraction internals
 
-Media functionality should integrate into the shared Node.js backend rather than creating a competing backend application.
-
-## CI Integration
-
-Media-specific CI checks should be added only after Matthew provides a stable and verified test or validation command.
-
-The shared delivery pipeline should consume that command rather than replace Matthew's tests.
+Those remain Matthew's authored Sprint 1 responsibilities.
 
 ---
 
@@ -405,14 +639,69 @@ Christian consumes the packaging contract in CI after it is established.
 
 Christian does not independently create a competing Docker or Compose architecture.
 
-When the packaging contract is merged, CI may add stable checks such as:
+## Verified Packaging Checks
+
+The current Sprint 1 packaging artifacts have been verified for configuration
+parsing and image construction.
+
+The following checks completed successfully:
+
+```text
+sudo docker compose config
+sudo docker compose build
+```
+
+Verified results:
+
+- `compose.yml` parses successfully with Docker Compose.
+- the server Docker image builds successfully;
+- the client Docker image builds successfully;
+- Docker builds do not introduce tracked repository changes.
+
+These checks verify the packaging definition and image-build path. They do not
+by themselves verify the complete container runtime integration.
+
+## Current Runtime Integration Limitation
+
+The merged backend startup contract now requires `JWT_SECRET`.
+
+The current `compose.yml` supplies the server with:
+
+```text
+PORT=8080
+```
+
+but does not currently supply `JWT_SECRET`.
+
+The current Compose definition also does not define a PostgreSQL service or
+provide the backend PostgreSQL connection variables:
+
+```text
+PGHOST
+PGPORT
+PGUSER
+PGPASSWORD
+PGDATABASE
+```
+
+Because of this configuration gap, full `docker compose up` runtime verification
+is not considered complete for the integrated Sprint 1 application.
+
+This limitation is recorded as a cross-team packaging integration finding.
+Christian does not independently replace Konner's Docker or Compose architecture
+to conceal the mismatch.
+
+Once the packaging owner establishes the final runtime configuration contract,
+CI may add stable checks such as:
 
 ```text
 container configuration validation
 container build validation
+container runtime health validation
 ```
 
-only after the commands have been verified by the packaging owner.
+only after those commands have been verified against the shared integration
+configuration.
 
 ---
 
