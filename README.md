@@ -28,47 +28,28 @@ This repository contains the shared Soundwave application. Development is comple
 The current merged Sprint 1 implementation uses:
 
 | Area | Technology |
-
 | --- | --- |
-
 | Backend | Node.js |
-
 | Backend Language | JavaScript |
-
 | Backend HTTP | Node.js built-in HTTP server |
-
 | Backend Tests | Node.js built-in test runner |
-
 | Frontend | React |
-
 | Frontend Language | JavaScript / JSX |
-
 | Frontend Build Tool | Vite |
-
 | Frontend Routing | React Router |
-
 | Frontend Styling | CSS and shared design tokens |
 | Frontend Tests | Vitest, React Testing Library, jest-dom, jsdom |
 | Packaging | Docker |
 | Multi-Service Orchestration | Docker Compose |
 | Self-Host Verification | Node-based Docker Compose smoke test |
-
 | Source Control | Git / GitHub |
-
 | CI | GitHub Actions planned during Sprint 1 |
-
 | Database | PostgreSQL; Sprint 1 database foundation authored by Allison Yu |
-
 | PostgreSQL Client | `pg` |
-
 | Password Hashing | Argon2id via `argon2` |
-
 | Access Tokens | JWT via `jsonwebtoken` |
-
 | Howl | Audio playback |
-
 | music-metadata | Metadata grabbing |
-
 | Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-tesgt tooling |
 
 ******Tailwind CSS is not being used.******
