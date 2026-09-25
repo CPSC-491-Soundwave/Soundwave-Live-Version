@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Soundwave backend server",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "test": "node --test"
-  },
+  "start": "node src/server.js",
+  "dev": "node --watch src/server.js",
+  "test": "node --test",
+  "test:auth": "node --test test/auth-routes.test.js test/auth.test.js test/hasher.test.js test/login.test.js test/me.test.js test/token.test.js"
+   },
   "dependencies": {
     "argon2": "^0.45.1",
     "jsonwebtoken": "^9.0.3",
