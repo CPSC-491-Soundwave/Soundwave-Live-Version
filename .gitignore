@@ -1,3 +1,5 @@
 node_modules/
 .env
 .env.test
+# Used to store the .mps used to play in the app
+mediaFiles
