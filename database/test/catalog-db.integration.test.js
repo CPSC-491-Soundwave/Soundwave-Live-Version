@@ -789,3 +789,456 @@ test("users accept supported admin role", async () => {
     await client.end();
   }
 });
+
+test("user_preferences reject nonexistent user references", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO user_preferences (
+          user_id,
+          audio_quality_preference
+        )
+        VALUES ($1, $2)
+        `,
+        [
+          999999999,
+          "test-quality"
+        ]
+      ),
+      (error) => {
+        assert.equal(error.code, "23503");
+        return true;
+      }
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("user_preferences table exists", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name = 'user_preferences'
+    `);
+
+    assert.equal(result.rows.length, 1);
+    assert.equal(
+      result.rows[0].table_name,
+      "user_preferences"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+/*
+ * Sprint 2 account/profile preference persistence tests
+ */
+
+test("Migration 003 user preferences migration is recorded exactly once", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(
+      `
+      SELECT filename
+      FROM schema_migrations
+      WHERE filename = $1
+      `,
+      [
+        "20260924_edg_001_user_preferences.sql"
+      ]
+    );
+
+    assert.equal(result.rows.length, 1);
+
+    assert.equal(
+      result.rows[0].filename,
+      "20260924_edg_001_user_preferences.sql"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("user_preferences table contains the expected profile preference fields", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT
+        column_name,
+        data_type,
+        is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'user_preferences'
+        AND column_name IN (
+          'user_id',
+          'audio_quality_preference'
+        )
+      ORDER BY column_name
+    `);
+
+    assert.deepEqual(
+      result.rows,
+      [
+        {
+          column_name: "audio_quality_preference",
+          data_type: "text",
+          is_nullable: "YES"
+        },
+        {
+          column_name: "user_id",
+          data_type: "bigint",
+          is_nullable: "NO"
+        }
+      ]
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("user_preferences allow an unset audio quality preference", async () => {
+  const client = createClient();
+
+  const username =
+    "edg-null-audio-quality-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const userResult = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+      `,
+      [
+        username,
+        "$argon2id$profile-null-test-placeholder",
+        "user"
+      ]
+    );
+
+    const userId = userResult.rows[0].id;
+
+    const preferenceResult = await client.query(
+      `
+      INSERT INTO user_preferences (
+        user_id,
+        audio_quality_preference
+      )
+      VALUES ($1, $2)
+      RETURNING
+        user_id,
+        audio_quality_preference
+      `,
+      [
+        userId,
+        null
+      ]
+    );
+
+    assert.equal(preferenceResult.rows.length, 1);
+
+    assert.equal(
+      preferenceResult.rows[0].user_id,
+      userId
+    );
+
+    assert.equal(
+      preferenceResult.rows[0].audio_quality_preference,
+      null
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("user_preferences enforce one preference row per user", async () => {
+  const client = createClient();
+
+  const username =
+    "edg-unique-preference-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const userResult = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+      `,
+      [
+        username,
+        "$argon2id$profile-unique-test-placeholder",
+        "user"
+      ]
+    );
+
+    const userId = userResult.rows[0].id;
+
+    await client.query(
+      `
+      INSERT INTO user_preferences (
+        user_id,
+        audio_quality_preference
+      )
+      VALUES ($1, $2)
+      `,
+      [
+        userId,
+        "test-quality-a"
+      ]
+    );
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO user_preferences (
+          user_id,
+          audio_quality_preference
+        )
+        VALUES ($1, $2)
+        `,
+        [
+          userId,
+          "test-quality-b"
+        ]
+      ),
+      (error) => {
+        /*
+         * PostgreSQL SQLSTATE 23505:
+         * unique_violation
+         */
+        assert.equal(error.code, "23505");
+        return true;
+      }
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("user_preferences reject blank audio quality preferences", async () => {
+  const client = createClient();
+
+  const username =
+    "edg-blank-audio-quality-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const userResult = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+      `,
+      [
+        username,
+        "$argon2id$profile-blank-test-placeholder",
+        "user"
+      ]
+    );
+
+    const userId = userResult.rows[0].id;
+
+    await assert.rejects(
+      client.query(
+        `
+        INSERT INTO user_preferences (
+          user_id,
+          audio_quality_preference
+        )
+        VALUES ($1, $2)
+        `,
+        [
+          userId,
+          "   "
+        ]
+      ),
+      (error) => {
+        /*
+         * PostgreSQL SQLSTATE 23514:
+         * check_violation
+         */
+        assert.equal(error.code, "23514");
+        return true;
+      }
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
+
+test("deleting a user cascades deletion of user_preferences", async () => {
+  const client = createClient();
+
+  const username =
+    "edg-preference-cascade-test";
+
+  try {
+    await client.connect();
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE username = $1
+      `,
+      [username]
+    );
+
+    const userResult = await client.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+      `,
+      [
+        username,
+        "$argon2id$profile-cascade-test-placeholder",
+        "user"
+      ]
+    );
+
+    const userId = userResult.rows[0].id;
+
+    await client.query(
+      `
+      INSERT INTO user_preferences (
+        user_id,
+        audio_quality_preference
+      )
+      VALUES ($1, $2)
+      `,
+      [
+        userId,
+        "test-quality"
+      ]
+    );
+
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE id = $1
+      `,
+      [userId]
+    );
+
+    const preferenceResult = await client.query(
+      `
+      SELECT user_id
+      FROM user_preferences
+      WHERE user_id = $1
+      `,
+      [userId]
+    );
+
+    assert.equal(
+      preferenceResult.rows.length,
+      0
+    );
+  } finally {
+    if (client._connected) {
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+    }
+
+    await client.end();
+  }
+});
