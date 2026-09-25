@@ -79,3 +79,78 @@ jobs:
       - name: Build client
         working-directory: client
         run: npm run build
+
+  auth-security:
+    name: Authentication Security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run authentication security tests
+        working-directory: server
+        run: npm run test:auth
+
+      - name: Verify missing JWT secret is rejected
+        working-directory: server
+        run: |
+          if env -u JWT_SECRET node src/server.js > /tmp/missing-jwt.log 2>&1; then
+            echo "Server unexpectedly started without JWT_SECRET."
+            exit 1
+          fi
+
+          echo "Server correctly rejected missing JWT_SECRET."
+
+      - name: Verify server starts with CI-only JWT secret
+        working-directory: server
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$JWT_SECRET"
+
+          PORT=0 JWT_SECRET="$JWT_SECRET" \
+            node src/server.js > /tmp/auth-startup.log 2>&1 &
+
+          SERVER_PID=$!
+
+          cleanup() {
+            kill "$SERVER_PID" 2>/dev/null || true
+          }
+
+          trap cleanup EXIT
+
+          STARTED=false
+
+          for attempt in {1..20}; do
+            if grep -q "Soundwave API listening" /tmp/auth-startup.log; then
+              STARTED=true
+              break
+            fi
+
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server exited before successful startup."
+              cat /tmp/auth-startup.log
+              exit 1
+            fi
+
+            sleep 0.25
+          done
+
+          if [ "$STARTED" != "true" ]; then
+            echo "Server did not report successful startup."
+            cat /tmp/auth-startup.log
+            exit 1
+          fi
+
+          echo "Server started successfully with a generated CI-only JWT secret."
