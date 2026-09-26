@@ -1,0 +1,146 @@
+.catalog-detail-page {
+  width: 100%;
+}
+
+.catalog-detail-page__back {
+  display: inline-block;
+  margin-bottom: 28px;
+  color: var(--color-text-secondary);
+}
+
+.catalog-detail-page__back:hover {
+  color: var(--color-text-primary);
+}
+
+.catalog-detail-page__back:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 3px;
+}
+
+.catalog-detail-page__status {
+  color: var(--color-text-secondary);
+}
+
+.catalog-detail-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  margin-bottom: 40px;
+}
+
+.catalog-detail-header__artwork {
+  width: min(220px, 30vw);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 4rem;
+  font-weight: 700;
+}
+
+.catalog-detail-header__artwork--artist {
+  border-radius: 50%;
+}
+
+.catalog-detail-header__content {
+  min-width: 0;
+}
+
+.catalog-detail-header__content h1 {
+  margin: 6px 0 10px;
+  color: var(--color-text-primary);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
+}
+
+.catalog-detail-header__content p {
+  margin: 0 0 6px;
+  color: var(--color-text-primary);
+}
+
+.catalog-detail-header__eyebrow,
+.catalog-detail-header__metadata {
+  color: var(--color-text-secondary);
+}
+
+.catalog-detail-header__eyebrow {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.catalog-detail-section {
+  margin-top: 32px;
+}
+
+.catalog-detail-section h2 {
+  margin: 0 0 20px;
+  color: var(--color-text-primary);
+}
+
+.catalog-detail-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fill, minmax(160px, 1fr));
+  gap: 20px;
+}
+
+.album-track-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.album-track-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 12px;
+  border-bottom: 1px solid
+    rgba(255, 255, 255, 0.06);
+}
+
+.album-track-list__item div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.album-track-list__item strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-track-list__item span {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.album-track-list__duration {
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .catalog-detail-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .catalog-detail-header__artwork {
+    width: min(180px, 60vw);
+  }
+
+  .catalog-detail-grid {
+    grid-template-columns:
+      repeat(auto-fill, minmax(130px, 1fr));
+    gap: 14px;
+  }
+}
