@@ -1,3 +1,35 @@
+function writeJson(
+  response,
+  statusCode,
+  payload
+) {
+  response.writeHead(statusCode, {
+    "Content-Type":
+      "application/json; charset=utf-8"
+  });
+
+  response.end(
+    JSON.stringify(payload)
+  );
+}
+
+function parsePositiveIntegerId(value) {
+  if (
+    typeof value !== "string" ||
+    !/^[1-9]\d*$/.test(value)
+  ) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  if (!Number.isSafeInteger(id)) {
+    return null;
+  }
+
+  return id;
+}
+
 export function createCatalogHandler(
   catalogService
 ) {
@@ -14,45 +46,158 @@ export function createCatalogHandler(
     request,
     response
   ) {
-    if (
-      request.method !== "GET" ||
-      request.url !== "/api/catalog/tracks"
-    ) {
+    if (request.method !== "GET") {
       return false;
     }
 
-    try {
-      const tracks =
-        await catalogService.listTracks();
+    if (
+      request.url === "/api/catalog/tracks"
+    ) {
+      try {
+        const tracks =
+          await catalogService.listTracks();
 
-      response.writeHead(200, {
-        "Content-Type":
-          "application/json; charset=utf-8"
-      });
+        writeJson(
+          response,
+          200,
+          tracks
+        );
 
-      response.end(
-        JSON.stringify(tracks)
-      );
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
 
-      return true;
-    } catch (error) {
-      console.error(
-        "Catalog request failed:",
-        error
-      );
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
 
-      response.writeHead(500, {
-        "Content-Type":
-          "application/json; charset=utf-8"
-      });
-
-      response.end(
-        JSON.stringify({
-          error: "catalog_unavailable"
-        })
-      );
-
-      return true;
+        return true;
+      }
     }
+
+    if (
+      request.url === "/api/catalog/artists"
+    ) {
+      try {
+        if (
+          typeof catalogService.listArtists !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support listArtists()."
+          );
+        }
+
+        const artists =
+          await catalogService.listArtists();
+
+        writeJson(
+          response,
+          200,
+          artists
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
+
+    const artistDetailMatch =
+      request.url.match(
+        /^\/api\/catalog\/artists\/([^/?]+)$/
+      );
+
+    if (artistDetailMatch) {
+      const artistId =
+        parsePositiveIntegerId(
+          artistDetailMatch[1]
+        );
+
+      if (artistId === null) {
+        writeJson(
+          response,
+          400,
+          {
+            error: "invalid_artist_id"
+          }
+        );
+
+        return true;
+      }
+
+      try {
+        if (
+          typeof catalogService.getArtistById !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support getArtistById()."
+          );
+        }
+
+        const artist =
+          await catalogService.getArtistById(
+            artistId
+          );
+
+        if (!artist) {
+          writeJson(
+            response,
+            404,
+            {
+              error: "artist_not_found"
+            }
+          );
+
+          return true;
+        }
+
+        writeJson(
+          response,
+          200,
+          artist
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
+
+    return false;
   };
 }
