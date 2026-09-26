@@ -198,6 +198,122 @@ export function createCatalogHandler(
       }
     }
 
+    if (
+      request.url === "/api/catalog/albums"
+    ) {
+      try {
+        if (
+          typeof catalogService.listAlbums !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support listAlbums()."
+          );
+        }
+
+        const albums =
+          await catalogService.listAlbums();
+
+        writeJson(
+          response,
+          200,
+          albums
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
+
+    const albumDetailMatch =
+      request.url.match(
+        /^\/api\/catalog\/albums\/([^/?]+)$/
+      );
+
+    if (albumDetailMatch) {
+      const albumId =
+        parsePositiveIntegerId(
+          albumDetailMatch[1]
+        );
+
+      if (albumId === null) {
+        writeJson(
+          response,
+          400,
+          {
+            error: "invalid_album_id"
+          }
+        );
+
+        return true;
+      }
+
+      try {
+        if (
+          typeof catalogService.getAlbumById !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support getAlbumById()."
+          );
+        }
+
+        const album =
+          await catalogService.getAlbumById(
+            albumId
+          );
+
+        if (!album) {
+          writeJson(
+            response,
+            404,
+            {
+              error: "album_not_found"
+            }
+          );
+
+          return true;
+        }
+
+        writeJson(
+          response,
+          200,
+          album
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
+
     return false;
   };
 }

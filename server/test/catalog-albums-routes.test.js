@@ -67,11 +67,11 @@ function createCatalogService(
       return [];
     },
 
-    async listArtists() {
+    async listAlbums() {
       return [];
     },
 
-    async getArtistById() {
+    async getAlbumById() {
       return null;
     },
 
@@ -80,22 +80,23 @@ function createCatalogService(
 }
 
 test(
-  "GET /api/catalog/artists returns the artist list contract",
+  "GET /api/catalog/albums returns the album list contract",
   async (t) => {
     const server =
       await startServer(
         createCatalogService({
-          async listArtists() {
+          async listAlbums() {
             return [
               {
-                id: 1001,
-                name:
-                  "Fixture Artist One"
-              },
-              {
-                id: 1002,
-                name:
-                  "Fixture Artist Two"
+                id: 2001,
+                title:
+                  "Fixture Album Alpha",
+
+                artist: {
+                  id: 1001,
+                  name:
+                    "Fixture Artist One"
+                }
               }
             ];
           }
@@ -108,7 +109,7 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists`
+        `${getBaseUrl(server)}/api/catalog/albums`
       );
 
     assert.equal(
@@ -120,14 +121,15 @@ test(
       await response.json(),
       [
         {
-          id: 1001,
-          name:
-            "Fixture Artist One"
-        },
-        {
-          id: 1002,
-          name:
-            "Fixture Artist Two"
+          id: 2001,
+          title:
+            "Fixture Album Alpha",
+
+          artist: {
+            id: 1001,
+            name:
+              "Fixture Artist One"
+          }
         }
       ]
     );
@@ -135,28 +137,36 @@ test(
 );
 
 test(
-  "GET /api/catalog/artists/:id returns artist detail",
+  "GET /api/catalog/albums/:id returns album detail",
   async (t) => {
-    let receivedArtistId;
+    let receivedAlbumId;
 
     const server =
       await startServer(
         createCatalogService({
-          async getArtistById(
-            artistId
+          async getAlbumById(
+            albumId
           ) {
-            receivedArtistId =
-              artistId;
+            receivedAlbumId =
+              albumId;
 
             return {
-              id: 1001,
-              name:
-                "Fixture Artist One",
-              albums: [
+              id: 2001,
+              title:
+                "Fixture Album Alpha",
+
+              artist: {
+                id: 1001,
+                name:
+                  "Fixture Artist One"
+              },
+
+              tracks: [
                 {
-                  id: 2001,
+                  id: 3001,
                   title:
-                    "Fixture Album Alpha"
+                    "Fixture Track One",
+                  durationMs: 180000
                 }
               ]
             };
@@ -170,7 +180,7 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists/1001`
+        `${getBaseUrl(server)}/api/catalog/albums/2001`
       );
 
     assert.equal(
@@ -179,21 +189,29 @@ test(
     );
 
     assert.equal(
-      receivedArtistId,
-      1001
+      receivedAlbumId,
+      2001
     );
 
     assert.deepEqual(
       await response.json(),
       {
-        id: 1001,
-        name:
-          "Fixture Artist One",
-        albums: [
+        id: 2001,
+        title:
+          "Fixture Album Alpha",
+
+        artist: {
+          id: 1001,
+          name:
+            "Fixture Artist One"
+        },
+
+        tracks: [
           {
-            id: 2001,
+            id: 3001,
             title:
-              "Fixture Album Alpha"
+              "Fixture Track One",
+            durationMs: 180000
           }
         ]
       }
@@ -202,7 +220,7 @@ test(
 );
 
 test(
-  "GET /api/catalog/artists/:id returns 404 for a missing artist",
+  "GET /api/catalog/albums/:id returns 404 for a missing album",
   async (t) => {
     const server =
       await startServer(
@@ -215,7 +233,7 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists/9999`
+        `${getBaseUrl(server)}/api/catalog/albums/9999`
       );
 
     assert.equal(
@@ -227,21 +245,21 @@ test(
       await response.json(),
       {
         error:
-          "artist_not_found"
+          "album_not_found"
       }
     );
   }
 );
 
 test(
-  "GET /api/catalog/artists/:id returns 400 for an invalid artist ID",
+  "GET /api/catalog/albums/:id returns 400 for an invalid album ID",
   async (t) => {
     let serviceCalled = false;
 
     const server =
       await startServer(
         createCatalogService({
-          async getArtistById() {
+          async getAlbumById() {
             serviceCalled = true;
             return null;
           }
@@ -254,7 +272,7 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists/not-a-number`
+        `${getBaseUrl(server)}/api/catalog/albums/not-a-number`
       );
 
     assert.equal(
@@ -271,21 +289,21 @@ test(
       await response.json(),
       {
         error:
-          "invalid_artist_id"
+          "invalid_album_id"
       }
     );
   }
 );
 
 test(
-  "GET /api/catalog/artists returns 500 when artist retrieval fails",
+  "GET /api/catalog/albums returns 500 when album retrieval fails",
   async (t) => {
     const server =
       await startServer(
         createCatalogService({
-          async listArtists() {
+          async listAlbums() {
             throw new Error(
-              "simulated artist failure"
+              "simulated album failure"
             );
           }
         })
@@ -297,7 +315,7 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists`
+        `${getBaseUrl(server)}/api/catalog/albums`
       );
 
     assert.equal(
@@ -316,11 +334,17 @@ test(
 );
 
 test(
-  "artist catalog integration does not consume unrelated artist subroutes",
+  "GET /api/catalog/albums/:id returns 500 when album detail retrieval fails",
   async (t) => {
     const server =
       await startServer(
-        createCatalogService()
+        createCatalogService({
+          async getAlbumById() {
+            throw new Error(
+              "simulated album detail failure"
+            );
+          }
+        })
       );
 
     t.after(
@@ -329,18 +353,19 @@ test(
 
     const response =
       await fetch(
-        `${getBaseUrl(server)}/api/catalog/artists/1001/extra`
+        `${getBaseUrl(server)}/api/catalog/albums/2001`
       );
 
     assert.equal(
       response.status,
-      404
+      500
     );
 
     assert.deepEqual(
       await response.json(),
       {
-        error: "not_found"
+        error:
+          "catalog_unavailable"
       }
     );
   }
