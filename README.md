@@ -43,14 +43,14 @@ The current merged Sprint 1 implementation uses:
 | Multi-Service Orchestration | Docker Compose |
 | Self-Host Verification | Node-based Docker Compose smoke test |
 | Source Control | Git / GitHub |
-| CI | GitHub Actions planned during Sprint 1 |
-| Database | PostgreSQL; Sprint 1 database foundation authored by Allison Yu |
+| CI | GitHub Actions |
+| Database | PostgreSQL |
 | PostgreSQL Client | `pg` |
 | Password Hashing | Argon2id via `argon2` |
 | Access Tokens | JWT via `jsonwebtoken` |
 | Howl | Audio playback |
 | music-metadata | Metadata grabbing |
-| Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-tesgt tooling |
+| Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-test tooling |
 
 ******Tailwind CSS is not being used.******
 
@@ -332,15 +332,31 @@ The current backend test suite verifies:
 
 - Unknown routes return HTTP `404`.
 
-Current expected result:
+- Artist catalog repository and service behavior.
+
+- Artist browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior.
+
+- Album catalog repository and service behavior.
+
+- Album browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior.
+
+Verified Sprint 2 result:
 
 ```text
 
-tests 2
+tests 81
 
-pass 2
+suites 12
+
+pass 81
 
 fail 0
+
+cancelled 0
+
+skipped 0
+
+todo 0
 
 ```
 
@@ -374,7 +390,7 @@ npm run build
 
 Both commands should complete successfully before a client-related pull request is submitted.
 
-The client defines automated Sprint 1 shell component tests.
+The client defines automated shell component tests and Sprint 2 Artist/Album browse-detail tests.
 
 Run:
 
@@ -382,7 +398,7 @@ Run:
 npm run test:run
 ```
 
-The tests cover the Sidebar navigation/Recently Played shell region and the PlaybackBar empty state.
+The tests cover the Sidebar navigation/Recently Played shell region, the PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail behavior, and Album browse/detail behavior.
 
 ---
 
@@ -510,77 +526,146 @@ tree -I 'node_modules|.git|build'
 
 ---
 
-# 6. Current Sprint 1 Repository Structure
+# 6. Current Repository Structure
 
 The repository is organized by application subsystem, shared documentation, and deployment tooling.
 
 ```text
-Soundwave-Live-Version/
-├── .github/
-├── auth-documentation/
-├── client/
-│   ├── Dockerfile
-│   ├── .dockerignore
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── vite.config.js
-│   ├── public/
-│   └── src/
-│       ├── App.css
-│       ├── App.jsx
-│       ├── index.css
-│       ├── main.jsx
-│       ├── assets/
-│       ├── components/
-│       │   ├── BackendStatus.css
-│       │   ├── BackendStatus.jsx
-│       │   ├── PlaybackBar.css
-│       │   ├── PlaybackBar.jsx
-│       │   ├── PlaybackBar.test.jsx
-│       │   ├── Sidebar.css
-│       │   ├── Sidebar.jsx
-│       │   └── Sidebar.test.jsx
-│       ├── pages/
-│       │   ├── CatalogDebug.jsx
-│       │   ├── Home.jsx
-│       │   ├── Library.jsx
-│       │   ├── Login.jsx
-│       │   └── Search.jsx
-│       ├── styles/
-│       │   ├── login.css
-│       │   └── tokens.css
-│       └── test/
-│           └── setup.js
-├── database/
-│   ├── migrations/
-│   ├── seeds/
-│   ├── test/
-│   ├── migrate.js
-│   ├── seed.js
-│   └── package.json
-├── docs/
-│   ├── contracts/
-│   ├── pr-review-checklist.md
-│   ├── self-host-setup.md
-│   └── sprint1-integration-contracts.md
-├── playback/
-├── scripts/
-│   └── compose-smoke-test.mjs
-├── server/
-│   ├── Dockerfile
-│   ├── .dockerignore
-│   ├── package.json
-│   ├── src/
-│   │   ├── auth/
-│   │   ├── catalog/
-│   │   ├── data/
-│   │   ├── app.js
-│   │   └── server.js
-│   └── test/
-├── compose.yml
+Soundwave-Live-Version
 ├── CONTRIBUTING.md
 ├── README.md
-└── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
+├── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
+├── .github/
+├── client/
+│   ├── Dockerfile
+│   ├── README.md
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public/
+│   ├── src/
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets/
+│   │   ├── components
+│   │   │   ├── AlbumCard.jsx
+│   │   │   ├── AlbumCard.test.jsx
+│   │   │   ├── ArtistAlbumCards.css
+│   │   │   ├── ArtistCard.jsx
+│   │   │   ├── ArtistCard.test.jsx
+│   │   │   ├── BackendStatus.css
+│   │   │   ├── BackendStatus.jsx
+│   │   │   ├── PlaybackBar.css
+│   │   │   ├── PlaybackBar.jsx
+│   │   │   ├── PlaybackBar.test.jsx
+│   │   │   ├── Sidebar.css
+│   │   │   ├── Sidebar.jsx
+│   │   │   └── Sidebar.test.jsx
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   ├── pages/
+│   │   │   ├── AlbumDetail.jsx
+│   │   │   ├── AlbumDetail.test.jsx
+│   │   │   ├── Albums.jsx
+│   │   │   ├── Albums.test.jsx
+│   │   │   ├── ArtistAlbumBrowse.css
+│   │   │   ├── ArtistAlbumDetail.css
+│   │   │   ├── ArtistDetail.jsx
+│   │   │   ├── ArtistDetail.test.jsx
+│   │   │   ├── Artists.jsx
+│   │   │   ├── Artists.test.jsx
+│   │   │   ├── CatalogDebug.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── Library.jsx
+│   │   │   ├── Login.jsx
+│   │   │   └── Search.jsx
+│   │   ├── styles/
+│   │   │   ├── login.css
+│   │   │   └── tokens.css
+│   │   └── test/
+│   │       └── setup.js
+│   └── vite.config.js
+├── compose.yml
+├── database/
+│   ├── migrate.js
+│   ├── migrations/
+│   │   ├── 20260915_ayu_001_catalog_core.sql
+│   │   ├── 20260916_ayu_002_auth_users.sql
+│   │   └── 20260924_edg_001_user_preferences.sql
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── seed.js
+│   ├── seeds/
+│   │   └── 20260915_ayu_catalog_seed.sql
+│   └── test/
+│       └── catalog-db.integration.test.js
+├── docs/
+│   ├── catalog-fixtures.md
+│   ├── catalog-media-boundary.md
+│   ├── pr-review-checklist.md
+│   ├── self-host-setup.md
+│   ├── sprint1-integration-contracts.md
+│   └── sprint2-christian-baseline-and-boundaries.md
+├── mediaFiles/
+│   └── test.mp3
+├── playback/
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── playback.js
+│   ├── playbackDoc/
+│   │   ├── metadataDocumentation.md
+│   │   ├── playbackDocumentation.md
+│   │   └── testingDocumentation.md
+│   └── testers/
+│       ├── index.html
+│       └── server.js
+├── scripts/
+│   └── compose-smoke-test.mjs
+└── server/
+    ├── Dockerfile
+    ├── package-lock.json
+    ├── package.json
+    ├── src
+    │   ├── app.js
+    │   ├── auth
+    │   │   ├── auth-documentation
+    │   │   │   ├── AUTHCONFIG.md
+    │   │   │   ├── auth_ADR.md
+    │   │   │   ├── auth_threat_model.md
+    │   │   │   └── media-auth-requirements.md
+    │   │   ├── auth.js
+    │   │   ├── hasher.js
+    │   │   ├── login.js
+    │   │   ├── me.js
+    │   │   └── token.js
+    │   ├── catalog
+    │   │   ├── catalog.handler.js
+    │   │   └── catalog.service.js
+    │   ├── data
+    │   │   ├── auth-user.repository.js
+    │   │   └── catalog.repository.js
+    │   ├── media
+    │   │   └── metadata.js
+    │   └── server.js
+    └── test
+        ├── auth-routes.test.js
+        ├── auth.test.js
+        ├── catalog-albums-routes.test.js
+        ├── catalog-albums.repository.test.js
+        ├── catalog-albums.service.test.js
+        ├── catalog-artists-routes.test.js
+        ├── catalog-artists.repository.test.js
+        ├── catalog-artists.service.test.js
+        ├── catalog-media-contract.test.js
+        ├── catalog-repository.test.js
+        ├── catalog-routes.test.js
+        ├── hasher.test.js
+        ├── health.test.js
+        ├── login.test.js
+        ├── me.test.js
+        ├── metadata.test.js
+        └── token.test.js
 ```
 
 Local-only `.env` files, `node_modules/`, generated build output, and operating-system metadata are intentionally omitted.
@@ -589,7 +674,7 @@ The exact structure will continue to evolve as later sprint work is merged.
 
 ---
 
-# 7. Backend Setup â€” Christian McGowan
+# 7. Backend Setup — Christian McGowan
 
 The current Soundwave backend uses:
 
@@ -608,26 +693,6 @@ The backend is located in:
 ```text
 
 server/
-
-```
-
-Current backend structure:
-
-```text
-
-server/
-
-â”œâ”€â”€ package.json
-
-â”œâ”€â”€ src/
-
-â”‚   â”œâ”€â”€ app.js
-
-â”‚   â””â”€â”€ server.js
-
-â””â”€â”€ test/
-
-    â””â”€â”€ health.test.js
 
 ```
 
@@ -782,17 +847,23 @@ npm test
 
 ```
 
-Verified Sprint 1 result:
+Verified Sprint 2 result:
 
 ```text
 
-tests 49
+tests 81
 
 suites 12
 
-pass 49
+pass 81
 
 fail 0
+
+cancelled 0
+
+skipped 0
+
+todo 0
 
 ```
 
@@ -1025,7 +1096,7 @@ The current frontend and backend run as separate development processes.
 
 Before starting the backend, make sure PostgreSQL is running, the development migrations have been applied, and `server/.env` exists locally.
 
-## Terminal 1 â€” Backend
+## Terminal 1 — Backend
 
 ```bash
 
@@ -1047,7 +1118,7 @@ Soundwave API listening on http://localhost:8080
 
 If the environment variables are already exported in this terminal, `npm start` may be used instead.
 
-## Terminal 2 â€” Client
+## Terminal 2 — Client
 
 ```bash
 
@@ -1061,7 +1132,7 @@ npm run dev
 
 Open the URL printed by Vite.
 
-## Terminal 3 â€” Backend Verification
+## Terminal 3 — Backend Verification
 
 ```bash
 
@@ -1093,7 +1164,7 @@ Expected:
 
 ```
 
-At the current Sprint 1 stage, the client shell and backend skeleton are both runnable, but complete client/backend feature integration is still being developed.
+The client shell and backend remain independently runnable. The Sprint 2 Artist and Album browse/detail slice is now integrated end-to-end through PostgreSQL-backed catalog APIs, while other application features continue to be developed incrementally.
 
 ---
 
@@ -1144,7 +1215,7 @@ These commands are expected to become automated GitHub Actions checks during Spr
 
 ---
 
-# 13. Database Setup â€” Allison Yu
+# 13. Database Setup — Allison Yu
 
 Allison Yu owns the Sprint 1 catalog-data/database foundation.
 
@@ -1185,96 +1256,150 @@ Shared server startup wiring is intentionally not included here. The database an
 The repository is organized by subsystem:
 
 ```text
-
-Soundwave-Live-Version/
-
-â”œâ”€â”€ client/
-
-â”‚   â”œâ”€â”€ src/
-
-â”‚   â”‚   â”œâ”€â”€ components/
-
-â”‚   â”‚   â”œâ”€â”€ pages/
-
-â”‚   â”‚   â”‚   â”œâ”€â”€ CatalogDebug.jsx
-
-â”‚   â”‚   â”‚   â”œâ”€â”€ Home.jsx
-
-â”‚   â”‚   â”‚   â”œâ”€â”€ Library.jsx
-
-â”‚   â”‚   â”‚   â”œâ”€â”€ Login.jsx
-
-â”‚   â”‚   â”‚   â””â”€â”€ Search.jsx
-
-â”‚   â”‚   â”œâ”€â”€ App.jsx
-
-â”‚   â”‚   â”œâ”€â”€ App.css
-
-â”‚   â”‚   â””â”€â”€ main.jsx
-
-â”‚   â”œâ”€â”€ package.json
-
-â”‚   â””â”€â”€ vite.config.js
-
-â”œâ”€â”€ database/
-
-â”‚   â”œâ”€â”€ migrations/
-
-â”‚   â”‚   â”œâ”€â”€ 20260915_ayu_001_catalog_core.sql
-
-â”‚   â”‚   â””â”€â”€ 20260916_ayu_002_auth_users.sql
-
-â”‚   â”œâ”€â”€ seeds/
-
-â”‚   â”‚   â””â”€â”€ 20260915_ayu_catalog_seed.sql
-
-â”‚   â”œâ”€â”€ test/
-
-â”‚   â”‚   â””â”€â”€ catalog-db.integration.test.js
-
-â”‚   â”œâ”€â”€ migrate.js
-
-â”‚   â”œâ”€â”€ seed.js
-
-â”‚   â””â”€â”€ package.json
-
-â”œâ”€â”€ docs/
-
-â”‚   â””â”€â”€ contracts/
-
-â”‚       â”œâ”€â”€ catalog-fixtures.md
-
-â”‚       â””â”€â”€ catalog-media-boundary.md
-
-â”œâ”€â”€ playback/
-
-â”œâ”€â”€ server/
-
-â”‚   â”œâ”€â”€ src/
-
-â”‚   â”‚   â”œâ”€â”€ auth/
-
-â”‚   â”‚   â”œâ”€â”€ catalog/
-
-â”‚   â”‚   â”œâ”€â”€ data/
-
-â”‚   â”‚   â”œâ”€â”€ app.js
-
-â”‚   â”‚   â””â”€â”€ server.js
-
-â”‚   â”œâ”€â”€ test/
-
-â”‚   â””â”€â”€ package.json
-
-â”œâ”€â”€ CONTRIBUTING.md
-
-â””â”€â”€ README.md
-
+Soundwave-Live-Version
+├── CONTRIBUTING.md
+├── README.md
+├── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
+├── client
+│   ├── Dockerfile
+│   ├── README.md
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets
+│   │   │   ├── hero.png
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   ├── components
+│   │   │   ├── AlbumCard.jsx
+│   │   │   ├── AlbumCard.test.jsx
+│   │   │   ├── ArtistAlbumCards.css
+│   │   │   ├── ArtistCard.jsx
+│   │   │   ├── ArtistCard.test.jsx
+│   │   │   ├── BackendStatus.css
+│   │   │   ├── BackendStatus.jsx
+│   │   │   ├── PlaybackBar.css
+│   │   │   ├── PlaybackBar.jsx
+│   │   │   ├── PlaybackBar.test.jsx
+│   │   │   ├── Sidebar.css
+│   │   │   ├── Sidebar.jsx
+│   │   │   └── Sidebar.test.jsx
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   ├── pages
+│   │   │   ├── AlbumDetail.jsx
+│   │   │   ├── AlbumDetail.test.jsx
+│   │   │   ├── Albums.jsx
+│   │   │   ├── Albums.test.jsx
+│   │   │   ├── ArtistAlbumBrowse.css
+│   │   │   ├── ArtistAlbumDetail.css
+│   │   │   ├── ArtistDetail.jsx
+│   │   │   ├── ArtistDetail.test.jsx
+│   │   │   ├── Artists.jsx
+│   │   │   ├── Artists.test.jsx
+│   │   │   ├── CatalogDebug.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── Library.jsx
+│   │   │   ├── Login.jsx
+│   │   │   └── Search.jsx
+│   │   ├── styles
+│   │   │   ├── login.css
+│   │   │   └── tokens.css
+│   │   └── test
+│   │       └── setup.js
+│   └── vite.config.js
+├── compose.yml
+├── database
+│   ├── migrate.js
+│   ├── migrations
+│   │   ├── 20260915_ayu_001_catalog_core.sql
+│   │   ├── 20260916_ayu_002_auth_users.sql
+│   │   └── 20260924_edg_001_user_preferences.sql
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── seed.js
+│   ├── seeds
+│   │   └── 20260915_ayu_catalog_seed.sql
+│   └── test
+│       └── catalog-db.integration.test.js
+├── docs
+│   ├── catalog-fixtures.md
+│   ├── catalog-media-boundary.md
+│   ├── pr-review-checklist.md
+│   ├── self-host-setup.md
+│   ├── sprint1-integration-contracts.md
+│   └── sprint2-christian-baseline-and-boundaries.md
+├── mediaFiles
+│   └── test.mp3
+├── playback
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── playback.js
+│   ├── playbackDoc
+│   │   ├── metadataDocumentation.md
+│   │   ├── playbackDocumentation.md
+│   │   └── testingDocumentation.md
+│   └── testers
+│       ├── index.html
+│       └── server.js
+├── scripts
+│   └── compose-smoke-test.mjs
+└── server
+    ├── Dockerfile
+    ├── package-lock.json
+    ├── package.json
+    ├── src
+    │   ├── app.js
+    │   ├── auth
+    │   │   ├── auth-documentation
+    │   │   │   ├── AUTHCONFIG.md
+    │   │   │   ├── auth_ADR.md
+    │   │   │   ├── auth_threat_model.md
+    │   │   │   └── media-auth-requirements.md
+    │   │   ├── auth.js
+    │   │   ├── hasher.js
+    │   │   ├── login.js
+    │   │   ├── me.js
+    │   │   └── token.js
+    │   ├── catalog
+    │   │   ├── catalog.handler.js
+    │   │   └── catalog.service.js
+    │   ├── data
+    │   │   ├── auth-user.repository.js
+    │   │   └── catalog.repository.js
+    │   ├── media
+    │   │   └── metadata.js
+    │   └── server.js
+    └── test
+        ├── auth-routes.test.js
+        ├── auth.test.js
+        ├── catalog-albums-routes.test.js
+        ├── catalog-albums.repository.test.js
+        ├── catalog-albums.service.test.js
+        ├── catalog-artists-routes.test.js
+        ├── catalog-artists.repository.test.js
+        ├── catalog-artists.service.test.js
+        ├── catalog-media-contract.test.js
+        ├── catalog-repository.test.js
+        ├── catalog-routes.test.js
+        ├── hasher.test.js
+        ├── health.test.js
+        ├── login.test.js
+        ├── me.test.js
+        ├── metadata.test.js
+        └── token.test.js
 ```
 
 The exact tree will continue to evolve as later sprint work is merged.
 
-`database/.env`, `database/.env.test`, `server/.env.` ' and all `node_modules/` directories are local-only and must not be committed.
+`database/.env`, `database/.env.test`, `server/.env.`, and all `node_modules/` directories are local-only and must not be committed.
 
 ---
 
@@ -1570,6 +1695,8 @@ Current migrations:
 
 20260916_ayu_002_auth_users.sql
 
+20260924_edg_001_user_preferences.sql
+
 ```
 
 The migration runner:
@@ -1656,7 +1783,7 @@ Shared fixture contract:
 
 ```text
 
-docs/contracts/catalog-fixtures.md
+docs/catalog-fixtures.md
 
 ```
 
@@ -1744,21 +1871,11 @@ The test suite verifies:
 
 - password-hash nonblank behavior
 
-Verified Sprint 1 result:
+Sprint 2 database verification requirement:
 
 ```text
 
-tests 18
-
-pass 18
-
 fail 0
-
-cancelled 0
-
-skipped 0
-
-todo 0
 
 ```
 
@@ -2156,9 +2273,59 @@ Shared contract:
 
 ```text
 
-docs/contracts/catalog-media-boundary.md
+docs/catalog-media-boundary.md
 
 ```
+
+## 20.1 Verify the Artist Catalog API
+
+With migrations applied, the database seeded, and the backend running:
+
+```bash
+
+curl -i http://localhost:8080/api/catalog/artists
+
+curl -i http://localhost:8080/api/catalog/artists/1001
+
+```
+
+Expected status for the seeded Artist records:
+
+```text
+
+HTTP/1.1 200 OK
+
+```
+
+The Artist list returns catalog Artist identity. Artist detail returns the selected Artist and that Artist's related Albums.
+
+Valid but missing Artist IDs return HTTP `404`. Malformed Artist IDs return HTTP `400`.
+
+## 20.2 Verify the Album Catalog API
+
+With migrations applied, the database seeded, and the backend running:
+
+```bash
+
+curl -i http://localhost:8080/api/catalog/albums
+
+curl -i http://localhost:8080/api/catalog/albums/2001
+
+```
+
+Expected status for the seeded Album records:
+
+```text
+
+HTTP/1.1 200 OK
+
+```
+
+The Album list returns each Album with Artist identity. Album detail returns the selected Album, its Artist identity, and basic related Track catalog metadata.
+
+Valid but missing Album IDs return HTTP `404`. Malformed Album IDs return HTTP `400`.
+
+The Artist and Album catalog responses do not expose local filesystem paths, storage keys, or media implementation details.
 
 ---
 
@@ -2196,15 +2363,23 @@ The suite currently covers:
 
 - catalog route isolation
 
-Verified Sprint 1 result:
+- Artist repository queries and service response mapping
+
+- Artist browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior
+
+- Album repository queries and service response mapping
+
+- Album browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior
+
+Verified Sprint 2 result:
 
 ```text
 
-tests 49
+tests 81
 
 suites 12
 
-pass 49
+pass 81
 
 fail 0
 
@@ -2316,35 +2491,79 @@ This proves the Sprint 1 vertical read path:
 
 PostgreSQL
 
-    â†“
+    ↓
 
 catalog repository
 
-    â†“
+    ↓
 
 catalog service
 
-    â†“
+    ↓
 
 catalog HTTP handler
 
-    â†“
+    ↓
 
 GET /api/catalog/tracks
 
-    â†“
+    ↓
 
 Vite /api proxy
 
-    â†“
+    ↓
 
 CatalogDebug.jsx
 
-    â†“
+    ↓
 
 browser
 
 ```
+
+## 23.1 Artist and Album Browser Proof
+
+With PostgreSQL seeded and both the backend and client running, open:
+
+```text
+
+http://localhost:5173/artists
+
+http://localhost:5173/artists/1001
+
+http://localhost:5173/albums
+
+http://localhost:5173/albums/2001
+
+```
+
+Expected behavior:
+
+```text
+
+/artists
+  -> GET /api/catalog/artists
+  -> HTTP 200
+  -> renders seeded Artist cards
+
+/artists/1001
+  -> GET /api/catalog/artists/1001
+  -> HTTP 200
+  -> renders the Artist and related Album data
+
+/albums
+  -> GET /api/catalog/albums
+  -> HTTP 200
+  -> renders seeded Album cards
+
+/albums/2001
+  -> GET /api/catalog/albums/2001
+  -> HTTP 200
+  -> renders the Album, Artist identity, and related Track catalog data
+
+```
+
+This verifies the Sprint 2 Artist/Album read path from PostgreSQL through the catalog repository, service, and HTTP handler to the React client.
 
 ---
 
@@ -2360,7 +2579,7 @@ npm run build
 
 ```
 
-Verified Sprint 1 result:
+Verified Sprint 2 result:
 
 ```text
 
@@ -2370,9 +2589,11 @@ Client build: PASS
 
 ```
 
-The verified production build transformed 38 modules successfully.
+Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`, `Albums`, `ArtistDetail`, and `AlbumDetail` tests.
 
-The client currently does not define an automated `npm test` script.
+The production build completes successfully.
+
+The client uses `npm run test:run` for the automated Vitest suite.
 
 ---
 
@@ -2446,27 +2667,137 @@ Runtime path:
 
 PostgreSQL
 
-    â†“
+    ↓
 
 catalog.repository.js
 
-    â†“
+    ↓
 
 catalog.service.js
 
-    â†“
+    ↓
 
 catalog.handler.js
 
-    â†“
+    ↓
 
 GET /api/catalog/tracks
+GET /api/catalog/artists
+GET /api/catalog/artists/:id
+GET /api/catalog/albums
+GET /api/catalog/albums/:id
 
 ```
 
 The backend is the only application layer that should directly access PostgreSQL.
 
 The React client consumes HTTP APIs only.
+
+## 26.1 Sprint 2 Artist and Album Browse / Detail — Allison Yu
+
+Sprint 2 extends the Sprint 1 PostgreSQL catalog foundation into an end-to-end Artist and Album browse/detail vertical slice.
+
+Frontend implementation includes:
+
+```text
+
+client/src/components/ArtistCard.jsx
+client/src/components/AlbumCard.jsx
+client/src/components/ArtistAlbumCards.css
+client/src/pages/Artists.jsx
+client/src/pages/ArtistDetail.jsx
+client/src/pages/Albums.jsx
+client/src/pages/AlbumDetail.jsx
+client/src/pages/ArtistAlbumBrowse.css
+client/src/pages/ArtistAlbumDetail.css
+
+```
+
+Registered client routes:
+
+```text
+
+/artists
+/artists/:id
+/albums
+/albums/:id
+
+```
+
+Backend implementation extends the existing catalog repository, service, and handler rather than introducing a competing backend path.
+
+Artist browse/detail behavior:
+
+```text
+
+GET /api/catalog/artists
+GET /api/catalog/artists/:id
+
+```
+
+Album browse/detail behavior:
+
+```text
+
+GET /api/catalog/albums
+GET /api/catalog/albums/:id
+
+```
+
+Artist detail returns the selected Artist and related Albums. Album detail returns the selected Album, Artist identity, and basic Track catalog metadata.
+
+The detail APIs use controlled HTTP behavior:
+
+```text
+
+existing resource -> 200
+valid but missing ID -> 404
+malformed ID -> 400
+internal catalog failure -> 500 with catalog_unavailable
+
+```
+
+Album detail intentionally does not implement Track Detail navigation, playback controls, streaming behavior, codec/bitrate information, filesystem paths, storage keys, or other media-storage implementation details.
+
+Dedicated Sprint 2 server tests include:
+
+```text
+
+server/test/catalog-artists.repository.test.js
+server/test/catalog-artists.service.test.js
+server/test/catalog-artists-routes.test.js
+server/test/catalog-albums.repository.test.js
+server/test/catalog-albums.service.test.js
+server/test/catalog-albums-routes.test.js
+
+```
+
+Verified Sprint 2 full server result:
+
+```text
+
+tests 81
+suites 12
+pass 81
+fail 0
+cancelled 0
+skipped 0
+todo 0
+
+```
+
+Client verification for this slice uses:
+
+```bash
+
+cd client
+npm run test:run
+npm run lint
+npm run build
+
+```
+
+`client/dist/` is generated by the Vite build and is ignored by Git.
 
 ---
 
@@ -2504,7 +2835,7 @@ Full contract:
 
 ```text
 
-docs/contracts/catalog-media-boundary.md
+docs/catalog-media-boundary.md
 
 ```
 
@@ -2567,6 +2898,10 @@ Open the Vite URL and navigate to:
 ```text
 
 /catalog-debug
+/artists
+/artists/1001
+/albums
+/albums/2001
 
 ```
 
@@ -2630,7 +2965,7 @@ npm run build
 
 ```
 
-Both commands must complete successfully.
+All commands must complete successfully.
 
 ## Browser
 
@@ -2639,6 +2974,10 @@ With backend and client running:
 ```text
 
 /catalog-debug
+/artists
+/artists/1001
+/albums
+/albums/2001
 
 ```
 
@@ -2647,8 +2986,11 @@ Verify:
 ```text
 
 Loaded 4 tracks.
-
 GET /api/catalog/tracks -> HTTP 200
+GET /api/catalog/artists -> HTTP 200
+GET /api/catalog/artists/1001 -> HTTP 200
+GET /api/catalog/albums -> HTTP 200
+GET /api/catalog/albums/2001 -> HTTP 200
 
 ```
 
@@ -2728,7 +3070,7 @@ through the Vite development proxy.
 
 ---
 
-# 14. Authentication Setup â€” Emmanuel De Guzman
+# 14. Authentication Setup — Emmanuel De Guzman
 
 Emmanuel De Guzman owns the Sprint 1 login and identity/authentication spike.
 
@@ -2850,7 +3192,7 @@ See `AUTHCONFIG.md` for generation, handling, testing, and configuration
 
 details.
 
-# 15. Media and Streaming Setup â€” Matthew Choi
+# 15. Media and Streaming Setup — Matthew Choi
 
 Matthew Choi owns the Sprint 1 media-ingest and HTTP Range playback spike.
 
@@ -3521,6 +3863,17 @@ Currently established or merged:
 - PostgreSQL catalog-data foundation
 - authentication/identity integration
 
+Sprint 2 Allison Yu additions currently include:
+
+- Artist and Album browse cards
+- Artist and Album browse pages
+- Artist and Album detail pages
+- Artist and Album client routes
+- PostgreSQL-backed Artist browse/detail catalog APIs
+- PostgreSQL-backed Album browse/detail catalog APIs
+- controlled Artist/Album `400`, `404`, and `500` behavior
+- Artist/Album repository, service, route, and client tests
+
 Other Sprint 1 subsystem work may continue to evolve as remaining team pull requests are merged.
 
 ---
@@ -3921,21 +4274,27 @@ npm test
 
 ```
 
-Verified Sprint 1 baseline:
+Verified Sprint 2 result:
 
 ```text
 
-tests 49
+tests 81
 
 suites 12
 
-pass 49
+pass 81
 
 fail 0
 
+cancelled 0
+
+skipped 0
+
+todo 0
+
 ```
 
-Later sprints may increase the test count; the durable requirement is `fail 0`.
+Later sprint work may increase the test count; the durable requirement is `fail 0`.
 
 If all of these steps succeed, the current Soundwave development checkout is installed and functioning correctly.
 

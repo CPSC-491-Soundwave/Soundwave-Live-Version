@@ -76,7 +76,7 @@ describe("AlbumDetail", () => {
         screen.getByText(
             "Fixture Artist One",
             { selector: "p" }
-            )
+        )
     ).toBeTruthy();
 
     expect(
