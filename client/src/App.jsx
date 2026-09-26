@@ -6,6 +6,10 @@ import Search from "./pages/Search"
 import Library from "./pages/Library"
 import Login from "./pages/Login"
 import CatalogDebug from "./pages/CatalogDebug"
+import Artists from "./pages/Artists"
+import ArtistDetail from "./pages/ArtistDetail"
+import Albums from "./pages/Albums"
+import AlbumDetail from "./pages/AlbumDetail"
 import "./App.css"
 
 export default function App() {
@@ -19,8 +23,13 @@ export default function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/library" element={<Library />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/catalog-debug"element={<CatalogDebug />}
-          />
+          
+          <Route path="/artists" element={<Artists />} />
+          <Route path="/artists/:id" element={<ArtistDetail />} />
+          <Route path="/albums" element={<Albums />} />
+          <Route path="/albums/:id" element={<AlbumDetail />} />
+
+          <Route path="/catalog-debug" element={<CatalogDebug />} />
         </Routes>
       </main>
 
