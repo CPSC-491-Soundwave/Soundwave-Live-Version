@@ -61,6 +61,40 @@ const LIST_RECENTLY_ADDED_TRACKS_SQL = `
   LIMIT $1
 `;
 
+const LIST_ALBUMS_SQL = `
+  SELECT
+    a.id AS album_id,
+    a.title AS album_title,
+    ar.id AS artist_id,
+    ar.name AS artist_name
+  FROM albums a
+  INNER JOIN artists ar
+    ON ar.id = a.artist_id
+  ORDER BY a.id
+`;
+
+const FIND_ALBUM_BY_ID_SQL = `
+  SELECT
+    a.id AS album_id,
+    a.title AS album_title,
+    ar.id AS artist_id,
+    ar.name AS artist_name
+  FROM albums a
+  INNER JOIN artists ar
+    ON ar.id = a.artist_id
+  WHERE a.id = $1
+`;
+
+const LIST_TRACKS_BY_ALBUM_ID_SQL = `
+  SELECT
+    t.id AS track_id,
+    t.title AS track_title,
+    t.duration_ms
+  FROM tracks t
+  WHERE t.album_id = $1
+  ORDER BY t.id
+`;
+
 export function createCatalogRepository(database) {
   if (
     !database ||
@@ -101,6 +135,32 @@ export function createCatalogRepository(database) {
       const result = await database.query(
         LIST_ALBUMS_BY_ARTIST_ID_SQL,
         [artistId]
+      );
+
+      return result.rows;
+    },
+
+    async listAlbums() {
+      const result = await database.query(
+        LIST_ALBUMS_SQL
+      );
+
+      return result.rows;
+    },
+
+    async findAlbumById(albumId) {
+      const result = await database.query(
+        FIND_ALBUM_BY_ID_SQL,
+        [albumId]
+      );
+
+      return result.rows[0] ?? null;
+    },
+
+    async listTracksByAlbumId(albumId) {
+      const result = await database.query(
+        LIST_TRACKS_BY_ALBUM_ID_SQL,
+        [albumId]
       );
 
       return result.rows;
