@@ -234,3 +234,33 @@ jobs:
       - name: Run database integration tests
         working-directory: database
         run: npm run test:db
+
+  build-metadata:
+    name: Build Metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate build metadata
+        run: |
+          node scripts/generate-build-info.mjs \
+            artifacts/build-info.json
+
+      - name: Display build metadata
+        run: cat artifacts/build-info.json
+
+      - name: Upload build metadata
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundwave-build-info-${{ github.run_number }}
+          path: artifacts/build-info.json
+          if-no-files-found: error
+          retention-days: 30
