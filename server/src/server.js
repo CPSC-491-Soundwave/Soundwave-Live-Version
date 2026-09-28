@@ -3,6 +3,7 @@ import pg from "pg";
 import { createApp } from "./app.js";
 import { createTokenService } from "./auth/token.js";
 
+
 import {
   createAuthUserRepository
 } from "./data/auth-user.repository.js";
@@ -30,6 +31,10 @@ import {
 import {
   createSearchHandler
 } from "./search/search.handler.js";
+
+import {
+  createAccountProfileRepository
+} from "./data/account-profile.repository.js";
 
 const { Pool } = pg;
 
@@ -79,6 +84,11 @@ const handleSearchRequest =
     searchService
   );
 
+const accountProfileRepository =
+  createAccountProfileRepository(
+    database
+  );
+
 const server =
   createApp({
     tokenService,
@@ -86,12 +96,14 @@ const server =
     findUserByUsername:
       authUserRepository.findUserByUsername,
 
+    findProfileByUserId:
+      accountProfileRepository.findProfileByUserId,
+
     handleCatalogRequest,
 
     handleSearchRequest
   });
-
-server.listen(
+  server.listen(
   port,
   () => {
     console.log(

@@ -2,9 +2,14 @@ import http from "node:http";
 import { handleLogin } from "./auth/login.js";
 import { handleMe } from "./auth/me.js";
 
+import {
+  handleAccountProfile
+} from "./account/profile.js";
+
 export function createApp({
   tokenService,
   findUserByUsername,
+  findProfileByUserId,
   handleCatalogRequest,
   handleSearchRequest,
 } = {}) {
@@ -50,6 +55,34 @@ export function createApp({
       } catch {
         res.writeHead(500, {
           "Content-Type": "application/json",
+        });
+
+        res.end(
+          JSON.stringify({
+            error: "internal_error",
+          }),
+        );
+      }
+
+      return;
+    }
+        if (
+      req.method === "GET" &&
+      req.url === "/account/profile"
+    ) {
+      try {
+        await handleAccountProfile(
+          req,
+          res,
+          {
+            tokenService,
+            findProfileByUserId
+          }
+        );
+      } catch {
+        res.writeHead(500, {
+          "Content-Type":
+            "application/json",
         });
 
         res.end(
