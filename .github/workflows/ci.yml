@@ -154,3 +154,83 @@ jobs:
           fi
 
           echo "Server started successfully with a generated CI-only JWT secret."
+
+  client-test:
+    name: Client Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run client tests
+        working-directory: client
+        run: npm run test:run
+
+  database-test:
+    name: Database Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: soundwave_app
+          POSTGRES_PASSWORD: soundwave_ci_only_password
+          POSTGRES_DB: soundwave_allison_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U soundwave_app -d soundwave_allison_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: database/package-lock.json
+
+      - name: Install database dependencies
+        working-directory: database
+        run: npm ci
+
+      - name: Create CI test database environment
+        working-directory: database
+        run: |
+          cat > .env.test <<'ENVEOF'
+          PGHOST=127.0.0.1
+          PGPORT=5432
+          PGUSER=soundwave_app
+          PGPASSWORD=soundwave_ci_only_password
+          PGDATABASE=soundwave_allison_test
+          ENVEOF
+
+      - name: Run database migrations
+        working-directory: database
+        run: npm run db:migrate:test
+
+      - name: Seed database test fixtures
+        working-directory: database
+        run: npm run db:seed:test
+
+      - name: Run database integration tests
+        working-directory: database
+        run: npm run test:db
