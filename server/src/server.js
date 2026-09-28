@@ -19,6 +19,18 @@ import {
   createCatalogHandler
 } from "./catalog/catalog.handler.js";
 
+import {
+  createSearchRepository
+} from "./data/search.repository.js";
+
+import {
+  createSearchService
+} from "./search/search.service.js";
+
+import {
+  createSearchHandler
+} from "./search/search.handler.js";
+
 const { Pool } = pg;
 
 const port =
@@ -42,6 +54,11 @@ const catalogRepository =
     database
   );
 
+const searchRepository =
+  createSearchRepository(
+    database
+  );
+
 const catalogService =
   createCatalogService(
     catalogRepository
@@ -52,6 +69,16 @@ const handleCatalogRequest =
     catalogService
   );
 
+const searchService =
+  createSearchService(
+    searchRepository
+  );
+
+const handleSearchRequest =
+  createSearchHandler(
+    searchService
+  );
+
 const server =
   createApp({
     tokenService,
@@ -59,7 +86,9 @@ const server =
     findUserByUsername:
       authUserRepository.findUserByUsername,
 
-    handleCatalogRequest
+    handleCatalogRequest,
+
+    handleSearchRequest
   });
 
 server.listen(

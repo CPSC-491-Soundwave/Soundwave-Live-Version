@@ -1242,3 +1242,202 @@ test("deleting a user cascades deletion of user_preferences", async () => {
     await client.end();
   }
 });
+
+/*
+ * Sprint 2 catalog-search support tests — Christian McGowan
+ */
+test("Sprint 2 catalog search-support migration is recorded exactly once", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(
+      `
+      SELECT filename
+      FROM schema_migrations
+      WHERE filename = $1
+      `,
+      [
+        "20260927_cmg_001_catalog_search_support.sql"
+      ]
+    );
+
+    assert.equal(
+      result.rows.length,
+      1
+    );
+
+    assert.equal(
+      result.rows[0].filename,
+      "20260927_cmg_001_catalog_search_support.sql"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("pg_trgm extension is available for catalog search", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT extname
+      FROM pg_extension
+      WHERE extname = 'pg_trgm'
+    `);
+
+    assert.equal(
+      result.rows.length,
+      1
+    );
+
+    assert.equal(
+      result.rows[0].extname,
+      "pg_trgm"
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("catalog search trigram indexes exist", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const result = await client.query(`
+      SELECT
+        indexname,
+        tablename
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND indexname IN (
+          'artists_name_trgm_idx',
+          'albums_title_trgm_idx',
+          'tracks_title_trgm_idx'
+        )
+      ORDER BY indexname
+    `);
+
+    assert.deepEqual(
+      result.rows,
+      [
+        {
+          indexname: "albums_title_trgm_idx",
+          tablename: "albums"
+        },
+        {
+          indexname: "artists_name_trgm_idx",
+          tablename: "artists"
+        },
+        {
+          indexname: "tracks_title_trgm_idx",
+          tablename: "tracks"
+        }
+      ]
+    );
+  } finally {
+    await client.end();
+  }
+});
+
+test("catalog fixtures support case-insensitive substring search", async () => {
+  const client = createClient();
+
+  try {
+    await client.connect();
+
+    const trackResult = await client.query(
+      `
+      SELECT id, title
+      FROM tracks
+      WHERE title ILIKE '%' || $1 || '%'
+      ORDER BY id
+      `,
+      [
+        "TRACK"
+      ]
+    );
+
+    assert.deepEqual(
+      trackResult.rows.map((row) => ({
+        id: Number(row.id),
+        title: row.title
+      })),
+      [
+        {
+          id: 3001,
+          title: "Fixture Track One"
+        },
+        {
+          id: 3002,
+          title: "Fixture Track Two"
+        },
+        {
+          id: 3003,
+          title: "Fixture Track Three"
+        },
+        {
+          id: 3004,
+          title: "Fixture Track Four"
+        }
+      ]
+    );
+
+    const artistResult = await client.query(
+      `
+      SELECT id, name
+      FROM artists
+      WHERE name ILIKE '%' || $1 || '%'
+      ORDER BY id
+      `,
+      [
+        "ONE"
+      ]
+    );
+
+    assert.deepEqual(
+      artistResult.rows.map((row) => ({
+        id: Number(row.id),
+        name: row.name
+      })),
+      [
+        {
+          id: 1001,
+          name: "Fixture Artist One"
+        }
+      ]
+    );
+
+    const albumResult = await client.query(
+      `
+      SELECT id, title
+      FROM albums
+      WHERE title ILIKE '%' || $1 || '%'
+      ORDER BY id
+      `,
+      [
+        "alpha"
+      ]
+    );
+
+    assert.deepEqual(
+      albumResult.rows.map((row) => ({
+        id: Number(row.id),
+        title: row.title
+      })),
+      [
+        {
+          id: 2001,
+          title: "Fixture Album Alpha"
+        }
+      ]
+    );
+  } finally {
+    await client.end();
+  }
+});

@@ -6,6 +6,7 @@ export function createApp({
   tokenService,
   findUserByUsername,
   handleCatalogRequest,
+  handleSearchRequest,
 } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/health") {
@@ -61,13 +62,24 @@ export function createApp({
       return;
     }
     if (
+      typeof handleSearchRequest === "function"
+    ) {
+      const handled =
+        await handleSearchRequest(req, res);
+
+      if (handled) {
+        return;
+      }
+    }
+
+    if (
       typeof handleCatalogRequest === "function"
     ) {
       const handled =
         await handleCatalogRequest(req, res);
 
-    if (handled) {
-      return;
+      if (handled) {
+        return;
       }
     }
     res.writeHead(404, {
