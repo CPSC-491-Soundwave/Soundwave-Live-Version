@@ -25,7 +25,7 @@ This repository contains the shared Soundwave application. Development is comple
 
 # 1. Current Technology Stack
 
-The current merged Sprint 1 implementation uses:
+The current merged Sprint 2 implementation uses:
 
 | Area | Technology |
 | --- | --- |
@@ -43,8 +43,10 @@ The current merged Sprint 1 implementation uses:
 | Multi-Service Orchestration | Docker Compose |
 | Self-Host Verification | Node-based Docker Compose smoke test |
 | Source Control | Git / GitHub |
-| CI | GitHub Actions |
+| CI | GitHub Actions (server, client, database, authentication-security, and build-metadata checks) |
 | Database | PostgreSQL |
+| Search Indexing | PostgreSQL `pg_trgm` + GIN trigram indexes |
+| Build Traceability | `build-info.json` with `s2.<run_number>+<short_sha>` build identity |
 | PostgreSQL Client | `pg` |
 | Password Hashing | Argon2id via `argon2` |
 | Access Tokens | JWT via `jsonwebtoken` |
@@ -54,7 +56,7 @@ The current merged Sprint 1 implementation uses:
 
 ******Tailwind CSS is not being used.******
 
-The repository will expand as the remaining Sprint 1 implementations are merged.
+The repository will continue to expand as later-sprint implementations are merged.
 
 ---
 
@@ -344,11 +346,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 81
+tests 111
 
 suites 12
 
-pass 81
+pass 111
 
 fail 0
 
@@ -390,7 +392,7 @@ npm run build
 
 Both commands should complete successfully before a client-related pull request is submitted.
 
-The client defines automated shell component tests and Sprint 2 Artist/Album browse-detail tests.
+The client defines automated shell component tests, Sprint 2 Artist/Album browse-detail tests, and Sprint 2 catalog Search page tests.
 
 Run:
 
@@ -398,7 +400,7 @@ Run:
 npm run test:run
 ```
 
-The tests cover the Sidebar navigation/Recently Played shell region, the PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail behavior, and Album browse/detail behavior.
+The tests cover the Sidebar navigation/Recently Played shell region, the PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail behavior, Album browse/detail behavior, and grouped catalog Search behavior.
 
 ---
 
@@ -579,7 +581,9 @@ Soundwave-Live-Version
 │   │   │   ├── Home.jsx
 │   │   │   ├── Library.jsx
 │   │   │   ├── Login.jsx
-│   │   │   └── Search.jsx
+│   │   │   ├── Search.css
+│   │   │   ├── Search.jsx
+│   │   │   └── Search.test.jsx
 │   │   ├── styles/
 │   │   │   ├── login.css
 │   │   │   └── tokens.css
@@ -592,7 +596,8 @@ Soundwave-Live-Version
 │   ├── migrations/
 │   │   ├── 20260915_ayu_001_catalog_core.sql
 │   │   ├── 20260916_ayu_002_auth_users.sql
-│   │   └── 20260924_edg_001_user_preferences.sql
+│   │   ├── 20260924_edg_001_user_preferences.sql
+│   │   └── 20260927_cmg_001_catalog_search_support.sql
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── seed.js
@@ -606,6 +611,7 @@ Soundwave-Live-Version
 │   ├── pr-review-checklist.md
 │   ├── self-host-setup.md
 │   ├── sprint1-integration-contracts.md
+│   ├── sprint2-build-version-contract.md
 │   └── sprint2-christian-baseline-and-boundaries.md
 ├── mediaFiles/
 │   └── test.mp3
@@ -621,7 +627,8 @@ Soundwave-Live-Version
 │       ├── index.html
 │       └── server.js
 ├── scripts/
-│   └── compose-smoke-test.mjs
+│   ├── compose-smoke-test.mjs
+│   └── generate-build-info.mjs
 └── server/
     ├── Dockerfile
     ├── package-lock.json
@@ -644,9 +651,13 @@ Soundwave-Live-Version
     │   │   └── catalog.service.js
     │   ├── data
     │   │   ├── auth-user.repository.js
-    │   │   └── catalog.repository.js
+    │   │   ├── catalog.repository.js
+    │   │   └── search.repository.js
     │   ├── media
     │   │   └── metadata.js
+    │   ├── search
+    │   │   ├── search.handler.js
+    │   │   └── search.service.js
     │   └── server.js
     └── test
         ├── auth-routes.test.js
@@ -665,6 +676,9 @@ Soundwave-Live-Version
         ├── login.test.js
         ├── me.test.js
         ├── metadata.test.js
+        ├── search-routes.test.js
+        ├── search.repository.test.js
+        ├── search.service.test.js
         └── token.test.js
 ```
 
@@ -851,11 +865,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 81
+tests 111
 
 suites 12
 
-pass 81
+pass 111
 
 fail 0
 
@@ -1170,7 +1184,29 @@ The client shell and backend remain independently runnable. The Sprint 2 Artist 
 
 # 12. Full Current Verification
 
-Before submitting changes that affect the existing client or backend, run the checks relevant to both applications.
+Before submitting changes that affect the existing database, client, backend, or CI workflow, run the relevant checks.
+
+## Database
+
+```bash
+
+cd ~/Soundwave-Live-Version/database
+
+npm run db:migrate:test
+npm run db:seed:test
+npm run test:db
+
+```
+
+Verified Sprint 2 result:
+
+```text
+
+tests 30
+pass 30
+fail 0
+
+```
 
 ## Backend
 
@@ -1206,12 +1242,69 @@ A healthy current checkout should have:
 
 Backend tests: PASS
 Client tests:  PASS
+Database tests: PASS
 Client lint:   PASS
 Client build:  PASS
 
 ```
 
-These commands are expected to become automated GitHub Actions checks during Sprint 1.
+## 12.1 GitHub Actions CI
+
+The Sprint 2 CI workflow runs on pull requests to `main` and pushes to `main`.
+
+Current checks are:
+
+```text
+Authentication Security
+Build Metadata
+Client Build
+Client Lint
+Client Tests
+Database Tests
+Server Tests
+```
+
+Sprint 2 added `Client Tests`, PostgreSQL-backed `Database Tests`, and `Build Metadata` to the existing workflow.
+
+The current verified local test totals are:
+
+```text
+Server:   111 passed, 0 failed
+Client:    25 passed, 0 failed
+Database:  30 passed, 0 failed
+```
+
+The `Build Metadata` job generates:
+
+```text
+artifacts/build-info.json
+```
+
+Build identity format:
+
+```text
+s2.<run_number>+<short_sha>
+```
+
+The metadata records the full commit SHA, short SHA, GitHub Actions run number, run ID, branch/ref, event name, and UTC generation timestamp.
+
+Pull-request runs validate metadata generation. Pushes to `main` additionally upload the build metadata as a GitHub Actions artifact named:
+
+```text
+soundwave-build-info-<run_number>
+```
+
+The artifact is retained for 30 days.
+
+Build metadata must never contain JWT secrets, database passwords, tokens, private keys, or user data.
+
+Detailed contract:
+
+```text
+docs/sprint2-build-version-contract.md
+```
+
+GitHub Actions now enforces server tests, client tests, client lint, client build, database integration tests, authentication-security checks, and build-metadata generation.
 
 ---
 
@@ -1308,7 +1401,9 @@ Soundwave-Live-Version
 │   │   │   ├── Home.jsx
 │   │   │   ├── Library.jsx
 │   │   │   ├── Login.jsx
-│   │   │   └── Search.jsx
+│   │   │   ├── Search.css
+│   │   │   ├── Search.jsx
+│   │   │   └── Search.test.jsx
 │   │   ├── styles
 │   │   │   ├── login.css
 │   │   │   └── tokens.css
@@ -1321,7 +1416,8 @@ Soundwave-Live-Version
 │   ├── migrations
 │   │   ├── 20260915_ayu_001_catalog_core.sql
 │   │   ├── 20260916_ayu_002_auth_users.sql
-│   │   └── 20260924_edg_001_user_preferences.sql
+│   │   ├── 20260924_edg_001_user_preferences.sql
+│   │   └── 20260927_cmg_001_catalog_search_support.sql
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── seed.js
@@ -1335,6 +1431,7 @@ Soundwave-Live-Version
 │   ├── pr-review-checklist.md
 │   ├── self-host-setup.md
 │   ├── sprint1-integration-contracts.md
+│   ├── sprint2-build-version-contract.md
 │   └── sprint2-christian-baseline-and-boundaries.md
 ├── mediaFiles
 │   └── test.mp3
@@ -1373,9 +1470,13 @@ Soundwave-Live-Version
     │   │   └── catalog.service.js
     │   ├── data
     │   │   ├── auth-user.repository.js
-    │   │   └── catalog.repository.js
+    │   │   ├── catalog.repository.js
+    │   │   └── search.repository.js
     │   ├── media
     │   │   └── metadata.js
+    │   ├── search
+    │   │   ├── search.handler.js
+    │   │   └── search.service.js
     │   └── server.js
     └── test
         ├── auth-routes.test.js
@@ -1394,6 +1495,9 @@ Soundwave-Live-Version
         ├── login.test.js
         ├── me.test.js
         ├── metadata.test.js
+        ├── search-routes.test.js
+        ├── search.repository.test.js
+        ├── search.service.test.js
         └── token.test.js
 ```
 
@@ -1514,6 +1618,8 @@ It currently provides:
 - development and test seed commands
 
 - database integration tests
+
+- Sprint 2 catalog-search support through `pg_trgm` and GIN trigram indexes
 
 The browser/client must never connect directly to PostgreSQL.
 
@@ -1697,6 +1803,8 @@ Current migrations:
 
 20260924_edg_001_user_preferences.sql
 
+20260927_cmg_001_catalog_search_support.sql
+
 ```
 
 The migration runner:
@@ -1870,6 +1978,21 @@ The test suite verifies:
 - username nonblank behavior
 
 - password-hash nonblank behavior
+- `pg_trgm` extension availability
+- catalog-search trigram index creation
+- case-insensitive substring-search behavior against deterministic fixtures
+
+Verified Sprint 2 database result:
+
+```text
+
+tests 30
+
+pass 30
+
+fail 0
+
+```
 
 Sprint 2 database verification requirement:
 
@@ -2310,6 +2433,7 @@ With migrations applied, the database seeded, and the backend running:
 curl -i http://localhost:8080/api/catalog/albums
 
 curl -i http://localhost:8080/api/catalog/albums/2001
+/search
 
 ```
 
@@ -2326,6 +2450,83 @@ The Album list returns each Album with Artist identity. Album detail returns the
 Valid but missing Album IDs return HTTP `404`. Malformed Album IDs return HTTP `400`.
 
 The Artist and Album catalog responses do not expose local filesystem paths, storage keys, or media implementation details.
+
+
+## 20.3 Verify the Sprint 2 Search API — Christian McGowan
+
+Sprint 2 adds public catalog discovery across tracks, artists, and albums.
+
+Endpoint:
+
+```text
+GET /api/search?q=<query>&type=<type>
+```
+
+Supported `type` values:
+
+```text
+all
+track
+artist
+album
+```
+
+If `type` is omitted, `all` is used.
+
+Search rules:
+
+- `q` is required.
+- Leading and trailing whitespace is trimmed.
+- The query must contain 1-100 characters after trimming.
+- Matching is case-insensitive.
+- Matching uses substring behavior backed by parameterized PostgreSQL queries.
+- No-match searches return HTTP `200` with empty grouped arrays.
+
+Example:
+
+```bash
+curl -i "http://localhost:8080/api/search?q=fixture"
+```
+
+Expected response shape:
+
+```json
+{
+  "query": "fixture",
+  "tracks": [],
+  "artists": [],
+  "albums": []
+}
+```
+
+Filtered example:
+
+```bash
+curl -i "http://localhost:8080/api/search?q=track&type=track"
+```
+
+Invalid query behavior:
+
+```text
+missing q        -> 400 invalid_search_query
+blank q          -> 400 invalid_search_query
+q > 100 chars    -> 400 invalid_search_query
+invalid type     -> 400 invalid_search_type
+repository error -> 500 search_unavailable
+```
+
+Search is public catalog discovery for Sprint 2 and does not require a Bearer token.
+
+Search responses use stable catalog IDs, including `tracks.id`, and do not expose filesystem paths, media paths, storage keys, filenames, media bytes, or other storage implementation details.
+
+Backend search implementation:
+
+```text
+server/src/data/search.repository.js
+server/src/search/search.service.js
+server/src/search/search.handler.js
+```
+
 
 ---
 
@@ -2370,16 +2571,19 @@ The suite currently covers:
 - Album repository queries and service response mapping
 
 - Album browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior
+- Search repository parameterization and result retrieval
+- Search service mapping, filtering, trimming, and validation
+- `/api/search` grouped success, filter, empty-result, invalid-query, invalid-type, failure, and route-isolation behavior
 
 Verified Sprint 2 result:
 
 ```text
 
-tests 81
+tests 111
 
 suites 12
 
-pass 81
+pass 111
 
 fail 0
 
@@ -2565,6 +2769,66 @@ Expected behavior:
 
 This verifies the Sprint 2 Artist/Album read path from PostgreSQL through the catalog repository, service, and HTTP handler to the React client.
 
+
+## 23.2 Sprint 2 Search Browser Proof
+
+With PostgreSQL seeded and both the backend and client running, open:
+
+```text
+http://localhost:5173/search
+```
+
+Expected initial behavior:
+
+```text
+Search field
+All / Tracks / Artists / Albums filter
+Search button
+Initial prompt
+```
+
+Search for:
+
+```text
+fixture
+```
+
+with the `All` filter.
+
+The deterministic seed should produce grouped results for:
+
+```text
+Tracks:  4
+Artists: 2
+Albums:  2
+```
+
+Additional browser checks:
+
+```text
+track + Tracks   -> track results only
+one + Artists    -> Fixture Artist One
+alpha + Albums   -> Fixture Album Alpha
+unknown term     -> no-results state
+blank input      -> client-side validation message
+```
+
+Artist and album results reuse the existing `/artists/:id` and `/albums/:id` routes.
+
+Track results display stable catalog metadata and duration without exposing media-storage details.
+
+Browser Developer Tools should show requests such as:
+
+```text
+GET /api/search?q=fixture&type=all
+GET /api/search?q=track&type=track
+GET /api/search?q=one&type=artist
+GET /api/search?q=alpha&type=album
+```
+
+with HTTP `200` for valid searches.
+
+
 ---
 
 # 24. Verify the Client
@@ -2583,13 +2847,13 @@ Verified Sprint 2 result:
 
 ```text
 
-Client tests: PASS
+Client tests: 25 passed, 0 failed
 Client lint:  PASS
 Client build: PASS
 
 ```
 
-Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`, `Albums`, `ArtistDetail`, and `AlbumDetail` tests.
+Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`, `Albums`, `ArtistDetail`, `AlbumDetail`, and `Search` tests.
 
 The production build completes successfully.
 
@@ -2686,6 +2950,7 @@ GET /api/catalog/artists
 GET /api/catalog/artists/:id
 GET /api/catalog/albums
 GET /api/catalog/albums/:id
+GET /api/search
 
 ```
 
@@ -2776,9 +3041,9 @@ Verified Sprint 2 full server result:
 
 ```text
 
-tests 81
+tests 111
 suites 12
-pass 81
+pass 111
 fail 0
 cancelled 0
 skipped 0
@@ -2798,6 +3063,64 @@ npm run build
 ```
 
 `client/dist/` is generated by the Vite build and is ignored by Git.
+
+
+## 26.2 Sprint 2 Catalog Search — Christian McGowan
+
+Sprint 2 adds an independently owned search vertical slice while consuming the shared catalog schema and existing Artist/Album UI contracts.
+
+Database support:
+
+```text
+database/migrations/20260927_cmg_001_catalog_search_support.sql
+```
+
+The migration enables PostgreSQL `pg_trgm` and creates GIN trigram indexes for:
+
+```text
+artists.name
+albums.title
+tracks.title
+```
+
+Runtime path:
+
+```text
+React Search page
+    ↓
+GET /api/search
+    ↓
+search.handler.js
+    ↓
+search.service.js
+    ↓
+search.repository.js
+    ↓
+PostgreSQL
+```
+
+Search source files:
+
+```text
+client/src/pages/Search.jsx
+client/src/pages/Search.css
+server/src/search/search.handler.js
+server/src/search/search.service.js
+server/src/data/search.repository.js
+```
+
+Dedicated regression coverage:
+
+```text
+client/src/pages/Search.test.jsx
+server/test/search-routes.test.js
+server/test/search.repository.test.js
+server/test/search.service.test.js
+database/test/catalog-db.integration.test.js
+```
+
+The search implementation consumes shared catalog identities and existing Artist/Album routes rather than duplicating teammate-owned browse/detail functionality.
+
 
 ---
 
@@ -2931,7 +3254,8 @@ Required:
 
 ```text
 
-fail 0
+30 passed
+0 failed
 
 ```
 
@@ -2949,7 +3273,8 @@ Required:
 
 ```text
 
-fail 0
+111 passed
+0 failed
 
 ```
 
@@ -2978,6 +3303,7 @@ With backend and client running:
 /artists/1001
 /albums
 /albums/2001
+/search
 
 ```
 
@@ -2991,6 +3317,7 @@ GET /api/catalog/artists -> HTTP 200
 GET /api/catalog/artists/1001 -> HTTP 200
 GET /api/catalog/albums -> HTTP 200
 GET /api/catalog/albums/2001 -> HTTP 200
+GET /api/search?q=fixture&type=all -> HTTP 200
 
 ```
 
@@ -3067,6 +3394,21 @@ Use the relative path:
 ```
 
 through the Vite development proxy.
+
+## Search page shows an error or no expected results
+
+Check in this order:
+
+1. PostgreSQL is running.
+2. `20260927_cmg_001_catalog_search_support.sql` has been applied.
+3. The deterministic catalog seed has been loaded.
+4. The backend is running.
+5. `GET /api/search?q=fixture` returns HTTP `200`.
+6. Vite is running and proxying `/api`.
+7. The browser is using `/search`.
+8. The Network panel shows the expected `/api/search` request.
+
+For a valid but unmatched query, the correct API behavior is HTTP `200` with empty `tracks`, `artists`, and `albums` arrays.
 
 ---
 
@@ -3834,7 +4176,7 @@ A developer should not independently implement another teammate's primary Sprint
 
 ---
 
-# 26. Current Sprint 1 Status
+# 26. Current Sprint 1 / Sprint 2 Status
 
 Currently established or merged:
 
@@ -3862,6 +4204,23 @@ Currently established or merged:
 - pull-request review checklist
 - PostgreSQL catalog-data foundation
 - authentication/identity integration
+
+Sprint 2 Christian McGowan additions currently include:
+
+- PostgreSQL `pg_trgm` search-support migration and GIN indexes
+- `GET /api/search` for tracks, artists, and albums
+- `all`, `track`, `artist`, and `album` filtering
+- grouped React Search page UI
+- search query validation and controlled error behavior
+- parameterized search repository queries
+- stable track-ID / media-storage boundary verification
+- dedicated search repository, service, route, database, and client tests
+- Client Tests GitHub Actions gate
+- PostgreSQL-backed Database Tests GitHub Actions gate
+- Build Metadata GitHub Actions check
+- `s2.<run_number>+<short_sha>` build identity
+- `build-info.json` traceability metadata
+- build/version contract documentation
 
 Sprint 2 Allison Yu additions currently include:
 
@@ -4278,11 +4637,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 81
+tests 111
 
 suites 12
 
-pass 81
+pass 111
 
 fail 0
 
@@ -4322,6 +4681,18 @@ Soundwave Compose smoke test passed.
 # 30. Development Verification Checklist
 
 Before opening a pull request, verify the portions of the application affected by your change.
+
+## Database
+
+```bash
+
+cd ~/Soundwave-Live-Version/database
+
+npm run db:migrate:test
+npm run db:seed:test
+npm run test:db
+
+```
 
 ## Backend
 
@@ -4385,7 +4756,7 @@ Only commit files that belong to the intended change.
 
 Soundwave is being developed as a secure, responsive, self-hostable music-streaming application.
 
-The current Sprint 1 implementation is intentionally small and establishes the foundation that later features will consume.
+The current Sprint 2 implementation extends the Sprint 1 foundation with PostgreSQL-backed catalog search, Artist/Album browse-detail flows, broader automated regression coverage, and stronger CI/build traceability.
 
 Future integrations include:
 
@@ -4401,7 +4772,7 @@ Future integrations include:
 
 - playback;
 
-- automated CI;
+- automated CI with server, client, database, authentication-security, and build-metadata checks;
 
 - self-host deployment;
 
