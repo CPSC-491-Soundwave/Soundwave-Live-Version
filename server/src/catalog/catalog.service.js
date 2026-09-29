@@ -28,6 +28,35 @@ export function createCatalogService(repository) {
         }
       }));
     },
+    async listRecentlyAddedTracks(limit = 10) {
+      if (
+        typeof repository.listRecentlyAddedTracks !== "function"
+      ) {
+        throw new TypeError(
+          "Catalog repository does not support listRecentlyAddedTracks()."
+        );
+      }
+
+      const rows =
+        await repository.listRecentlyAddedTracks(limit);
+
+      return rows.map((row) => ({
+        id: Number(row.track_id),
+        title: row.track_title,
+        durationMs: row.duration_ms,
+        createdAt: row.track_created_at,
+
+        album: {
+          id: Number(row.album_id),
+          title: row.album_title
+        },
+
+        artist: {
+          id: Number(row.artist_id),
+          name: row.artist_name
+        }
+      }));
+    },
 
     async listArtists() {
       if (
