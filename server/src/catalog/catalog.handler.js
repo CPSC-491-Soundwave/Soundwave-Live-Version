@@ -81,7 +81,46 @@ export function createCatalogHandler(
         return true;
       }
     }
+    if (
+      request.url === "/api/library/recently-added"
+    ) {
+      try {
+        if (
+          typeof catalogService.listRecentlyAddedTracks !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support listRecentlyAddedTracks()."
+          );
+        }
 
+        const tracks =
+          await catalogService.listRecentlyAddedTracks();
+
+        writeJson(
+          response,
+          200,
+          tracks
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Recently-added library request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "library_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
     if (
       request.url === "/api/catalog/artists"
     ) {
