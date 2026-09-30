@@ -1,3 +1,8 @@
+import {
+  authenticateRequest,
+  write401Response
+} from "../auth/auth.js";
+
 function writeJson(
   response,
   statusCode,
@@ -31,7 +36,8 @@ function parsePositiveIntegerId(value) {
 }
 
 export function createCatalogHandler(
-  catalogService
+  catalogService,
+  { tokenService } = {}
 ) {
   if (
     !catalogService ||
@@ -81,9 +87,40 @@ export function createCatalogHandler(
         return true;
       }
     }
+
     if (
       request.url === "/api/library/recently-added"
     ) {
+      let principal;
+
+      try {
+        principal =
+          authenticateRequest(
+            request,
+            tokenService
+          );
+      } catch (error) {
+        console.error(
+          "Library authentication configuration failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "library_unavailable"
+          }
+        );
+
+        return true;
+      }
+
+      if (!principal) {
+        write401Response(response);
+        return true;
+      }
+
       try {
         if (
           typeof catalogService.listRecentlyAddedTracks !==
@@ -121,6 +158,7 @@ export function createCatalogHandler(
         return true;
       }
     }
+
     if (
       request.url === "/api/catalog/artists"
     ) {

@@ -46,23 +46,76 @@ function createRepository() {
     };
 }
 
-function createTestApp(repository) {
+function createTestTokenService() {
+    return {
+        verify_token(token) {
+            if (
+                token !== "valid-library-token"
+            ) {
+                throw new Error(
+                    "invalid test token"
+                );
+            }
+
+            return {
+                sub: "1",
+                role: "user"
+            };
+        }
+    };
+}
+
+function createTestApp(
+    repository,
+    tokenService =
+        createTestTokenService()
+) {
     const catalogService =
         createCatalogService(repository);
 
     const handleCatalogRequest =
-        createCatalogHandler(catalogService);
+        createCatalogHandler(
+            catalogService,
+            {
+                tokenService
+            }
+        );
 
     return createApp({
+        tokenService,
         handleCatalogRequest
     });
 }
 
+async function listen(server) {
+    await new Promise((resolve) => {
+        server.listen(
+            0,
+            "127.0.0.1",
+            resolve
+        );
+    });
+
+    const address =
+        server.address();
+
+    assert.ok(address);
+
+    assert.equal(
+        typeof address,
+        "object"
+    );
+
+    return address;
+}
+
 test(
-    "GET /api/library/recently-added returns recently-added tracks",
+    "GET /api/library/recently-added returns recently-added tracks for an authenticated request",
     async (t) => {
         const server =
-            createTestApp(createRepository());
+            createTestApp(
+                createRepository()
+            );
 
         t.after(
             () =>
@@ -71,24 +124,17 @@ test(
                 })
         );
 
-        await new Promise((resolve) => {
-            server.listen(
-                0,
-                "127.0.0.1",
-                resolve
-            );
-        });
-
-        const address = server.address();
-
-        assert.ok(address);
-        assert.equal(
-            typeof address,
-            "object"
-        );
+        const address =
+            await listen(server);
 
         const response = await fetch(
-            `http://127.0.0.1:${address.port}/api/library/recently-added`
+            `http://127.0.0.1:${address.port}/api/library/recently-added`,
+            {
+                headers: {
+                    Authorization:
+                        "Bearer valid-library-token"
+                }
+            }
         );
 
         assert.equal(
@@ -97,7 +143,9 @@ test(
         );
 
         assert.match(
-            response.headers.get("content-type") ?? "",
+            response.headers.get(
+                "content-type"
+            ) ?? "",
             /application\/json/
         );
 
@@ -112,7 +160,95 @@ test(
 );
 
 test(
-    "GET /api/library/recently-added returns 500 when retrieval fails",
+    "GET /api/library/recently-added rejects an unauthenticated request",
+    async (t) => {
+        const server =
+            createTestApp(
+                createRepository()
+            );
+
+        t.after(
+            () =>
+                new Promise((resolve) => {
+                    server.close(resolve);
+                })
+        );
+
+        const address =
+            await listen(server);
+
+        const response = await fetch(
+            `http://127.0.0.1:${address.port}/api/library/recently-added`
+        );
+
+        assert.equal(
+            response.status,
+            401
+        );
+
+        assert.equal(
+            response.headers.get(
+                "www-authenticate"
+            ),
+            "Bearer"
+        );
+
+        const body =
+            await response.json();
+
+        assert.deepEqual(
+            body,
+            {
+                error: "Unauthorized"
+            }
+        );
+    }
+);
+
+test(
+    "GET /api/library/recently-added rejects an invalid Bearer token",
+    async (t) => {
+        const server =
+            createTestApp(
+                createRepository()
+            );
+
+        t.after(
+            () =>
+                new Promise((resolve) => {
+                    server.close(resolve);
+                })
+        );
+
+        const address =
+            await listen(server);
+
+        const response = await fetch(
+            `http://127.0.0.1:${address.port}/api/library/recently-added`,
+            {
+                headers: {
+                    Authorization:
+                        "Bearer invalid-library-token"
+                }
+            }
+        );
+
+        assert.equal(
+            response.status,
+            401
+        );
+
+        assert.equal(
+            response.headers.get(
+                "www-authenticate"
+            ),
+            "Bearer"
+        );
+    }
+);
+
+test(
+    "GET /api/library/recently-added returns 500 when authenticated retrieval fails",
     async (t) => {
         const repository = {
             async listTracks() {
@@ -136,24 +272,17 @@ test(
                 })
         );
 
-        await new Promise((resolve) => {
-            server.listen(
-                0,
-                "127.0.0.1",
-                resolve
-            );
-        });
-
-        const address = server.address();
-
-        assert.ok(address);
-        assert.equal(
-            typeof address,
-            "object"
-        );
+        const address =
+            await listen(server);
 
         const response = await fetch(
-            `http://127.0.0.1:${address.port}/api/library/recently-added`
+            `http://127.0.0.1:${address.port}/api/library/recently-added`,
+            {
+                headers: {
+                    Authorization:
+                        "Bearer valid-library-token"
+                }
+            }
         );
 
         assert.equal(
