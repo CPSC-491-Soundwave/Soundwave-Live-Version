@@ -14,7 +14,8 @@ The Sprint 2 Account/Profile Read Path provides the authenticated Soundwave user
 	- Positive/Negative Tests
 	- Reproducible Local Fixture/Setup
 	 
-* **Out-of-Scope:** These are excluded from Sprint 2, as they are part of a completely outside the Sprint 2 account/profile read-path scope, including but not limited to the following:
+* **Out of Scope:** The following items are intentionally excluded from the
+  Sprint 2 account/profile read-path scope:
 
 	- Profile Editing
 	- Changing Passwords
@@ -88,6 +89,19 @@ Current Sprint 2 response shape:
   },
   "preferences": {
     "audioQualityPreference": "test-quality"
+  }
+}
+```
+`test-quality` is an example test value and is not a product-defined
+audio-quality option. Sprint 2 does not define or enforce the final set of
+supported quality labels.
+
+When the authenticated user has no explicit audio-quality preference, the
+endpoint returns:
+```
+{
+  "preferences": {
+    "audioQualityPreference": null
   }
 }
 ```
