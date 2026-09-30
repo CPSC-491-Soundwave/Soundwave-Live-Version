@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
+import {
+  createAccountProfileRepository
+} from "../../server/src/data/account-profile.repository.js";
 
 const { Client } = pg;
 
@@ -1441,3 +1444,98 @@ test("catalog fixtures support case-insensitive substring search", async () => {
     await client.end();
   }
 });
+
+test(
+  "account profile repository reads persisted user preference metadata",
+  async () => {
+    const client = createClient();
+
+    const username =
+      "edg-account-profile-integration";
+
+    try {
+      await client.connect();
+
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+
+      const userResult =
+        await client.query(
+          `
+          INSERT INTO users (
+            username,
+            password_hash,
+            role
+          )
+          VALUES ($1, $2, $3)
+          RETURNING id
+          `,
+          [
+            username,
+            "$argon2id$account-profile-integration-placeholder",
+            "user"
+          ]
+        );
+
+      const userId =
+        userResult.rows[0].id;
+
+      await client.query(
+        `
+        INSERT INTO user_preferences (
+          user_id,
+          audio_quality_preference
+        )
+        VALUES ($1, $2)
+        `,
+        [
+          userId,
+          "test-quality"
+        ]
+      );
+
+      const repository =
+        createAccountProfileRepository(
+          client
+        );
+
+      const profile =
+        await repository.findProfileByUserId(
+          userId
+        );
+
+      assert.deepEqual(
+        profile,
+        {
+          user_id: userId,
+          username,
+          role: "user",
+          audio_quality_preference:
+            "test-quality"
+        }
+      );
+
+      assert.equal(
+        "password_hash" in profile,
+        false
+      );
+    } finally {
+      if (client._connected) {
+        await client.query(
+          `
+          DELETE FROM users
+          WHERE username = $1
+          `,
+          [username]
+        );
+      }
+
+      await client.end();
+    }
+  }
+);
