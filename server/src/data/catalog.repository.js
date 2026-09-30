@@ -1,98 +1,116 @@
 const LIST_TRACKS_SQL = `
-  SELECT
-    t.id AS track_id,
-    t.title AS track_title,
-    t.duration_ms,
-    a.id AS album_id,
-    a.title AS album_title,
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM tracks t
-  JOIN albums a
-    ON a.id = t.album_id
-  JOIN artists ar
-    ON ar.id = a.artist_id
-  ORDER BY t.id
+SELECT
+t.id AS track_id,
+t.title AS track_title,
+t.duration_ms,
+a.id AS album_id,
+a.title AS album_title,
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM tracks t
+JOIN albums a
+ON a.id = t.album_id
+JOIN artists ar
+ON ar.id = a.artist_id
+ORDER BY t.id
+`;
+
+const FIND_TRACK_BY_ID_SQL = `
+SELECT
+t.id AS track_id,
+t.title AS track_title,
+t.duration_ms,
+t.media_path,
+a.id AS album_id,
+a.title AS album_title,
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM tracks t
+JOIN albums a
+ON a.id = t.album_id
+JOIN artists ar
+ON ar.id = a.artist_id
+WHERE t.id = $1
 `;
 
 const LIST_ARTISTS_SQL = `
-  SELECT
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM artists ar
-  ORDER BY ar.id
+SELECT
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM artists ar
+ORDER BY ar.id
 `;
 
 const FIND_ARTIST_BY_ID_SQL = `
-  SELECT
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM artists ar
-  WHERE ar.id = $1
+SELECT
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM artists ar
+WHERE ar.id = $1
 `;
 
 const LIST_ALBUMS_BY_ARTIST_ID_SQL = `
-  SELECT
-    a.id AS album_id,
-    a.title AS album_title
-  FROM albums a
-  WHERE a.artist_id = $1
-  ORDER BY a.id
+SELECT
+a.id AS album_id,
+a.title AS album_title
+FROM albums a
+WHERE a.artist_id = $1
+ORDER BY a.id
 `;
 
 const LIST_RECENTLY_ADDED_TRACKS_SQL = `
-  SELECT
-    t.id AS track_id,
-    t.title AS track_title,
-    t.duration_ms,
-    t.created_at AS track_created_at,
-    a.id AS album_id,
-    a.title AS album_title,
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM tracks t
-  JOIN albums a
-    ON a.id = t.album_id
-  JOIN artists ar
-    ON ar.id = a.artist_id
-  ORDER BY
-    t.created_at DESC,
-    t.id DESC
-  LIMIT $1
+SELECT
+t.id AS track_id,
+t.title AS track_title,
+t.duration_ms,
+t.created_at AS track_created_at,
+a.id AS album_id,
+a.title AS album_title,
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM tracks t
+JOIN albums a
+ON a.id = t.album_id
+JOIN artists ar
+ON ar.id = a.artist_id
+ORDER BY
+t.created_at DESC,
+t.id DESC
+LIMIT $1
 `;
 
 const LIST_ALBUMS_SQL = `
-  SELECT
-    a.id AS album_id,
-    a.title AS album_title,
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM albums a
-  INNER JOIN artists ar
-    ON ar.id = a.artist_id
-  ORDER BY a.id
+SELECT
+a.id AS album_id,
+a.title AS album_title,
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM albums a
+INNER JOIN artists ar
+ON ar.id = a.artist_id
+ORDER BY a.id
 `;
 
 const FIND_ALBUM_BY_ID_SQL = `
-  SELECT
-    a.id AS album_id,
-    a.title AS album_title,
-    ar.id AS artist_id,
-    ar.name AS artist_name
-  FROM albums a
-  INNER JOIN artists ar
-    ON ar.id = a.artist_id
-  WHERE a.id = $1
+SELECT
+a.id AS album_id,
+a.title AS album_title,
+ar.id AS artist_id,
+ar.name AS artist_name
+FROM albums a
+INNER JOIN artists ar
+ON ar.id = a.artist_id
+WHERE a.id = $1
 `;
 
 const LIST_TRACKS_BY_ALBUM_ID_SQL = `
-  SELECT
-    t.id AS track_id,
-    t.title AS track_title,
-    t.duration_ms
-  FROM tracks t
-  WHERE t.album_id = $1
-  ORDER BY t.id
+SELECT
+t.id AS track_id,
+t.title AS track_title,
+t.duration_ms
+FROM tracks t
+WHERE t.album_id = $1
+ORDER BY t.id
 `;
 
 export function createCatalogRepository(database) {
@@ -113,8 +131,17 @@ export function createCatalogRepository(database) {
 
       return result.rows;
     },
-    
-        async listArtists() {
+
+    async findTrackById(trackId) {
+      const result = await database.query(
+        FIND_TRACK_BY_ID_SQL,
+        [trackId]
+      );
+
+      return result.rows[0] ?? null;
+    },
+
+    async listArtists() {
       const result = await database.query(
         LIST_ARTISTS_SQL
       );
