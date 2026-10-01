@@ -239,6 +239,9 @@ jobs:
     name: Build Metadata
     runs-on: ubuntu-latest
 
+    outputs:
+      version: ${{ steps.build_info.outputs.version }}
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -249,9 +252,23 @@ jobs:
           node-version: '20'
 
       - name: Generate build metadata
+        id: build_info
         run: |
           node scripts/generate-build-info.mjs \
             artifacts/build-info.json
+
+          BUILD_VERSION="$(
+            node -p "JSON.parse(require('fs').readFileSync('artifacts/build-info.json', 'utf8')).version"
+          )"
+
+          echo "version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "SOUNDWAVE_BUILD_VERSION=$BUILD_VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify build metadata exports
+        run: |
+          test -n "$SOUNDWAVE_BUILD_VERSION"
+          test "$SOUNDWAVE_BUILD_VERSION" = "${{ steps.build_info.outputs.version }}"
+          echo "Build version export verified: $SOUNDWAVE_BUILD_VERSION"
 
       - name: Display build metadata
         run: cat artifacts/build-info.json
