@@ -10,7 +10,7 @@ function writeJson(
 ) {
   response.writeHead(statusCode, {
     "Content-Type":
-      "application/json; charset=utf-8"
+    "application/json; charset=utf-8"
   });
 
   response.end(
@@ -61,12 +61,87 @@ export function createCatalogHandler(
     ) {
       try {
         const tracks =
-          await catalogService.listTracks();
+        await catalogService.listTracks();
 
         writeJson(
           response,
           200,
           tracks
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "Catalog request failed:",
+          error
+        );
+
+        writeJson(
+          response,
+          500,
+          {
+            error: "catalog_unavailable"
+          }
+        );
+
+        return true;
+      }
+    }
+
+    const trackDetailMatch =
+    request.url.match(
+      /^\/api\/catalog\/tracks\/([^/?]+)$/
+    );
+
+    if (trackDetailMatch) {
+      const trackId =
+      parsePositiveIntegerId(
+        trackDetailMatch[1]
+      );
+
+      if (trackId === null) {
+        writeJson(
+          response,
+          400,
+          {
+            error: "invalid_track_id"
+          }
+        );
+
+        return true;
+      }
+
+      try {
+        if (
+          typeof catalogService.getTrackById !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support getTrackById()."
+          );
+        }
+
+        const track =
+        await catalogService.getTrackById(
+          trackId
+        );
+
+        if (!track) {
+          writeJson(
+            response,
+            404,
+            {
+              error: "track_not_found"
+            }
+          );
+
+          return true;
+        }
+
+        writeJson(
+          response,
+          200,
+          track
         );
 
         return true;
@@ -95,10 +170,10 @@ export function createCatalogHandler(
 
       try {
         principal =
-          authenticateRequest(
-            request,
-            tokenService
-          );
+        authenticateRequest(
+          request,
+          tokenService
+        );
       } catch (error) {
         console.error(
           "Library authentication configuration failed:",
@@ -132,7 +207,7 @@ export function createCatalogHandler(
         }
 
         const tracks =
-          await catalogService.listRecentlyAddedTracks();
+        await catalogService.listRecentlyAddedTracks();
 
         writeJson(
           response,
@@ -173,7 +248,7 @@ export function createCatalogHandler(
         }
 
         const artists =
-          await catalogService.listArtists();
+        await catalogService.listArtists();
 
         writeJson(
           response,
@@ -201,15 +276,15 @@ export function createCatalogHandler(
     }
 
     const artistDetailMatch =
-      request.url.match(
-        /^\/api\/catalog\/artists\/([^/?]+)$/
-      );
+    request.url.match(
+      /^\/api\/catalog\/artists\/([^/?]+)$/
+    );
 
     if (artistDetailMatch) {
       const artistId =
-        parsePositiveIntegerId(
-          artistDetailMatch[1]
-        );
+      parsePositiveIntegerId(
+        artistDetailMatch[1]
+      );
 
       if (artistId === null) {
         writeJson(
@@ -234,9 +309,9 @@ export function createCatalogHandler(
         }
 
         const artist =
-          await catalogService.getArtistById(
-            artistId
-          );
+        await catalogService.getArtistById(
+          artistId
+        );
 
         if (!artist) {
           writeJson(
@@ -289,7 +364,7 @@ export function createCatalogHandler(
         }
 
         const albums =
-          await catalogService.listAlbums();
+        await catalogService.listAlbums();
 
         writeJson(
           response,
@@ -317,15 +392,15 @@ export function createCatalogHandler(
     }
 
     const albumDetailMatch =
-      request.url.match(
-        /^\/api\/catalog\/albums\/([^/?]+)$/
-      );
+    request.url.match(
+      /^\/api\/catalog\/albums\/([^/?]+)$/
+    );
 
     if (albumDetailMatch) {
       const albumId =
-        parsePositiveIntegerId(
-          albumDetailMatch[1]
-        );
+      parsePositiveIntegerId(
+        albumDetailMatch[1]
+      );
 
       if (albumId === null) {
         writeJson(
@@ -350,9 +425,9 @@ export function createCatalogHandler(
         }
 
         const album =
-          await catalogService.getAlbumById(
-            albumId
-          );
+        await catalogService.getAlbumById(
+          albumId
+        );
 
         if (!album) {
           writeJson(
