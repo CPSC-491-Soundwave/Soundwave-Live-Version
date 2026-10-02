@@ -1539,3 +1539,84 @@ test(
     }
   }
 );
+
+test(
+  "account profile repository returns null preference when user has no preference row",
+  async () => {
+    const client = createClient();
+
+    const username =
+      "edg-account-profile-no-preference";
+
+    try {
+      await client.connect();
+
+      await client.query(
+        `
+        DELETE FROM users
+        WHERE username = $1
+        `,
+        [username]
+      );
+
+      const userResult =
+        await client.query(
+          `
+          INSERT INTO users (
+            username,
+            password_hash,
+            role
+          )
+          VALUES ($1, $2, $3)
+          RETURNING id
+          `,
+          [
+            username,
+            "$argon2id$account-profile-no-preference-placeholder",
+            "user"
+          ]
+        );
+
+      const userId =
+        userResult.rows[0].id;
+
+      // Deliberately do not create a user_preferences row.
+      const repository =
+        createAccountProfileRepository(
+          client
+        );
+
+      const profile =
+        await repository.findProfileByUserId(
+          userId
+        );
+
+      assert.deepEqual(
+        profile,
+        {
+          user_id: userId,
+          username,
+          role: "user",
+          audio_quality_preference: null
+        }
+      );
+
+      assert.equal(
+        "password_hash" in profile,
+        false
+      );
+    } finally {
+      if (client._connected) {
+        await client.query(
+          `
+          DELETE FROM users
+          WHERE username = $1
+          `,
+          [username]
+        );
+      }
+
+      await client.end();
+    }
+  }
+);
