@@ -1,7 +1,9 @@
 import { useState } from "react";
 import "../styles/login.css";
 
-export default function Login() {
+export default function Login({
+  setAccessToken
+}) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,12 +20,12 @@ export default function Login() {
       const loginResponse = await fetch("/auth/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           username,
-          password,
-        }),
+          password
+        })
       });
 
       if (!loginResponse.ok) {
@@ -35,20 +37,33 @@ export default function Login() {
       const meResponse = await fetch("/auth/me", {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${loginBody.accessToken}`,
-        },
+          Authorization:
+            `Bearer ${loginBody.accessToken}`
+        }
       });
 
       if (!meResponse.ok) {
-        throw new Error("Unable to retrieve authenticated user");
+        throw new Error(
+          "Unable to retrieve authenticated user"
+        );
       }
 
       const meBody = await meResponse.json();
 
+      if (
+        typeof setAccessToken === "function"
+      ) {
+        setAccessToken(
+          loginBody.accessToken
+        );
+      }
+
       setUser(meBody.user);
       setPassword("");
     } catch {
-      setError("Unable to log in. Check your username and password.");
+      setError(
+        "Unable to log in. Check your username and password."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +73,9 @@ export default function Login() {
     return (
       <main className="login-page">
         <section className="login-card login-success">
-          <div className="login-brand">SOUNDWAVE</div>
+          <div className="login-brand">
+            SOUNDWAVE
+          </div>
 
           <h1>Welcome Back!</h1>
 
@@ -81,16 +98,23 @@ export default function Login() {
   return (
     <main className="login-page">
       <section className="login-card">
-        <div className="login-brand">SOUNDWAVE</div>
+        <div className="login-brand">
+          SOUNDWAVE
+        </div>
 
         <div className="login-heading">
           <h1>Welcome Back!</h1>
           <p>Log in to continue listening.</p>
         </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
+        <form
+          className="login-form"
+          onSubmit={handleSubmit}
+        >
           <div className="login-field">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">
+              Username
+            </label>
 
             <input
               id="username"
@@ -98,14 +122,18 @@ export default function Login() {
               type="text"
               autoComplete="username"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) =>
+                setUsername(event.target.value)
+              }
               disabled={isLoading}
               required
             />
           </div>
 
           <div className="login-field">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">
+              Password
+            </label>
 
             <input
               id="password"
@@ -113,14 +141,19 @@ export default function Login() {
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               disabled={isLoading}
               required
             />
           </div>
 
           {error && (
-            <p className="login-error" role="alert">
+            <p
+              className="login-error"
+              role="alert"
+            >
               {error}
             </p>
           )}
@@ -130,7 +163,9 @@ export default function Login() {
             type="submit"
             disabled={isLoading}
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading
+              ? "Logging in..."
+              : "Login"}
           </button>
         </form>
 
