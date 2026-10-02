@@ -34,6 +34,42 @@ jobs:
         working-directory: server
         run: npm test
 
+
+  media-regression:
+    name: Media Streaming Regression
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run media streaming regression tests
+        working-directory: server
+        run: node --test test/media-streaming.test.js
+
+      - name: Run Track metadata regression tests
+        working-directory: server
+        run: node --test test/catalog-track-detail.test.js
+
+      - name: Run metadata extraction regression tests
+        working-directory: server
+        run: node --test test/metadata.test.js
+
+      - name: Run Track persistence regression tests
+        working-directory: server
+        run: node --test test/track-persistence.test.js
+
   client-lint:
     name: Client Lint
     runs-on: ubuntu-latest
