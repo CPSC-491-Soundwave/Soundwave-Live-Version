@@ -285,3 +285,81 @@ jobs:
           path: artifacts/build-info.json
           if-no-files-found: error
           retention-days: 30
+
+  docker-packaging:
+    name: Docker Packaging
+    runs-on: ubuntu-latest
+    needs:
+      - build-metadata
+
+    env:
+      SOUNDWAVE_BUILD_VERSION: ${{ needs.build-metadata.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify shared build identifier
+        run: |
+          test -n "$SOUNDWAVE_BUILD_VERSION"
+          echo "Using Soundwave build version: $SOUNDWAVE_BUILD_VERSION"
+
+      - name: Create Docker-safe image tag
+        run: |
+          SOUNDWAVE_IMAGE_TAG="${SOUNDWAVE_BUILD_VERSION//+/-}"
+          echo "SOUNDWAVE_IMAGE_TAG=$SOUNDWAVE_IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "Using Docker image tag: $SOUNDWAVE_IMAGE_TAG"
+
+      - name: Create CI-only Compose environment
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$JWT_SECRET"
+
+          cat > database/.env <<'EOF'
+          PGHOST=host.docker.internal
+          PGPORT=5432
+          PGUSER=soundwave_app
+          PGPASSWORD=soundwave_ci_only_password
+          PGDATABASE=soundwave_ci
+          EOF
+
+          cat > server/.env <<EOF
+          JWT_SECRET=$JWT_SECRET
+          EOF
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build server Docker image
+        run: |
+          docker build \
+            --build-arg SOUNDWAVE_BUILD_VERSION="$SOUNDWAVE_BUILD_VERSION" \
+            --tag "soundwave-server:$SOUNDWAVE_IMAGE_TAG" \
+            ./server
+
+      - name: Build client Docker image
+        run: |
+          docker build \
+            --build-arg SOUNDWAVE_BUILD_VERSION="$SOUNDWAVE_BUILD_VERSION" \
+            --tag "soundwave-client:$SOUNDWAVE_IMAGE_TAG" \
+            ./client
+
+      - name: Verify server image metadata
+        run: |
+          ACTUAL_VERSION="$(
+            docker image inspect \
+              "soundwave-server:$SOUNDWAVE_IMAGE_TAG" \
+              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
+          )"
+
+          test "$ACTUAL_VERSION" = "$SOUNDWAVE_BUILD_VERSION"
+
+      - name: Verify client image metadata
+        run: |
+          ACTUAL_VERSION="$(
+            docker image inspect \
+              "soundwave-client:$SOUNDWAVE_IMAGE_TAG" \
+              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
+          )"
+
+          test "$ACTUAL_VERSION" = "$SOUNDWAVE_BUILD_VERSION"
