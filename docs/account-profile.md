@@ -108,9 +108,9 @@ endpoint returns:
 
 ## Frontend Behavior
 
-Sprint 2 will provide a minimal read-only account profile view.
+Sprint 2 provides a minimal read-only account profile view.
 
-The client will:
+The client:
 
 - Request `GET /account/profile` using the existing authenticated session.
 - Display the authenticated user's username.
@@ -157,12 +157,11 @@ HTTP route tests verify:
 - Principal-to-profile identity consistency.
 - Controlled repository failure behavior.
 
-PostgreSQL-backed integration verification will confirm that the real users and
+PostgreSQL-backed integration verification confirms that the real users and
 user_preferences tables work through the repository and authenticated
 `GET /account/profile` path.
 
-Final manual verification will demonstrate:
-
+Final manual verification demonstrates:
 `POST /auth/login` -> Bearer access token -> `GET /account/profile`
 
 ## Reproducible Local Profile Fixture and Verification
@@ -171,7 +170,7 @@ The following fixture is intended only for local Sprint 2 verification. The
 credentials and `test-quality` preference are test-only values and are not
 product-defined account defaults.
 
-Run the fixture from the `server` directory:
+From the repository root, create the disposable verification fixtures:
 
 ```bash
 cd server
@@ -288,7 +287,7 @@ The API should report that it is listening on port `8080`.
 
 ### Start the Client
 
-In a separate terminal:
+In a separate terminal, from the repository root:
 
 ```bash
 cd client
