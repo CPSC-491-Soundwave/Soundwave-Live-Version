@@ -240,4 +240,65 @@ describe("Library recently-added browse", () => {
             });
         }
     );
+
+    test(
+        "selects a recently-added track for playback",
+        async () => {
+            const onSelectTrack =
+                vi.fn();
+
+            fetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => [
+                    {
+                        id: 3004,
+                        title:
+                            "Fixture Track Four",
+                        durationMs: 222000,
+                        album: {
+                            id: 2002,
+                            title:
+                                "Fixture Album Beta"
+                        },
+                        artist: {
+                            id: 1002,
+                            name:
+                                "Fixture Artist Two"
+                        }
+                    }
+                ]
+            });
+
+            render(
+                <Library
+                    accessToken="test-token"
+                    onSelectTrack={
+                        onSelectTrack
+                    }
+                />
+            );
+
+            const track =
+                await screen.findByRole(
+                    "button",
+                    {
+                        name:
+                            /Fixture Track Four/i
+                    }
+                );
+
+            track.click();
+
+            expect(
+                onSelectTrack
+            ).toHaveBeenCalledTimes(1);
+
+            expect(
+                onSelectTrack
+            ).toHaveBeenCalledWith(
+                3004
+            );
+        }
+    );
 });
