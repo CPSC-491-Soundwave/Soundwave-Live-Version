@@ -32,7 +32,9 @@ function formatDuration(durationMs) {
     .padStart(2, "0")}`;
 }
 
-export default function AlbumDetail() {
+export default function AlbumDetail({
+  onSelectTrack,
+}) {
   const { id } = useParams();
 
   const [album, setAlbum] = useState(null);
@@ -73,8 +75,8 @@ export default function AlbumDetail() {
         if (active) {
           setError(
             loadError instanceof Error
-              ? loadError.message
-              : "Unknown album error"
+            ? loadError.message
+            : "Unknown album error"
           );
         }
       } finally {
@@ -94,9 +96,9 @@ export default function AlbumDetail() {
   if (loading) {
     return (
       <section className="catalog-detail-page">
-        <p className="catalog-detail-page__status">
-          Loading album...
-        </p>
+      <p className="catalog-detail-page__status">
+      Loading album...
+      </p>
       </section>
     );
   }
@@ -104,100 +106,122 @@ export default function AlbumDetail() {
   if (error) {
     return (
       <section className="catalog-detail-page">
-        <Link
-          className="catalog-detail-page__back"
-          to="/albums"
-        >
-          ← Back to Albums
-        </Link>
+      <Link
+      className="catalog-detail-page__back"
+      to="/albums"
+      >
+      ← Back to Albums
+      </Link>
 
-        <p
-          className="catalog-detail-page__status"
-          role="alert"
-        >
-          Failed to load album: {error}
-        </p>
+      <p
+      className="catalog-detail-page__status"
+      role="alert"
+      >
+      Failed to load album: {error}
+      </p>
       </section>
     );
   }
 
   const tracks = Array.isArray(album?.tracks)
-    ? album.tracks
-    : [];
+  ? album.tracks
+  : [];
 
   const artistName =
-    album?.artist?.name || "Unknown Artist";
+  album?.artist?.name || "Unknown Artist";
 
   return (
     <section className="catalog-detail-page">
-      <Link
-        className="catalog-detail-page__back"
-        to="/albums"
-      >
-        ← Back to Albums
-      </Link>
+    <Link
+    className="catalog-detail-page__back"
+    to="/albums"
+    >
+    ← Back to Albums
+    </Link>
 
-      <header className="catalog-detail-header">
-        <div className="catalog-detail-header__artwork">
-          <span aria-hidden="true">♪</span>
-        </div>
+    <header className="catalog-detail-header">
+    <div className="catalog-detail-header__artwork">
+    <span aria-hidden="true">♪</span>
+    </div>
 
-        <div className="catalog-detail-header__content">
-          <span className="catalog-detail-header__eyebrow">
-            Album
-          </span>
+    <div className="catalog-detail-header__content">
+    <span className="catalog-detail-header__eyebrow">
+    Album
+    </span>
 
-          <h1>
-            {album.title || "Untitled Album"}
-          </h1>
+    <h1>
+    {album.title || "Untitled Album"}
+    </h1>
 
-          <p>
-            {artistName}
-          </p>
+    <p>
+    {artistName}
+    </p>
 
-          <span className="catalog-detail-header__metadata">
-            {tracks.length}{" "}
-            {tracks.length === 1
-              ? "track"
-              : "tracks"}
-          </span>
-        </div>
+    <span className="catalog-detail-header__metadata">
+    {tracks.length}{" "}
+    {tracks.length === 1
+      ? "track"
+      : "tracks"}
+      </span>
+      </div>
       </header>
 
       <section className="catalog-detail-section">
-        <h2>Tracks</h2>
+      <h2>Tracks</h2>
 
-        {tracks.length === 0 ? (
-          <p className="catalog-detail-page__status">
-            No tracks are available for this album.
-          </p>
-        ) : (
-          <ol className="album-track-list">
-            {tracks.map((track) => (
-              <li
-                className="album-track-list__item"
-                key={track.id}
-              >
-                <div>
-                  <strong>
-                    {track.title || "Untitled Track"}
-                  </strong>
+      {tracks.length === 0 ? (
+        <p className="catalog-detail-page__status">
+        No tracks are available for this album.
+        </p>
+      ) : (
+        <ol className="album-track-list">
+        {tracks.map((track) => (
+          <li
+          className="album-track-list__item"
+          key={track.id}
+          >
+          <div>
+          <strong>
+          {track.title || "Untitled Track"}
+          </strong>
 
-                  <span>
-                    {artistName}
-                  </span>
-                </div>
+          <span>
+          {artistName}
+          </span>
+          </div>
 
-                <span className="album-track-list__duration">
-                  {formatDuration(
-                    track.durationMs
-                  )}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
+          <div className="album-track-list__actions">
+          <span className="album-track-list__duration">
+          {formatDuration(
+            track.durationMs
+          )}
+          </span>
+
+          <button
+          type="button"
+          onClick={() => {
+            if (
+              typeof onSelectTrack ===
+              "function"
+            ) {
+              onSelectTrack(
+                track.id
+              );
+            }
+          }}
+          aria-label={`Play ${
+            track.title ||
+            "track"
+          }`}
+          >
+          ▶
+          </button>
+          </div>
+          </li>
+        ))}
+        </ol>
+      )}
       </section>
-    </section>
+      </section>
   );
 }
