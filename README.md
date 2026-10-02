@@ -1,156 +1,192 @@
 # Soundwave-Live-Version
 
-Soundwave is the CPSC 491-05 Fall 2026 capstone implementation of the Soundwave music-streaming application.
+Soundwave is the CPSC 491-05 Fall 2026 capstone implementation of the
+Soundwave music-streaming application.
 
-This repository contains the shared Soundwave application. Development is completed on individual development branches and integrated into `main` through peer-reviewed pull requests.
+This repository contains the shared Soundwave application. Development
+is completed on individual development branches and integrated into
+`main` through peer-reviewed pull requests.
 
----
+------------------------------------------------------------------------
 
 ## Team
 
-- Christian McGowan
+-   Christian McGowan
 
-- Allison Yu
+-   Allison Yu
 
-- Emmanuel De Guzman
+-   Emmanuel De Guzman
 
-- Matthew Choi
+-   Matthew Choi
 
-- Konner Rigby
+-   Konner Rigby
 
-******Course:****** CPSC 491-05  
-******Semester:****** Fall 2026
+**Course:** CPSC 491-05\
+**Semester:** Fall 2026
 
----
+------------------------------------------------------------------------
 
 # 1. Current Technology Stack
 
 The current merged Sprint 2 implementation uses:
 
-| Area | Technology |
-| --- | --- |
-| Backend | Node.js |
-| Backend Language | JavaScript |
-| Backend HTTP | Node.js built-in HTTP server |
-| Backend Tests | Node.js built-in test runner |
-| Frontend | React |
-| Frontend Language | JavaScript / JSX |
-| Frontend Build Tool | Vite |
-| Frontend Routing | React Router |
-| Frontend Styling | CSS and shared design tokens |
-| Frontend Tests | Vitest, React Testing Library, jest-dom, jsdom |
-| Packaging | Docker |
-| Multi-Service Orchestration | Docker Compose |
-| Self-Host Verification | Node-based Docker Compose smoke test |
-| Source Control | Git / GitHub |
-| CI | GitHub Actions (server, client, database, authentication-security, and build-metadata checks) |
-| Database | PostgreSQL |
-| Search Indexing | PostgreSQL `pg_trgm` + GIN trigram indexes |
-| Build Traceability | `build-info.json` with `s2.<run_number>+<short_sha>` build identity |
-| PostgreSQL Client | `pg` |
-| Password Hashing | Argon2id via `argon2` |
-| Access Tokens | JWT via `jsonwebtoken` |
-| Howl | Audio playback |
-| music-metadata | Metadata grabbing |
-| Packaging / Self-host Setup | Docker, Docker Compose, Node.js smoke-test tooling |
+  ---------------------------------------------------------------------
+  Area                               Technology
+  ---------------------------------- ----------------------------------
+  Backend                            Node.js
 
-******Tailwind CSS is not being used.******
+  Backend Language                   JavaScript
 
-The repository will continue to expand as later-sprint implementations are merged.
+  Backend HTTP                       Node.js built-in HTTP server
 
----
+  Backend Tests                      Node.js built-in test runner
+
+  Frontend                           React
+
+  Frontend Language                  JavaScript / JSX
+
+  Frontend Build Tool                Vite
+
+  Frontend Routing                   React Router
+
+  Frontend Styling                   CSS and shared design tokens
+
+  Frontend Tests                     Vitest, React Testing Library,
+                                     jest-dom, jsdom
+
+  Packaging                          Docker
+
+  Multi-Service Orchestration        Docker Compose
+
+  Self-Host Verification             Node-based Docker Compose smoke
+                                     test
+
+  Source Control                     Git / GitHub
+
+  CI                                 GitHub Actions (server, client,
+                                     database, authentication-security,
+                                     and build-metadata checks)
+
+  Database                           PostgreSQL
+
+  Search Indexing                    PostgreSQL `pg_trgm` + GIN trigram
+                                     indexes
+
+  Build Traceability                 `build-info.json` with
+                                     `s2.<run_number>+<short_sha>`
+                                     build identity
+
+  PostgreSQL Client                  `pg`
+
+  Password Hashing                   Argon2id via `argon2`
+
+  Access Tokens                      JWT via `jsonwebtoken`
+
+  Howl                               Audio playback
+
+  music-metadata                     Metadata grabbing
+
+  Packaging / Self-host Setup        Docker, Docker Compose, Node.js
+                                     smoke-test tooling
+  ---------------------------------------------------------------------
+
+\*\*\*\*\*\*Tailwind CSS is not being used.\*\*\*\*\*\*
+
+The repository will continue to expand as later-sprint implementations
+are merged.
+
+------------------------------------------------------------------------
 
 # 2. Quick Start
 
-A new developer should be able to use the instructions below to clone the repository, install dependencies, start the frontend and backend, verify the backend, and run the currently available checks.
+A new developer should be able to use the instructions below to clone
+the repository, install dependencies, start the frontend and backend,
+verify the backend, and run the currently available checks.
 
 ## 2.1 Clone the Repository
 
 From a WSL/Linux terminal:
 
-```bash
+``` bash
 
 cd ~
 
 git clone https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version.git
 
 cd Soundwave-Live-Version
-
 ```
 
 Verify that the repository was cloned successfully:
 
-```bash
+``` bash
 
 pwd
 
 git status
 
 git branch --show-current
-
 ```
 
 The branch should initially be:
 
-```text
+``` text
 
 main
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 2.2 Install Client Dependencies
 
 From the repository root:
 
-```bash
+``` bash
 
 cd client
 
 npm ci
-
 ```
 
-The client contains a committed `package-lock.json`, so `npm ci` should be used for a clean and reproducible installation.
+The client contains a committed `package-lock.json`, so `npm ci` should
+be used for a clean and reproducible installation.
 
 Return to the repository root:
 
-```bash
+``` bash
 
 cd ..
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 2.3 Start the Backend
 
-The shared backend requires PostgreSQL configuration and `JWT_SECRET` at startup.
+The shared backend requires PostgreSQL configuration and `JWT_SECRET` at
+startup.
 
 Before starting the server:
 
-1. PostgreSQL should be running.
+1.  PostgreSQL should be running.
 
-2. Development migrations should already be applied.
+2.  Development migrations should already be applied.
 
-3. `server/.env` should exist locally with the required development values.
+3.  `server/.env` should exist locally with the required development
+    values.
 
-4. Server dependencies should be installed.
+4.  Server dependencies should be installed.
 
 From the repository root:
 
-```bash
+``` bash
 
 cd server
 
 npm ci
-
 ```
 
 Create `server/.env` if it does not already exist:
 
-```dotenv
+``` dotenv
 
 PGHOST=localhost
 
@@ -163,40 +199,37 @@ PGPASSWORD=<your-local-postgres-password>
 PGDATABASE=<your-development-database>
 
 JWT_SECRET=<development-only-secret>
-
 ```
 
 Do not commit `server/.env` or any real secret values.
 
 Start the backend with the environment file loaded explicitly:
 
-```bash
+``` bash
 
 node --env-file=.env src/server.js
-
 ```
 
 Expected output:
 
-```text
+``` text
 
 Soundwave API listening on http://localhost:8080
-
 ```
 
 Leave this terminal running.
 
-If the required variables are already exported in the current shell, the normal npm command can also be used:
+If the required variables are already exported in the current shell, the
+normal npm command can also be used:
 
-```bash
+``` bash
 
 npm start
-
 ```
 
 For example, from the repository root:
 
-```bash
+``` bash
 
 set -a
 
@@ -209,20 +242,18 @@ set +a
 cd server
 
 npm start
-
 ```
 
 If startup fails with:
 
-```text
+``` text
 
 A valid secretKey string is required to initialize the token service.
-
 ```
 
 the server did not receive a valid `JWT_SECRET`.
 
----
+------------------------------------------------------------------------
 
 ## 2.4 Start the Client
 
@@ -230,18 +261,16 @@ Open a second WSL/Linux terminal.
 
 Move into the project:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/client
-
 ```
 
 Start the Vite development server:
 
-```bash
+``` bash
 
 npm run dev
-
 ```
 
 Vite will print the local development URL in the terminal.
@@ -250,107 +279,103 @@ Open the URL shown by Vite in a browser.
 
 Leave this terminal running while using the client.
 
----
+------------------------------------------------------------------------
 
 ## 2.5 Verify the Backend
 
 Open another terminal and run:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/health
-
 ```
 
 Expected response:
 
-```text
+``` text
 
 HTTP/1.1 200 OK
 
 Content-Type: application/json
-
 ```
 
 Expected JSON body:
 
-```json
+``` json
 
 {"status":"ok"}
-
 ```
 
 The `/health` endpoint is intentionally public.
 
-It currently verifies that the Soundwave Node.js backend process is alive and responding to HTTP requests.
+It currently verifies that the Soundwave Node.js backend process is
+alive and responding to HTTP requests.
 
----
+------------------------------------------------------------------------
 
 ## 2.6 Verify Unknown-Route Handling
 
 With the backend running:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/not-real
-
 ```
 
 Expected response:
 
-```text
+``` text
 
 HTTP/1.1 404 Not Found
-
 ```
 
 Expected JSON body:
 
-```json
+``` json
 
 {"error":"not_found"}
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 2.7 Run Backend Tests
 
 From the repository root:
 
-```bash
+``` bash
 
 cd server
 
 npm test
-
 ```
 
 The current backend test suite verifies:
 
-- `GET /health` returns HTTP `200`.
+-   `GET /health` returns HTTP `200`.
 
-- `/health` returns the expected JSON response.
+-   `/health` returns the expected JSON response.
 
-- Unknown routes return HTTP `404`.
+-   Unknown routes return HTTP `404`.
 
-- Artist catalog repository and service behavior.
+-   Artist catalog repository and service behavior.
 
-- Artist browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior.
+-   Artist browse/detail HTTP success, invalid-ID, missing-resource, and
+    controlled-failure behavior.
 
-- Album catalog repository and service behavior.
+-   Album catalog repository and service behavior.
 
-- Album browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior.
+-   Album browse/detail HTTP success, invalid-ID, missing-resource, and
+    controlled-failure behavior.
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
-tests 125
+tests 130
 
 suites 12
 
-pass 125
+pass 130
 
 fail 0
 
@@ -359,97 +384,95 @@ cancelled 0
 skipped 0
 
 todo 0
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 2.8 Verify the Client
 
 From the repository root:
 
-```bash
+``` bash
 
 cd client
-
 ```
 
 Run ESLint:
 
-```bash
+``` bash
 
 npm run lint
-
 ```
 
 Build the production client:
 
-```bash
+``` bash
 
 npm run build
-
 ```
 
-Both commands should complete successfully before a client-related pull request is submitted.
+Both commands should complete successfully before a client-related pull
+request is submitted.
 
-The client defines automated shell component tests, Sprint 2 Artist/Album browse-detail tests, and Sprint 2 catalog Search page tests.
+The client defines automated shell component tests, Sprint 2
+Artist/Album browse-detail tests, and Sprint 2 catalog Search page
+tests.
 
 Run:
 
-```bash
+``` bash
 npm run test:run
 ```
 
-The tests cover the Sidebar navigation/Recently Played shell region, the PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail behavior, Album browse/detail behavior, and grouped catalog Search behavior.
+The tests cover the Sidebar navigation/Recently Played shell region, the
+PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail
+behavior, Album browse/detail behavior, and grouped catalog Search
+behavior.
 
----
+------------------------------------------------------------------------
 
 # 3. Prerequisites
 
 Before working with Soundwave, install:
 
-- Git
+-   Git
 
-- Node.js 20.x
+-   Node.js 20.x
 
-- npm
+-   npm
 
-- Visual Studio Code or another editor
+-   Visual Studio Code or another editor
 
-- WSL/Linux if following the documented development environment
+-   WSL/Linux if following the documented development environment
 
 The current project has been successfully run with:
 
-```text
+``` text
 
 Node.js v20.20.1
 
 npm 11.11.1
-
 ```
 
 ## 3.1 Verify Git
 
-```bash
+``` bash
 
 git --version
-
 ```
 
 ## 3.2 Verify Node.js
 
-```bash
+``` bash
 
 node --version
-
 ```
 
 ## 3.3 Verify npm
 
-```bash
+``` bash
 
 npm --version
-
 ```
 
 ## 3.4 Verify Git Identity
@@ -458,261 +481,1003 @@ Course work must be attributable to the developer who authored it.
 
 Check your configured identity:
 
-```bash
+``` bash
 
 git config user.name
 
 git config user.email
-
 ```
 
 If the repository-specific identity needs to be configured:
 
-```bash
+``` bash
 
 git config user.name "Your Name"
 
 git config user.email "your-email@example.com"
-
 ```
 
 Use the same named GitHub identity throughout the semester.
 
----
+------------------------------------------------------------------------
 
 # 4. Open the Project in Visual Studio Code
 
 From the repository root:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
 code .
-
 ```
 
-If the repository was cloned somewhere else, navigate to that location instead.
+If the repository was cloned somewhere else, navigate to that location
+instead.
 
----
+------------------------------------------------------------------------
 
 # 5. Install and Use `tree`
 
-The `tree` utility is useful for inspecting the repository without opening every directory manually.
+The `tree` utility is useful for inspecting the repository without
+opening every directory manually.
 
 Check whether it is installed:
 
-```bash
+``` bash
 
 tree --version
-
 ```
 
 If it is not installed on Ubuntu/WSL:
 
-```bash
+``` bash
 
 sudo apt update
 
 sudo apt install tree
-
 ```
 
-From the Soundwave repository root, display the project while excluding Git metadata, Node dependencies, and build output:
+From the Soundwave repository root, display the project while excluding
+Git metadata, Node dependencies, and build output:
 
-```bash
+``` bash
 
 tree -I 'node_modules|.git|build'
-
 ```
 
----
+------------------------------------------------------------------------
 
 # 6. Current Repository Structure
 
-The repository is organized by application subsystem, shared documentation, and deployment tooling.
+The repository is organized by application subsystem, shared
+documentation, and deployment tooling.
 
-```text
-Soundwave-Live-Version
-├── CONTRIBUTING.md
-├── README.md
-├── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
-├── .github/
-├── client/
-│   ├── Dockerfile
-│   ├── README.md
-│   ├── eslint.config.js
-│   ├── index.html
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── public/
-│   ├── src/
-│   │   ├── App.css
-│   │   ├── App.jsx
-│   │   ├── assets/
-│   │   ├── components
-│   │   │   ├── AlbumCard.jsx
-│   │   │   ├── AlbumCard.test.jsx
-│   │   │   ├── ArtistAlbumCards.css
-│   │   │   ├── ArtistCard.jsx
-│   │   │   ├── ArtistCard.test.jsx
-│   │   │   ├── BackendStatus.css
-│   │   │   ├── BackendStatus.jsx
-│   │   │   ├── PlaybackBar.css
-│   │   │   ├── PlaybackBar.jsx
-│   │   │   ├── PlaybackBar.test.jsx
-│   │   │   ├── Sidebar.css
-│   │   │   ├── Sidebar.jsx
-│   │   │   └── Sidebar.test.jsx
-│   │   ├── index.css
-│   │   ├── main.jsx
-│   │   ├── pages/
-│   │   │   ├── AlbumDetail.jsx
-│   │   │   ├── AlbumDetail.test.jsx
-│   │   │   ├── Albums.jsx
-│   │   │   ├── Albums.test.jsx
-│   │   │   ├── ArtistAlbumBrowse.css
-│   │   │   ├── ArtistAlbumDetail.css
-│   │   │   ├── ArtistDetail.jsx
-│   │   │   ├── ArtistDetail.test.jsx
-│   │   │   ├── Artists.jsx
-│   │   │   ├── Artists.test.jsx
-│   │   │   ├── CatalogDebug.jsx
-│   │   │   ├── Home.jsx
-│   │   │   ├── Library.jsx
-│   │   │   ├── Login.jsx
-│   │   │   ├── Search.css
-│   │   │   ├── Search.jsx
-│   │   │   └── Search.test.jsx
-│   │   ├── styles/
-│   │   │   ├── login.css
-│   │   │   └── tokens.css
-│   │   └── test/
-│   │       └── setup.js
-│   └── vite.config.js
-├── compose.yml
-├── database/
-│   ├── migrate.js
-│   ├── migrations/
-│   │   ├── 20260915_ayu_001_catalog_core.sql
-│   │   ├── 20260916_ayu_002_auth_users.sql
-│   │   ├── 20260924_edg_001_user_preferences.sql
-│   │   └── 20260927_cmg_001_catalog_search_support.sql
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── seed.js
-│   ├── seeds/
-│   │   └── 20260915_ayu_catalog_seed.sql
-│   └── test/
-│       └── catalog-db.integration.test.js
-├── docs/
-│   ├── catalog-fixtures.md
-│   ├── catalog-media-boundary.md
-│   ├── pr-review-checklist.md
-│   ├── self-host-setup.md
-│   ├── sprint1-integration-contracts.md
-│   ├── sprint2-build-version-contract.md
-│   ├── sprint2-christian-baseline-and-boundaries.md
-│   ├── sprint2-christian-cicd-analysis.md
-│   └── sprint2-search-api-and-test-notes.md
-├── mediaFiles/
-│   └── test.mp3
-├── playback/
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── playback.js
-│   ├── playbackDoc/
-│   │   ├── metadataDocumentation.md
-│   │   ├── playbackDocumentation.md
-│   │   └── testingDocumentation.md
-│   └── testers/
-│       ├── index.html
-│       └── server.js
-├── scripts/
-│   ├── compose-smoke-test.mjs
-│   └── generate-build-info.mjs
-└── server/
-    ├── Dockerfile
-    ├── package-lock.json
-    ├── package.json
-    ├── src
-    │   ├── app.js
-    │   ├── auth
-    │   │   ├── auth-documentation
-    │   │   │   ├── AUTHCONFIG.md
-    │   │   │   ├── auth_ADR.md
-    │   │   │   ├── auth_threat_model.md
-    │   │   │   └── media-auth-requirements.md
-    │   │   ├── auth.js
-    │   │   ├── hasher.js
-    │   │   ├── login.js
-    │   │   ├── me.js
-    │   │   └── token.js
-    │   ├── catalog
-    │   │   ├── catalog.handler.js
-    │   │   └── catalog.service.js
-    │   ├── data
-    │   │   ├── auth-user.repository.js
-    │   │   ├── catalog.repository.js
-    │   │   └── search.repository.js
-    │   ├── media
-    │   │   └── metadata.js
-    │   ├── search
-    │   │   ├── search.handler.js
-    │   │   └── search.service.js
-    │   └── server.js
-    └── test
-        ├── auth-routes.test.js
-        ├── auth.test.js
-        ├── catalog-albums-routes.test.js
-        ├── catalog-albums.repository.test.js
-        ├── catalog-albums.service.test.js
-        ├── catalog-artists-routes.test.js
-        ├── catalog-artists.repository.test.js
-        ├── catalog-artists.service.test.js
-        ├── catalog-media-contract.test.js
-        ├── catalog-repository.test.js
-        ├── catalog-routes.test.js
-        ├── hasher.test.js
-        ├── health.test.js
-        ├── login.test.js
-        ├── me.test.js
-        ├── metadata.test.js
-        ├── search-routes.test.js
-        ├── search.repository.test.js
-        ├── search.service.test.js
-        └── token.test.js
+``` text
+.
+├── Dockerfile
+├── node_modules
+│   ├── argon2
+│   │   ├── argon2
+│   │   │   ├── CHANGELOG.md
+│   │   │   ├── include
+│   │   │   │   └── argon2.h
+│   │   │   ├── LICENSE
+│   │   │   └── src
+│   │   │       ├── argon2.c
+│   │   │       ├── blake2
+│   │   │       │   ├── blake2b.c
+│   │   │       │   ├── blake2.h
+│   │   │       │   ├── blake2-impl.h
+│   │   │       │   ├── blamka-round-opt.h
+│   │   │       │   └── blamka-round-ref.h
+│   │   │       ├── core.c
+│   │   │       ├── core.h
+│   │   │       ├── encoding.c
+│   │   │       ├── encoding.h
+│   │   │       ├── opt.c
+│   │   │       ├── ref.c
+│   │   │       ├── thread.c
+│   │   │       └── thread.h
+│   │   ├── argon2.cjs
+│   │   ├── argon2.cpp
+│   │   ├── argon2.d.cts
+│   │   ├── argon2.d.cts.map
+│   │   ├── binding.gyp
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── prebuilds
+│   │   │   ├── darwin-arm64
+│   │   │   │   └── argon2.armv8.glibc.node
+│   │   │   ├── freebsd-arm64
+│   │   │   │   └── argon2.armv8.glibc.node
+│   │   │   ├── freebsd-x64
+│   │   │   │   └── argon2.glibc.node
+│   │   │   ├── linux-arm
+│   │   │   │   ├── argon2.armv7.glibc.node
+│   │   │   │   └── argon2.armv7.musl.node
+│   │   │   ├── linux-arm64
+│   │   │   │   ├── argon2.armv8.glibc.node
+│   │   │   │   └── argon2.armv8.musl.node
+│   │   │   ├── linux-x64
+│   │   │   │   ├── argon2.glibc.node
+│   │   │   │   └── argon2.musl.node
+│   │   │   └── win32-x64
+│   │   │       └── argon2.glibc.node
+│   │   └── README.md
+│   ├── @borewit
+│   │   └── text-codec
+│   │       ├── lib
+│   │       │   ├── index.d.ts
+│   │       │   └── index.js
+│   │       ├── LICENSE.txt
+│   │       ├── package.json
+│   │       └── README.md
+│   ├── buffer-equal-constant-time
+│   │   ├── index.js
+│   │   ├── LICENSE.txt
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── test.js
+│   ├── content-type
+│   │   ├── dist
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   └── index.js.map
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── cross-env
+│   │   ├── dist
+│   │   │   ├── bin
+│   │   │   │   ├── cross-env.d.ts
+│   │   │   │   ├── cross-env.js
+│   │   │   │   ├── cross-env-shell.d.ts
+│   │   │   │   └── cross-env-shell.js
+│   │   │   ├── command.d.ts
+│   │   │   ├── command.js
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── is-windows.d.ts
+│   │   │   ├── is-windows.js
+│   │   │   ├── variable.d.ts
+│   │   │   └── variable.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── cross-spawn
+│   │   ├── index.js
+│   │   ├── lib
+│   │   │   ├── enoent.js
+│   │   │   ├── parse.js
+│   │   │   └── util
+│   │   │       ├── escape.js
+│   │   │       ├── readShebang.js
+│   │   │       └── resolveCommand.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── debug
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── src
+│   │       ├── browser.js
+│   │       ├── common.js
+│   │       ├── index.js
+│   │       └── node.js
+│   ├── ecdsa-sig-formatter
+│   │   ├── CODEOWNERS
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── src
+│   │       ├── ecdsa-sig-formatter.d.ts
+│   │       ├── ecdsa-sig-formatter.js
+│   │       └── param-bytes-for-alg.js
+│   ├── @epic-web
+│   │   └── invariant
+│   │       ├── dist
+│   │       │   ├── index.d.ts
+│   │       │   └── index.js
+│   │       ├── package.json
+│   │       └── README.md
+│   ├── file-type
+│   │   ├── core.d.ts
+│   │   ├── core.js
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   ├── readme.md
+│   │   ├── supported.js
+│   │   └── util.js
+│   ├── ieee754
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── isexe
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── mode.js
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   ├── test
+│   │   │   └── basic.js
+│   │   └── windows.js
+│   ├── jsonwebtoken
+│   │   ├── decode.js
+│   │   ├── index.js
+│   │   ├── lib
+│   │   │   ├── asymmetricKeyDetailsSupported.js
+│   │   │   ├── JsonWebTokenError.js
+│   │   │   ├── NotBeforeError.js
+│   │   │   ├── psSupported.js
+│   │   │   ├── rsaPssKeyDetailsSupported.js
+│   │   │   ├── timespan.js
+│   │   │   ├── TokenExpiredError.js
+│   │   │   └── validateAsymmetricKey.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   ├── sign.js
+│   │   └── verify.js
+│   ├── jwa
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── opslevel.yml
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── jws
+│   │   ├── CHANGELOG.md
+│   │   ├── index.js
+│   │   ├── lib
+│   │   │   ├── data-stream.js
+│   │   │   ├── sign-stream.js
+│   │   │   ├── tostring.js
+│   │   │   └── verify-stream.js
+│   │   ├── LICENSE
+│   │   ├── opslevel.yml
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── lodash.includes
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.isboolean
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.isinteger
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.isnumber
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.isplainobject
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.isstring
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lodash.once
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── media-typer
+│   │   ├── dist
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   └── index.js.map
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── ms
+│   │   ├── index.js
+│   │   ├── license.md
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── music-metadata
+│   │   ├── lib
+│   │   │   ├── aiff
+│   │   │   │   ├── AiffLoader.d.ts
+│   │   │   │   ├── AiffLoader.js
+│   │   │   │   ├── AiffParser.d.ts
+│   │   │   │   ├── AiffParser.js
+│   │   │   │   ├── AiffTagMap.d.ts
+│   │   │   │   ├── AiffTagMap.js
+│   │   │   │   ├── AiffToken.d.ts
+│   │   │   │   └── AiffToken.js
+│   │   │   ├── apev2
+│   │   │   │   ├── Apev2Loader.d.ts
+│   │   │   │   ├── Apev2Loader.js
+│   │   │   │   ├── APEv2Parser.d.ts
+│   │   │   │   ├── APEv2Parser.js
+│   │   │   │   ├── APEv2TagMapper.d.ts
+│   │   │   │   ├── APEv2TagMapper.js
+│   │   │   │   ├── APEv2Token.d.ts
+│   │   │   │   └── APEv2Token.js
+│   │   │   ├── asf
+│   │   │   │   ├── AsfGuid.d.ts
+│   │   │   │   ├── AsfGuid.js
+│   │   │   │   ├── AsfLoader.d.ts
+│   │   │   │   ├── AsfLoader.js
+│   │   │   │   ├── AsfObject.d.ts
+│   │   │   │   ├── AsfObject.js
+│   │   │   │   ├── AsfParser.d.ts
+│   │   │   │   ├── AsfParser.js
+│   │   │   │   ├── AsfTagMapper.d.ts
+│   │   │   │   ├── AsfTagMapper.js
+│   │   │   │   ├── AsfUtil.d.ts
+│   │   │   │   └── AsfUtil.js
+│   │   │   ├── common
+│   │   │   │   ├── BasicParser.d.ts
+│   │   │   │   ├── BasicParser.js
+│   │   │   │   ├── CaseInsensitiveTagMap.d.ts
+│   │   │   │   ├── CaseInsensitiveTagMap.js
+│   │   │   │   ├── CombinedTagMapper.d.ts
+│   │   │   │   ├── CombinedTagMapper.js
+│   │   │   │   ├── FourCC.d.ts
+│   │   │   │   ├── FourCC.js
+│   │   │   │   ├── GenericTagMapper.d.ts
+│   │   │   │   ├── GenericTagMapper.js
+│   │   │   │   ├── GenericTagTypes.d.ts
+│   │   │   │   ├── GenericTagTypes.js
+│   │   │   │   ├── MetadataCollector.d.ts
+│   │   │   │   ├── MetadataCollector.js
+│   │   │   │   ├── Util.d.ts
+│   │   │   │   └── Util.js
+│   │   │   ├── core.d.ts
+│   │   │   ├── core.js
+│   │   │   ├── dsdiff
+│   │   │   │   ├── DsdiffLoader.d.ts
+│   │   │   │   ├── DsdiffLoader.js
+│   │   │   │   ├── DsdiffParser.d.ts
+│   │   │   │   ├── DsdiffParser.js
+│   │   │   │   ├── DsdiffToken.d.ts
+│   │   │   │   └── DsdiffToken.js
+│   │   │   ├── dsf
+│   │   │   │   ├── DsfChunk.d.ts
+│   │   │   │   ├── DsfChunk.js
+│   │   │   │   ├── DsfLoader.d.ts
+│   │   │   │   ├── DsfLoader.js
+│   │   │   │   ├── DsfParser.d.ts
+│   │   │   │   └── DsfParser.js
+│   │   │   ├── ebml
+│   │   │   │   ├── EbmlIterator.d.ts
+│   │   │   │   ├── EbmlIterator.js
+│   │   │   │   ├── types.d.ts
+│   │   │   │   └── types.js
+│   │   │   ├── flac
+│   │   │   │   ├── FlacLoader.d.ts
+│   │   │   │   ├── FlacLoader.js
+│   │   │   │   ├── FlacParser.d.ts
+│   │   │   │   ├── FlacParser.js
+│   │   │   │   ├── FlacToken.d.ts
+│   │   │   │   └── FlacToken.js
+│   │   │   ├── id3v1
+│   │   │   │   ├── ID3v1Parser.d.ts
+│   │   │   │   ├── ID3v1Parser.js
+│   │   │   │   ├── ID3v1TagMap.d.ts
+│   │   │   │   └── ID3v1TagMap.js
+│   │   │   ├── id3v2
+│   │   │   │   ├── AbstractID3Parser.d.ts
+│   │   │   │   ├── AbstractID3Parser.js
+│   │   │   │   ├── FrameHeader.d.ts
+│   │   │   │   ├── FrameHeader.js
+│   │   │   │   ├── FrameParser.d.ts
+│   │   │   │   ├── FrameParser.js
+│   │   │   │   ├── ID3v22TagMapper.d.ts
+│   │   │   │   ├── ID3v22TagMapper.js
+│   │   │   │   ├── ID3v24TagMapper.d.ts
+│   │   │   │   ├── ID3v24TagMapper.js
+│   │   │   │   ├── ID3v2ChapterToken.d.ts
+│   │   │   │   ├── ID3v2ChapterToken.js
+│   │   │   │   ├── ID3v2Parser.d.ts
+│   │   │   │   ├── ID3v2Parser.js
+│   │   │   │   ├── ID3v2Token.d.ts
+│   │   │   │   └── ID3v2Token.js
+│   │   │   ├── iff
+│   │   │   │   ├── index.d.ts
+│   │   │   │   └── index.js
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── lrc
+│   │   │   │   ├── LyricsParser.d.ts
+│   │   │   │   └── LyricsParser.js
+│   │   │   ├── lyrics3
+│   │   │   │   ├── Lyrics3.d.ts
+│   │   │   │   └── Lyrics3.js
+│   │   │   ├── matroska
+│   │   │   │   ├── MatroskaDtd.d.ts
+│   │   │   │   ├── MatroskaDtd.js
+│   │   │   │   ├── MatroskaLoader.d.ts
+│   │   │   │   ├── MatroskaLoader.js
+│   │   │   │   ├── MatroskaParser.d.ts
+│   │   │   │   ├── MatroskaParser.js
+│   │   │   │   ├── MatroskaTagMapper.d.ts
+│   │   │   │   ├── MatroskaTagMapper.js
+│   │   │   │   ├── types.d.ts
+│   │   │   │   └── types.js
+│   │   │   ├── mp4
+│   │   │   │   ├── Atom.d.ts
+│   │   │   │   ├── Atom.js
+│   │   │   │   ├── AtomToken.d.ts
+│   │   │   │   ├── AtomToken.js
+│   │   │   │   ├── Mp4Loader.d.ts
+│   │   │   │   ├── Mp4Loader.js
+│   │   │   │   ├── MP4Parser.d.ts
+│   │   │   │   ├── MP4Parser.js
+│   │   │   │   ├── MP4TagMapper.d.ts
+│   │   │   │   └── MP4TagMapper.js
+│   │   │   ├── mpeg
+│   │   │   │   ├── ExtendedLameHeader.d.ts
+│   │   │   │   ├── ExtendedLameHeader.js
+│   │   │   │   ├── MpegLoader.d.ts
+│   │   │   │   ├── MpegLoader.js
+│   │   │   │   ├── MpegParser.d.ts
+│   │   │   │   ├── MpegParser.js
+│   │   │   │   ├── ReplayGainDataFormat.d.ts
+│   │   │   │   ├── ReplayGainDataFormat.js
+│   │   │   │   ├── XingTag.d.ts
+│   │   │   │   └── XingTag.js
+│   │   │   ├── musepack
+│   │   │   │   ├── MusepackConentError.d.ts
+│   │   │   │   ├── MusepackConentError.js
+│   │   │   │   ├── MusepackLoader.d.ts
+│   │   │   │   ├── MusepackLoader.js
+│   │   │   │   ├── MusepackParser.d.ts
+│   │   │   │   ├── MusepackParser.js
+│   │   │   │   ├── sv7
+│   │   │   │   │   ├── BitReader.d.ts
+│   │   │   │   │   ├── BitReader.js
+│   │   │   │   │   ├── MpcSv7Parser.d.ts
+│   │   │   │   │   ├── MpcSv7Parser.js
+│   │   │   │   │   ├── StreamVersion7.d.ts
+│   │   │   │   │   └── StreamVersion7.js
+│   │   │   │   └── sv8
+│   │   │   │       ├── MpcSv8Parser.d.ts
+│   │   │   │       ├── MpcSv8Parser.js
+│   │   │   │       ├── StreamVersion8.d.ts
+│   │   │   │       └── StreamVersion8.js
+│   │   │   ├── ogg
+│   │   │   │   ├── flac
+│   │   │   │   │   ├── FlacStream.d.ts
+│   │   │   │   │   └── FlacStream.js
+│   │   │   │   ├── OggLoader.d.ts
+│   │   │   │   ├── OggLoader.js
+│   │   │   │   ├── OggParser.d.ts
+│   │   │   │   ├── OggParser.js
+│   │   │   │   ├── OggToken.d.ts
+│   │   │   │   ├── OggToken.js
+│   │   │   │   ├── opus
+│   │   │   │   │   ├── Opus.d.ts
+│   │   │   │   │   ├── Opus.js
+│   │   │   │   │   ├── OpusStream.d.ts
+│   │   │   │   │   └── OpusStream.js
+│   │   │   │   ├── speex
+│   │   │   │   │   ├── Speex.d.ts
+│   │   │   │   │   ├── Speex.js
+│   │   │   │   │   ├── SpeexStream.d.ts
+│   │   │   │   │   └── SpeexStream.js
+│   │   │   │   ├── theora
+│   │   │   │   │   ├── Theora.d.ts
+│   │   │   │   │   ├── Theora.js
+│   │   │   │   │   ├── TheoraStream.d.ts
+│   │   │   │   │   └── TheoraStream.js
+│   │   │   │   └── vorbis
+│   │   │   │       ├── VorbisDecoder.d.ts
+│   │   │   │       ├── VorbisDecoder.js
+│   │   │   │       ├── Vorbis.d.ts
+│   │   │   │       ├── Vorbis.js
+│   │   │   │       ├── VorbisStream.d.ts
+│   │   │   │       ├── VorbisStream.js
+│   │   │   │       ├── VorbisTagMapper.d.ts
+│   │   │   │       └── VorbisTagMapper.js
+│   │   │   ├── ParseError.d.ts
+│   │   │   ├── ParseError.js
+│   │   │   ├── ParserFactory.d.ts
+│   │   │   ├── ParserFactory.js
+│   │   │   ├── riff
+│   │   │   │   ├── RiffChunk.d.ts
+│   │   │   │   ├── RiffChunk.js
+│   │   │   │   ├── RiffInfoTagMap.d.ts
+│   │   │   │   └── RiffInfoTagMap.js
+│   │   │   ├── type.d.ts
+│   │   │   ├── type.js
+│   │   │   ├── wav
+│   │   │   │   ├── BwfChunk.d.ts
+│   │   │   │   ├── BwfChunk.js
+│   │   │   │   ├── WaveChunk.d.ts
+│   │   │   │   ├── WaveChunk.js
+│   │   │   │   ├── WaveLoader.d.ts
+│   │   │   │   ├── WaveLoader.js
+│   │   │   │   ├── WaveParser.d.ts
+│   │   │   │   └── WaveParser.js
+│   │   │   └── wavpack
+│   │   │       ├── WavPackLoader.d.ts
+│   │   │       ├── WavPackLoader.js
+│   │   │       ├── WavPackParser.d.ts
+│   │   │       ├── WavPackParser.js
+│   │   │       ├── WavPackToken.d.ts
+│   │   │       └── WavPackToken.js
+│   │   ├── LICENSE.txt
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── node-addon-api
+│   │   ├── common.gypi
+│   │   ├── except.gypi
+│   │   ├── index.js
+│   │   ├── LICENSE.md
+│   │   ├── napi.h
+│   │   ├── napi-inl.deprecated.h
+│   │   ├── napi-inl.h
+│   │   ├── node_addon_api.gyp
+│   │   ├── node_api.gyp
+│   │   ├── noexcept.gypi
+│   │   ├── nothing.c
+│   │   ├── package.json
+│   │   ├── package-support.json
+│   │   ├── README.md
+│   │   └── tools
+│   │       ├── check-napi.js
+│   │       ├── clang-format.js
+│   │       ├── conversion.js
+│   │       └── README.md
+│   ├── node-gyp-build
+│   │   ├── bin.js
+│   │   ├── build-test.js
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── node-gyp-build.js
+│   │   ├── optional.js
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── SECURITY.md
+│   ├── path-key
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── pg
+│   │   ├── esm
+│   │   │   └── index.mjs
+│   │   ├── lib
+│   │   │   ├── client.js
+│   │   │   ├── connection.js
+│   │   │   ├── connection-parameters.js
+│   │   │   ├── crypto
+│   │   │   │   ├── cert-signatures.js
+│   │   │   │   ├── sasl.js
+│   │   │   │   └── utils.js
+│   │   │   ├── defaults.js
+│   │   │   ├── index.js
+│   │   │   ├── native
+│   │   │   │   ├── client.js
+│   │   │   │   ├── index.js
+│   │   │   │   └── query.js
+│   │   │   ├── query.js
+│   │   │   ├── result.js
+│   │   │   ├── stream.js
+│   │   │   ├── type-overrides.js
+│   │   │   └── utils.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── pg-cloudflare
+│   │   ├── dist
+│   │   │   ├── empty.d.ts
+│   │   │   ├── empty.js
+│   │   │   ├── empty.js.map
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   └── index.js.map
+│   │   ├── esm
+│   │   │   └── index.mjs
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── src
+│   │       ├── empty.ts
+│   │       ├── index.ts
+│   │       └── types.d.ts
+│   ├── pg-connection-string
+│   │   ├── esm
+│   │   │   └── index.mjs
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── pg-int8
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── pgpass
+│   │   ├── lib
+│   │   │   ├── helper.js
+│   │   │   └── index.js
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── pg-pool
+│   │   ├── esm
+│   │   │   └── index.mjs
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── pg-protocol
+│   │   ├── dist
+│   │   │   ├── b.d.ts
+│   │   │   ├── b.js
+│   │   │   ├── b.js.map
+│   │   │   ├── buffer-reader.d.ts
+│   │   │   ├── buffer-reader.js
+│   │   │   ├── buffer-reader.js.map
+│   │   │   ├── buffer-writer.d.ts
+│   │   │   ├── buffer-writer.js
+│   │   │   ├── buffer-writer.js.map
+│   │   │   ├── inbound-parser.test.d.ts
+│   │   │   ├── inbound-parser.test.js
+│   │   │   ├── inbound-parser.test.js.map
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── index.js.map
+│   │   │   ├── messages.d.ts
+│   │   │   ├── messages.js
+│   │   │   ├── messages.js.map
+│   │   │   ├── outbound-serializer.test.d.ts
+│   │   │   ├── outbound-serializer.test.js
+│   │   │   ├── outbound-serializer.test.js.map
+│   │   │   ├── parser.d.ts
+│   │   │   ├── parser.js
+│   │   │   ├── parser.js.map
+│   │   │   ├── serializer.d.ts
+│   │   │   ├── serializer.js
+│   │   │   └── serializer.js.map
+│   │   ├── esm
+│   │   │   └── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── src
+│   │       ├── b.ts
+│   │       ├── buffer-reader.ts
+│   │       ├── buffer-writer.ts
+│   │       ├── inbound-parser.test.ts
+│   │       ├── index.ts
+│   │       ├── messages.ts
+│   │       ├── outbound-serializer.test.ts
+│   │       ├── parser.ts
+│   │       ├── serializer.ts
+│   │       └── testing
+│   │           ├── buffer-list.ts
+│   │           └── test-buffers.ts
+│   ├── pg-types
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── index.test-d.ts
+│   │   ├── lib
+│   │   │   ├── arrayParser.js
+│   │   │   ├── binaryParsers.js
+│   │   │   ├── builtins.js
+│   │   │   └── textParsers.js
+│   │   ├── Makefile
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── test
+│   │       ├── index.js
+│   │       └── types.js
+│   ├── @phc
+│   │   └── format
+│   │       ├── index.js
+│   │       ├── license
+│   │       ├── package.json
+│   │       └── readme.md
+│   ├── postgres-array
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── postgres-bytea
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── postgres-date
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── postgres-interval
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── safe-buffer
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── semver
+│   │   ├── bin
+│   │   │   └── semver.js
+│   │   ├── classes
+│   │   │   ├── comparator.js
+│   │   │   ├── index.js
+│   │   │   ├── range.js
+│   │   │   └── semver.js
+│   │   ├── functions
+│   │   │   ├── clean.js
+│   │   │   ├── cmp.js
+│   │   │   ├── coerce.js
+│   │   │   ├── compare-build.js
+│   │   │   ├── compare.js
+│   │   │   ├── compare-loose.js
+│   │   │   ├── diff.js
+│   │   │   ├── eq.js
+│   │   │   ├── gte.js
+│   │   │   ├── gt.js
+│   │   │   ├── inc.js
+│   │   │   ├── lte.js
+│   │   │   ├── lt.js
+│   │   │   ├── major.js
+│   │   │   ├── minor.js
+│   │   │   ├── neq.js
+│   │   │   ├── parse.js
+│   │   │   ├── patch.js
+│   │   │   ├── prerelease.js
+│   │   │   ├── rcompare.js
+│   │   │   ├── rsort.js
+│   │   │   ├── satisfies.js
+│   │   │   ├── sort.js
+│   │   │   ├── truncate.js
+│   │   │   └── valid.js
+│   │   ├── index.js
+│   │   ├── internal
+│   │   │   ├── constants.js
+│   │   │   ├── debug.js
+│   │   │   ├── identifiers.js
+│   │   │   ├── lrucache.js
+│   │   │   ├── parse-options.js
+│   │   │   └── re.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── preload.js
+│   │   ├── range.bnf
+│   │   ├── ranges
+│   │   │   ├── gtr.js
+│   │   │   ├── intersects.js
+│   │   │   ├── ltr.js
+│   │   │   ├── max-satisfying.js
+│   │   │   ├── min-satisfying.js
+│   │   │   ├── min-version.js
+│   │   │   ├── outside.js
+│   │   │   ├── simplify.js
+│   │   │   ├── subset.js
+│   │   │   ├── to-comparators.js
+│   │   │   └── valid.js
+│   │   └── README.md
+│   ├── shebang-command
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── shebang-regex
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── split2
+│   │   ├── bench.js
+│   │   ├── index.js
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── test.js
+│   ├── strtok3
+│   │   ├── lib
+│   │   │   ├── AbstractTokenizer.d.ts
+│   │   │   ├── AbstractTokenizer.js
+│   │   │   ├── BlobTokenizer.d.ts
+│   │   │   ├── BlobTokenizer.js
+│   │   │   ├── BufferTokenizer.d.ts
+│   │   │   ├── BufferTokenizer.js
+│   │   │   ├── core.d.ts
+│   │   │   ├── core.js
+│   │   │   ├── FileTokenizer.d.ts
+│   │   │   ├── FileTokenizer.js
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── ReadStreamTokenizer.d.ts
+│   │   │   ├── ReadStreamTokenizer.js
+│   │   │   ├── stream
+│   │   │   │   ├── AbstractStreamReader.d.ts
+│   │   │   │   ├── AbstractStreamReader.js
+│   │   │   │   ├── Deferred.d.ts
+│   │   │   │   ├── Deferred.js
+│   │   │   │   ├── Errors.d.ts
+│   │   │   │   ├── Errors.js
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── index.js
+│   │   │   │   ├── StreamReader.d.ts
+│   │   │   │   ├── StreamReader.js
+│   │   │   │   ├── WebStreamByobReader.d.ts
+│   │   │   │   ├── WebStreamByobReader.js
+│   │   │   │   ├── WebStreamDefaultReader.d.ts
+│   │   │   │   ├── WebStreamDefaultReader.js
+│   │   │   │   ├── WebStreamReader.d.ts
+│   │   │   │   ├── WebStreamReaderFactory.d.ts
+│   │   │   │   ├── WebStreamReaderFactory.js
+│   │   │   │   └── WebStreamReader.js
+│   │   │   ├── types.d.ts
+│   │   │   └── types.js
+│   │   ├── LICENSE.txt
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── @tokenizer
+│   │   ├── inflate
+│   │   │   ├── lib
+│   │   │   │   ├── GzipHandler.d.ts
+│   │   │   │   ├── GzipHandler.js
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── index.js
+│   │   │   │   ├── ZipHandler.d.ts
+│   │   │   │   ├── ZipHandler.js
+│   │   │   │   ├── ZipToken.d.ts
+│   │   │   │   └── ZipToken.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   └── token
+│   │       ├── index.d.ts
+│   │       ├── package.json
+│   │       └── README.md
+│   ├── token-types
+│   │   ├── lib
+│   │   │   ├── index.d.ts
+│   │   │   └── index.js
+│   │   ├── LICENSE.txt
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── uint8array-extras
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── license
+│   │   ├── package.json
+│   │   └── readme.md
+│   ├── which
+│   │   ├── bin
+│   │   │   └── node-which
+│   │   ├── CHANGELOG.md
+│   │   ├── LICENSE
+│   │   ├── package.json
+│   │   ├── README.md
+│   │   └── which.js
+│   ├── win-guid
+│   │   ├── lib
+│   │   │   ├── guid.d.ts
+│   │   │   └── guid.js
+│   │   ├── LICENSE.txt
+│   │   ├── package.json
+│   │   └── README.md
+│   └── xtend
+│       ├── immutable.js
+│       ├── LICENSE
+│       ├── mutable.js
+│       ├── package.json
+│       ├── README.md
+│       └── test.js
+├── output.txt
+├── package.json
+├── package-lock.json
+├── src
+│   ├── account
+│   │   └── profile.js
+│   ├── app.js
+│   ├── auth
+│   │   ├── auth-documentation
+│   │   │   ├── auth_ADR.md
+│   │   │   ├── AUTHCONFIG.md
+│   │   │   ├── auth_threat_model.md
+│   │   │   └── media-auth-requirements.md
+│   │   ├── auth.js
+│   │   ├── hasher.js
+│   │   ├── login.js
+│   │   ├── me.js
+│   │   └── token.js
+│   ├── catalog
+│   │   ├── catalog.handler.js
+│   │   └── catalog.service.js
+│   ├── data
+│   │   ├── account-profile.repository.js
+│   │   ├── auth-user.repository.js
+│   │   ├── catalog.repository.js
+│   │   └── search.repository.js
+│   ├── media
+│   │   ├── metadata.js
+│   │   └── streaming.js
+│   ├── search
+│   │   ├── search.handler.js
+│   │   └── search.service.js
+│   └── server.js
+└── test
+    ├── account-profile.repository.test.js
+    ├── account-profile-routes.test.js
+    ├── auth-routes.test.js
+    ├── auth.test.js
+    ├── catalog-albums.repository.test.js
+    ├── catalog-albums-routes.test.js
+    ├── catalog-albums.service.test.js
+    ├── catalog-artists.repository.test.js
+    ├── catalog-artists-routes.test.js
+    ├── catalog-artists.service.test.js
+    ├── catalog-media-contract.test.js
+    ├── catalog-repository.test.js
+    ├── catalog-routes.test.js
+    ├── hasher.test.js
+    ├── health.test.js
+    ├── library-recently-added-routes.test.js
+    ├── login.test.js
+    ├── media-streaming.test.js
+    ├── metadata.test.js
+    ├── me.test.js
+    ├── search.repository.test.js
+    ├── search-routes.test.js
+    ├── search.service.test.js
+    ├── token.test.js
+    └── track-persistence.test.js
 ```
 
-Local-only `.env` files, `node_modules/`, generated build output, and operating-system metadata are intentionally omitted.
+Local-only `.env` files, `node_modules/`, generated build output, and
+operating-system metadata are intentionally omitted.
 
-The exact structure will continue to evolve as later sprint work is merged.
+The exact structure will continue to evolve as later sprint work is
+merged.
 
----
+------------------------------------------------------------------------
 
-# 7. Backend Setup — Christian McGowan
+# 7. Backend Setup --- Christian McGowan
 
 The current Soundwave backend uses:
 
-- Node.js
+-   Node.js
 
-- JavaScript
+-   JavaScript
 
-- ES modules
+-   ES modules
 
-- Node.js built-in HTTP server
+-   Node.js built-in HTTP server
 
-- Node.js built-in test runner
+-   Node.js built-in test runner
 
 The backend is located in:
 
-```text
+``` text
 
 server/
-
 ```
 
----
+------------------------------------------------------------------------
 
 # 8. Backend Commands
 
@@ -720,41 +1485,37 @@ server/
 
 From the repository root:
 
-```bash
+``` bash
 
 cd server
-
 ```
 
 Verify:
 
-```bash
+``` bash
 
 pwd
-
 ```
 
 The path should end with:
 
-```text
+``` text
 
 /Soundwave-Live-Version/server
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 8.2 Inspect Backend Configuration
 
-```bash
+``` bash
 
 cat package.json
-
 ```
 
 Current configuration:
 
-```json
+``` json
 
 {
 
@@ -779,59 +1540,57 @@ Current configuration:
   }
 
 }
-
 ```
 
-The backend uses Node.js built-in modules together with external packages.
+The backend uses Node.js built-in modules together with external
+packages.
 
 Current backend authentication dependencies include:
 
-| Package | Purpose |
+| Package \| Purpose \|
 
-| --- | --- |
+| --- \| --- \|
 
-| `argon2` | Argon2id password hashing and password verification |
+| `argon2` \| Argon2id password hashing and password verification \|
 
-| `jsonwebtoken` | Signed access-token creation and verification |
+| `jsonwebtoken` \| Signed access-token creation and verification \|
 
-
----
+------------------------------------------------------------------------
 
 ## 8.3 Start the Backend
 
 The recommended local-development startup command is:
 
-```bash
+``` bash
 
 node --env-file=.env src/server.js
-
 ```
 
 This loads the PostgreSQL settings and `JWT_SECRET` from `server/.env`.
 
 Expected output:
 
-```text
+``` text
 
 Soundwave API listening on http://localhost:8080
-
 ```
 
-If the required variables are already exported in the current shell, this also works:
+If the required variables are already exported in the current shell,
+this also works:
 
-```bash
+``` bash
 
 npm start
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 8.4 Development Watch Mode
 
-Because the current `npm run dev` script does not load `server/.env` automatically, export the environment first:
+Because the current `npm run dev` script does not load `server/.env`
+automatically, export the environment first:
 
-```bash
+``` bash
 
 set -a
 
@@ -840,38 +1599,35 @@ source .env
 set +a
 
 npm run dev
-
 ```
 
 Node will restart the backend when watched source files change.
 
 Stop the process with:
 
-```text
+``` text
 
 Ctrl+C
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 8.5 Run Backend Tests
 
-```bash
+``` bash
 
 npm test
-
 ```
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
-tests 125
+tests 130
 
 suites 12
 
-pass 125
+pass 130
 
 fail 0
 
@@ -880,12 +1636,12 @@ cancelled 0
 skipped 0
 
 todo 0
-
 ```
 
-The durable requirement is `fail 0` because later sprints may add more tests.
+The durable requirement is `fail 0` because later sprints may add more
+tests.
 
----
+------------------------------------------------------------------------
 
 ## 8.6 Run on Another Port
 
@@ -893,66 +1649,65 @@ The backend defaults to port `8080`.
 
 To use another port while loading `server/.env`:
 
-```bash
+``` bash
 
 PORT=8081 node --env-file=.env src/server.js
-
 ```
 
 Verify it:
 
-```bash
+``` bash
 
 curl -i http://localhost:8081/health
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 9. Client Setup — Konner Rigby
+# 9. Client Setup --- Konner Rigby
 
-Konner Rigby owns the Sprint 1 client-shell and self-host packaging implementation.
+Konner Rigby owns the Sprint 1 client-shell and self-host packaging
+implementation.
 
 Completed Sprint 1 client/self-host work includes:
 
-- React/Vite application scaffold
-- React Router application routing
-- persistent application shell
-- sidebar navigation
-- persistent playback region
-- shared CSS design tokens
-- backend-health status integration
-- shell component tests
-- client Docker packaging
-- Docker Compose client/server integration
-- automated Compose smoke testing
-- self-host setup documentation
-- pull-request review checklist
+-   React/Vite application scaffold
+-   React Router application routing
+-   persistent application shell
+-   sidebar navigation
+-   persistent playback region
+-   shared CSS design tokens
+-   backend-health status integration
+-   shell component tests
+-   client Docker packaging
+-   Docker Compose client/server integration
+-   automated Compose smoke testing
+-   self-host setup documentation
+-   pull-request review checklist
 
 The current client uses:
 
-- React
-- React DOM
-- React Router
-- JavaScript / JSX
-- Vite
-- ESLint
-- CSS
-- shared CSS design tokens
-- Vitest
-- React Testing Library
-- jest-dom
-- jsdom
+-   React
+-   React DOM
+-   React Router
+-   JavaScript / JSX
+-   Vite
+-   ESLint
+-   CSS
+-   shared CSS design tokens
+-   Vitest
+-   React Testing Library
+-   jest-dom
+-   jsdom
 
 The team is **not using Tailwind CSS**.
 
 The client is located in:
 
-```text
+``` text
 client/
 ```
 
----
+------------------------------------------------------------------------
 
 # 10. Client Commands
 
@@ -960,39 +1715,37 @@ client/
 
 From the repository root:
 
-```bash
+``` bash
 
 cd client
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 10.2 Install Client Dependencies
 
 For a fresh clone:
 
-```bash
+``` bash
 
 npm ci
-
 ```
 
-`npm ci` uses the committed `package-lock.json` and installs the exact dependency versions represented by the lockfile.
+`npm ci` uses the committed `package-lock.json` and installs the exact
+dependency versions represented by the lockfile.
 
----
+------------------------------------------------------------------------
 
 ## 10.3 Inspect Available Client Scripts
 
-```bash
+``` bash
 
 npm run
-
 ```
 
 The current client scripts are:
 
-```text
+``` text
 dev
 build
 lint
@@ -1003,7 +1756,7 @@ test:run
 
 The relevant `package.json` scripts are:
 
-```json
+``` json
 
 {
 
@@ -1021,17 +1774,15 @@ The relevant `package.json` scripts are:
   }
 
 }
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 10.4 Start the Client Development Server
 
-```bash
+``` bash
 
 npm run dev
-
 ```
 
 Vite will print the local URL in the terminal.
@@ -1040,56 +1791,53 @@ Open that URL in a browser.
 
 Stop the development server with:
 
-```text
+``` text
 
 Ctrl+C
-
 ```
 
----
+------------------------------------------------------------------------
 
 ## 10.5 Run Client Linting
 
-```bash
+``` bash
 
 npm run lint
-
 ```
 
-Linting should complete successfully before submitting client changes for review.
+Linting should complete successfully before submitting client changes
+for review.
 
----
+------------------------------------------------------------------------
 
 ## 10.6 Build the Client
 
-```bash
+``` bash
 
 npm run build
-
 ```
 
 Vite will produce the production build output.
 
-The generated build directory should not be manually edited or committed unless the team explicitly changes that policy.
+The generated build directory should not be manually edited or committed
+unless the team explicitly changes that policy.
 
----
+------------------------------------------------------------------------
 
 ## 10.7 Preview the Production Build
 
 After running:
 
-```bash
+``` bash
 
 npm run build
-
 ```
 
 start the Vite preview server:
 
-```bash
+``` bash
 
 npm run preview
-
 ```
 
 Vite will display the preview URL in the terminal.
@@ -1098,165 +1846,159 @@ Open the displayed URL in a browser.
 
 Stop it with:
 
-```text
+``` text
 
 Ctrl+C
-
 ```
 
----
+------------------------------------------------------------------------
 
 # 11. Run the Current Application Locally
 
 The current frontend and backend run as separate development processes.
 
-Before starting the backend, make sure PostgreSQL is running, the development migrations have been applied, and `server/.env` exists locally.
+Before starting the backend, make sure PostgreSQL is running, the
+development migrations have been applied, and `server/.env` exists
+locally.
 
-## Terminal 1 — Backend
+## Terminal 1 --- Backend
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm ci
 
 node --env-file=.env src/server.js
-
 ```
 
 Expected:
 
-```text
+``` text
 
 Soundwave API listening on http://localhost:8080
-
 ```
 
-If the environment variables are already exported in this terminal, `npm start` may be used instead.
+If the environment variables are already exported in this terminal,
+`npm start` may be used instead.
 
-## Terminal 2 — Client
+## Terminal 2 --- Client
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/client
 
 npm ci
 
 npm run dev
-
 ```
 
 Open the URL printed by Vite.
 
-## Terminal 3 — Backend Verification
+## Terminal 3 --- Backend Verification
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/health
-
 ```
 
 Expected:
 
-```json
+``` json
 
 {"status":"ok"}
-
 ```
 
 Also verify the backend's `404` behavior:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/not-real
-
 ```
 
 Expected:
 
-```json
+``` json
 
 {"error":"not_found"}
-
 ```
 
-The client shell and backend remain independently runnable. The Sprint 2 Artist and Album browse/detail slice is now integrated end-to-end through PostgreSQL-backed catalog APIs, while other application features continue to be developed incrementally.
+The client shell and backend remain independently runnable. The Sprint 2
+Artist and Album browse/detail slice is now integrated end-to-end
+through PostgreSQL-backed catalog APIs, while other application features
+continue to be developed incrementally.
 
----
+------------------------------------------------------------------------
 
 # 12. Full Current Verification
 
-Before submitting changes that affect the existing database, client, backend, or CI workflow, run the relevant checks.
+Before submitting changes that affect the existing database, client,
+backend, or CI workflow, run the relevant checks.
 
 ## Database
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/database
 
 npm run db:migrate:test
 npm run db:seed:test
 npm run test:db
-
 ```
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
 tests 31
 pass 31
 fail 0
-
 ```
 
 ## Backend
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm test
-
 ```
 
 ## Client Lint
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/client
 
 npm run lint
-
 ```
 
 ## Client Build
 
-```bash
+``` bash
 
 npm run build
-
 ```
 
 A healthy current checkout should have:
 
-```text
+``` text
 
 Backend tests: PASS
 Client tests:  PASS
 Database tests: PASS
 Client lint:   PASS
 Client build:  PASS
-
 ```
 
 ## 12.1 GitHub Actions CI
 
-The Sprint 2 CI workflow runs on pull requests to `main` and pushes to `main`.
+The Sprint 2 CI workflow runs on pull requests to `main` and pushes to
+`main`.
 
 Current checks are:
 
-```text
+``` text
 Authentication Security
 Build Metadata
 Client Build
@@ -1266,108 +2008,122 @@ Database Tests
 Server Tests
 ```
 
-Sprint 2 added `Client Tests`, PostgreSQL-backed `Database Tests`, and `Build Metadata` to the existing workflow.
+Sprint 2 added `Client Tests`, PostgreSQL-backed `Database Tests`, and
+`Build Metadata` to the existing workflow.
 
 The current verified local test totals are:
 
-```text
-Server:   125 passed, 0 failed
+``` text
+Server:   130 passed, 0 failed
 Client:    25 passed, 0 failed
 Database:  31 passed, 0 failed
 ```
 
 The `Build Metadata` job generates:
 
-```text
+``` text
 artifacts/build-info.json
 ```
 
 Build identity format:
 
-```text
+``` text
 s2.<run_number>+<short_sha>
 ```
 
-The metadata records the full commit SHA, short SHA, GitHub Actions run number, run ID, branch/ref, event name, and UTC generation timestamp.
+The metadata records the full commit SHA, short SHA, GitHub Actions run
+number, run ID, branch/ref, event name, and UTC generation timestamp.
 
 The `Build Metadata` job also exposes the generated version as:
 
-```text
+``` text
 job output: version
 environment: SOUNDWAVE_BUILD_VERSION
 ```
 
-A verification step confirms that the exported values match the generated `build-info.json` version.
+A verification step confirms that the exported values match the
+generated `build-info.json` version.
 
-Pull-request runs validate metadata generation. Pushes to `main` additionally upload the build metadata as a GitHub Actions artifact named:
+Pull-request runs validate metadata generation. Pushes to `main`
+additionally upload the build metadata as a GitHub Actions artifact
+named:
 
-```text
+``` text
 soundwave-build-info-<run_number>
 ```
 
 The artifact is retained for 30 days.
 
-Build metadata must never contain JWT secrets, database passwords, tokens, private keys, or user data.
+Build metadata must never contain JWT secrets, database passwords,
+tokens, private keys, or user data.
 
 Detailed contract:
 
-```text
+``` text
 docs/sprint2-build-version-contract.md
 ```
 
 Verified hosted Sprint 2 build evidence includes:
 
-```text
+``` text
 main build identity: s2.147+78ed45f
 main artifact: soundwave-build-info-147.zip
 final export verification: s2.149+c2f90e3
 ```
 
-GitHub Actions now enforces server tests, client tests, client lint, client build, database integration tests, authentication-security checks, and build-metadata generation.
+GitHub Actions now enforces server tests, client tests, client lint,
+client build, database integration tests, authentication-security
+checks, and build-metadata generation.
 
----
+------------------------------------------------------------------------
 
-# 13. Database Setup — Allison Yu
+# 13. Database Setup --- Allison Yu
 
 Allison Yu owns the Sprint 1 catalog-data/database foundation.
 
-Once that implementation is merged into `main`, this section should include exact commands for:
+Once that implementation is merged into `main`, this section should
+include exact commands for:
 
-Sprint 1 establishes the PostgreSQL catalog-data foundation, migration tooling,
+Sprint 1 establishes the PostgreSQL catalog-data foundation, migration
+tooling,
 
-deterministic catalog seed, database integration tests, and authentication
+deterministic catalog seed, database integration tests, and
+authentication
 
 persistence boundary.
 
-# Soundwave Database Setup
+## Soundwave Database Setup
 
 ## Purpose
 
-The root-level `database/` package contains Soundwave's PostgreSQL migration, seed, and database-test tooling.
+The root-level `database/` package contains Soundwave's PostgreSQL
+migration, seed, and database-test tooling.
 
 It currently provides:
 
-- Catalog schema for `artists`, `albums`, and `tracks`
+-   Catalog schema for `artists`, `albums`, and `tracks`
 
-- Authentication persistence schema for `users`
+-   Authentication persistence schema for `users`
 
-- Deterministic catalog seed data
+-   Deterministic catalog seed data
 
-- Development and test migration commands
+-   Development and test migration commands
 
-- Database integration tests
+-   Database integration tests
 
-- A runtime authentication-user repository under `server/src/data/`
+-   A runtime authentication-user repository under `server/src/data/`
 
-Shared server startup wiring is intentionally not included here. The database and repository are ready for feature owners to consume without changing `server.js`.
+Shared server startup wiring is intentionally not included here. The
+database and repository are ready for feature owners to consume without
+changing `server.js`.
 
----
+------------------------------------------------------------------------
 
-# 3. Repository Structure
+# 14. Repository Structure
 
 The repository is organized by subsystem:
 
-```text
+``` text
 Soundwave-Live-Version
 ├── CONTRIBUTING.md
 ├── README.md
@@ -1436,7 +2192,10 @@ Soundwave-Live-Version
 │   │   ├── 20260915_ayu_001_catalog_core.sql
 │   │   ├── 20260916_ayu_002_auth_users.sql
 │   │   ├── 20260924_edg_001_user_preferences.sql
-│   │   └── 20260927_cmg_001_catalog_search_support.sql
+│   │   ├── 20260927_cmg_001_catalog_search_support.sql
+│   │   └── trackMediaPath.sql
+
+trackMediaPath.sql
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── seed.js
@@ -1515,6 +2274,7 @@ Soundwave-Live-Version
         ├── health.test.js
         ├── login.test.js
         ├── me.test.js
+        ├── media-streaming.test.js
         ├── metadata.test.js
         ├── search-routes.test.js
         ├── search.repository.test.js
@@ -1524,23 +2284,24 @@ Soundwave-Live-Version
 
 The exact tree will continue to evolve as later sprint work is merged.
 
-`database/.env`, `database/.env.test`, `server/.env.`, and all `node_modules/` directories are local-only and must not be committed.
+`database/.env`, `database/.env.test`, `server/.env.`, and all
+`node_modules/` directories are local-only and must not be committed.
 
----
+------------------------------------------------------------------------
 
 ## Prerequisites
 
-- PostgreSQL installed and running
+-   PostgreSQL installed and running
 
-- Node.js installed
+-   Node.js installed
 
-- npm
+-   npm
 
-- PostgreSQL role with access to a development and test database
+-   PostgreSQL role with access to a development and test database
 
 Allison's current local setup uses:
 
-```text
+``` text
 
 Role: soundwave_app
 
@@ -1551,112 +2312,111 @@ Test DB: soundwave_allison_test
 Host: localhost
 
 Port: 5432
-
 ```
 
-Other developers can use different local database names as long as their environment files point to the correct databases.
+Other developers can use different local database names as long as their
+environment files point to the correct databases.
 
----
+------------------------------------------------------------------------
 
 Verify:
 
-```bash
+``` bash
 
 node --version
 
 npm --version
 
 psql --version
-
 ```
 
 Course work must be attributable to the developer who authored it.
 
-# 6. Install Dependencies
+# 15. Install Dependencies
 
-The repository uses separate Node packages for the client, server, and database tooling.
+The repository uses separate Node packages for the client, server, and
+database tooling.
 
 ## Client
 
-```bash
+``` bash
 
 cd client
 
 npm ci
 
 cd ..
-
 ```
 
 ## Server
 
-```bash
+``` bash
 
 cd server
 
 npm ci
 
 cd ..
-
 ```
 
 ## Database
 
-```bash
+``` bash
 
 cd database
 
 npm ci
 
 cd ..
-
 ```
 
 Do not commit any `node_modules/` directory.
 
----
+------------------------------------------------------------------------
 
-# 7. PostgreSQL Database Setup
+# 16. PostgreSQL Database Setup
 
-The root-level `database/` package contains Soundwave's PostgreSQL migration, seed, and database-test tooling.
+The root-level `database/` package contains Soundwave's PostgreSQL
+migration, seed, and database-test tooling.
 
 It currently provides:
 
-- `artists`
+-   `artists`
 
-- `albums`
+-   `albums`
 
-- `tracks`
+-   `tracks`
 
-- `users`
+-   `users`
 
-- `schema_migrations`
+-   `schema_migrations`
 
-- deterministic catalog fixtures
+-   deterministic catalog fixtures
 
-- development and test migration commands
+-   development and test migration commands
 
-- development and test seed commands
+-   development and test seed commands
 
-- database integration tests
+-   database integration tests
 
-- Sprint 2 catalog-search support through `pg_trgm` and GIN trigram indexes
+-   Sprint 2 catalog-search support through `pg_trgm` and GIN trigram
+    indexes
 
 The browser/client must never connect directly to PostgreSQL.
 
-## 7.1 PostgreSQL Role and Databases
+## 16.1 PostgreSQL Role and Databases
 
 Each developer needs:
 
-1. A PostgreSQL role that can connect to the project databases.
+1.  A PostgreSQL role that can connect to the project databases.
 
-2. A development database.
+2.  A development database.
 
-3. A separate test database.
+3.  A separate test database.
 
 Allison's current local example is:
 
-```text
+``` text
 
 Role:           soundwave_app
 
@@ -1667,14 +2427,14 @@ Test DB:        soundwave_allison_test
 Host:           localhost
 
 Port:           5432
-
 ```
 
-Other developers may use different database names. The environment files control which databases the tooling uses.
+Other developers may use different database names. The environment files
+control which databases the tooling uses.
 
 Example SQL, run from `psql` as a PostgreSQL administrator:
 
-```sql
+``` sql
 
 CREATE ROLE soundwave_app
 
@@ -1689,30 +2449,28 @@ OWNER soundwave_app;
 CREATE DATABASE soundwave_allison_test
 
 OWNER soundwave_app;
-
 ```
 
 If the role or databases already exist, do not recreate them.
 
 Do not commit the PostgreSQL password.
 
----
+------------------------------------------------------------------------
 
-# 8. Configure Database Environment Files
+# 17. Configure Database Environment Files
 
 ## Development database
 
 Create:
 
-```text
+``` text
 
 database/.env
-
 ```
 
 Example:
 
-```dotenv
+``` dotenv
 
 PGHOST=localhost
 
@@ -1723,15 +2481,13 @@ PGUSER=soundwave_app
 PGPASSWORD=<your-local-postgres-password>
 
 PGDATABASE=<your-development-database>
-
 ```
 
 Allison's local example uses:
 
-```dotenv
+``` dotenv
 
 PGDATABASE=soundwave_allison_dev
-
 ```
 
 Do not commit `database/.env`.
@@ -1740,15 +2496,14 @@ Do not commit `database/.env`.
 
 Create:
 
-```text
+``` text
 
 database/.env.test
-
 ```
 
 Example:
 
-```dotenv
+``` dotenv
 
 PGHOST=localhost
 
@@ -1759,36 +2514,33 @@ PGUSER=soundwave_app
 PGPASSWORD=<your-local-postgres-password>
 
 PGDATABASE=<your-test-database>
-
 ```
 
 Allison's local example uses:
 
-```dotenv
+``` dotenv
 
 PGDATABASE=soundwave_allison_test
-
 ```
 
 The test database must be separate from the development database.
 
 Do not commit `database/.env.test`.
 
----
+------------------------------------------------------------------------
 
-# 9. Database Commands
+# 18. Database Commands
 
 All commands below are run from:
 
-```text
+``` text
 
 Soundwave-Live-Version/database
-
 ```
 
 Available commands:
 
-```text
+``` text
 
 npm run db:migrate
 
@@ -1799,24 +2551,22 @@ npm run db:seed
 npm run db:seed:test
 
 npm run test:db
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 10. Apply Development Migrations
+# 19. Apply Development Migrations
 
 From `database/`:
 
-```bash
+``` bash
 
 npm run db:migrate
-
 ```
 
 Current migrations:
 
-```text
+``` text
 
 20260915_ayu_001_catalog_core.sql
 
@@ -1825,213 +2575,212 @@ Current migrations:
 20260924_edg_001_user_preferences.sql
 
 20260927_cmg_001_catalog_search_support.sql
-
 ```
 
 The migration runner:
 
-1. Creates `schema_migrations` if it does not exist.
+1.  Creates `schema_migrations` if it does not exist.
 
-2. Reads migration files in filename order.
+2.  Reads migration files in filename order.
 
-3. Checks which migrations are already applied.
+3.  Checks which migrations are already applied.
 
-4. Skips already-applied migrations.
+4.  Skips already-applied migrations.
 
-5. Runs each new migration inside a transaction.
+5.  Runs each new migration inside a transaction.
 
-6. Records successful migrations in `schema_migrations`.
+6.  Records successful migrations in `schema_migrations`.
 
-Running the migration command a second time should safely skip already-applied migrations.
+Running the migration command a second time should safely skip
+already-applied migrations.
 
 Verified Sprint 1 rerun behavior:
 
-```text
+``` text
 
 skip 20260915_ayu_001_catalog_core.sql
 
 skip 20260916_ayu_002_auth_users.sql
 
 Database migrations complete.
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 11. Seed the Development Database
+# 20. Seed the Development Database
 
 From `database/`:
 
-```bash
+``` bash
 
 npm run db:seed
-
 ```
 
 The deterministic catalog seed creates:
 
-```text
+``` text
 
-2 artists
+3 artists
 
-2 albums
+3 albums
 
-4 tracks
-
+5 tracks
 ```
 
-Verified Sprint 1 behavior:
+Verified seed behavior:
 
-```text
+``` text
 
 Seeding database: soundwave_allison_dev
 
 Reading seed file: .../20260915_ayu_catalog_seed.sql
 
 Catalog seed complete.
-
 ```
 
-The seed is intended to be rerunnable without duplicating the known logical fixtures.
+The seed is intended to be rerunnable without duplicating the known
+logical fixtures.
 
-The catalog seed does not create authentication users and does not contain plaintext passwords.
+The catalog seed does not create authentication users and does not
+contain plaintext passwords.
 
----
+------------------------------------------------------------------------
 
-# 12. Deterministic Catalog Fixtures
+# 21. Deterministic Catalog Fixtures
 
 Source of truth:
 
-```text
+``` text
 
 database/seeds/20260915_ayu_catalog_seed.sql
-
 ```
 
 Shared fixture contract:
 
-```text
+``` text
 
 docs/catalog-fixtures.md
-
 ```
 
 ## Artists
 
-| ID | Name |
+| ID \| Name \|
 
-| ---: | --- |
+| ---: \| --- \|
 
-| 1001 | Fixture Artist One |
+| 1001 \| Fixture Artist One \|
 
-| 1002 | Fixture Artist Two |
+| 1002 \| Fixture Artist Two \|
 
 ## Albums
 
-| ID | Title | Artist ID |
+| ID \| Title \| Artist ID \|
 
-| ---: | --- | ---: |
+| ---: \| --- \| ---: \|
 
-| 2001 | Fixture Album Alpha | 1001 |
+| 2001 \| Fixture Album Alpha \| 1001 \|
 
-| 2002 | Fixture Album Beta | 1002 |
+| 2002 \| Fixture Album Beta \| 1002 \|
 
 ## Tracks
 
-| ID | Title | Album ID | Artist ID | Duration |
+| ID \| Title \| Album ID \| Artist ID \| Duration \|
 
-| ---: | --- | ---: | ---: | ---: |
+| ---: \| --- \| ---: \| ---: \| ---: \|
 
-| 3001 | Fixture Track One | 2001 | 1001 | 180000 ms |
+| 3001 \| Fixture Track One \| 2001 \| 1001 \| 180000 ms \|
 
-| 3002 | Fixture Track Two | 2001 | 1001 | 205000 ms |
+| 3002 \| Fixture Track Two \| 2001 \| 1001 \| 205000 ms \|
 
-| 3003 | Fixture Track Three | 2002 | 1002 | 195000 ms |
+| 3003 \| Fixture Track Three \| 2002 \| 1002 \| 195000 ms \|
 
-| 3004 | Fixture Track Four | 2002 | 1002 | 222000 ms |
+| 3004 \| Fixture Track Four \| 2002 \| 1002 \| 222000 ms \|
 
 Fixture IDs are stable development/test contracts.
 
-They may be hardcoded in tests, but production feature logic must not assume fixture IDs such as `3001` always exist.
+They may be hardcoded in tests, but production feature logic must not
+assume fixture IDs such as `3001` always exist.
 
----
+------------------------------------------------------------------------
 
-# 13. Prepare and Test the Test Database
+# 22. Prepare and Test the Test Database
 
 From `database/`:
 
-```bash
+``` bash
 
 npm run db:migrate:test
 
 npm run db:seed:test
 
 npm run test:db
-
 ```
 
 The test suite verifies:
 
-- dedicated test database usage
+-   dedicated test database usage
 
-- catalog tables
+-   catalog tables
 
-- migration history
+-   migration history
 
-- deterministic artist fixtures
+-   deterministic artist fixtures
 
-- deterministic album relationships
+-   deterministic album relationships
 
-- deterministic track relationships
+-   deterministic track relationships
 
-- catalog joins
+-   catalog joins
 
-- catalog foreign-key constraints
+-   catalog foreign-key constraints
 
-- `users` table
+-   `users` table
 
-- authentication-user fields
+-   authentication-user fields
 
-- role constraints
+-   role constraints
 
-- username uniqueness
+-   username uniqueness
 
-- username nonblank behavior
+-   username nonblank behavior
 
-- password-hash nonblank behavior
-- `pg_trgm` extension availability
-- catalog-search trigram index creation
-- case-insensitive substring-search behavior against deterministic fixtures
+-   password-hash nonblank behavior
+
+-   `pg_trgm` extension availability
+
+-   catalog-search trigram index creation
+
+-   case-insensitive substring-search behavior against deterministic
+    fixtures
 
 Verified Sprint 2 database result:
 
-```text
+``` text
 
 tests 31
 
 pass 31
 
 fail 0
-
 ```
 
 Sprint 2 database verification requirement:
 
-```text
+``` text
 
 fail 0
-
 ```
 
-A database change should not be submitted if `npm run test:db` reports any failure.
+A database change should not be submitted if `npm run test:db` reports
+any failure.
 
----
+------------------------------------------------------------------------
 
-# 14. Current Database Schema
+# 23. Current Database Schema
 
 Catalog relationship:
 
-```text
+``` text
 
 artists
 
@@ -2050,24 +2799,24 @@ albums
   v
 
 tracks
-
 ```
 
 Authentication persistence:
 
-```text
+``` text
 
 users
-
 ```
 
-There is intentionally no Sprint 1 foreign key between `users` and the catalog tables.
+There is intentionally no Sprint 1 foreign key between `users` and the
+catalog tables.
 
-Future user-scoped features such as favorites and playlists should introduce their own relationship tables through later migrations.
+Future user-scoped features such as favorites and playlists should
+introduce their own relationship tables through later migrations.
 
 ## ERD
 
-```mermaid
+``` mermaid
 
 erDiagram
 
@@ -2107,6 +2856,8 @@ erDiagram
 
         INTEGER duration_ms
 
+        TEXT media_path
+
         TIMESTAMPTZ created_at
 
     }
@@ -2124,100 +2875,97 @@ erDiagram
         TIMESTAMPTZ created_at
 
     }
-
 ```
 
-`schema_migrations` is migration bookkeeping and is intentionally omitted from the domain ERD.
+`schema_migrations` is migration bookkeeping and is intentionally
+omitted from the domain ERD.
 
----
+------------------------------------------------------------------------
 
-# 15. Migration Convention
+# 24. Migration Convention
 
 Migration filenames use:
 
-```text
+``` text
 
 YYYYMMDD_author_sequence_description.sql
-
 ```
 
 Examples:
 
-```text
+``` text
 
 20260915_ayu_001_catalog_core.sql
 
 20260916_ayu_002_auth_users.sql
-
 ```
 
 Rules:
 
-1. Migrations are forward-only.
+1.  Migrations are forward-only.
 
-2. Migration files execute in filename order.
+2.  Migration files execute in filename order.
 
-3. A new migration runs inside a transaction.
+3.  A new migration runs inside a transaction.
 
-4. Successful migrations are recorded in `schema_migrations`.
+4.  Successful migrations are recorded in `schema_migrations`.
 
-5. Already-applied migrations are skipped.
+5.  Already-applied migrations are skipped.
 
-6. Once a migration is merged and applied, do not edit it to make a later schema change.
+6.  Once a migration is merged and applied, do not edit it to make a
+    later schema change.
 
-7. Create a new migration for every later schema change.
+7.  Create a new migration for every later schema change.
 
-8. Feature-specific migrations should be authored by the feature owner rather than making one teammate the permanent database owner.
+8.  Feature-specific migrations should be authored by the feature owner
+    rather than making one teammate the permanent database owner.
 
-Sprint 1 does not implement automatic rollback of previously applied migrations.
+Sprint 1 does not implement automatic rollback of previously applied
+migrations.
 
----
+------------------------------------------------------------------------
 
-# 16. Manual Database Verification
+# 25. Manual Database Verification
 
 Optional verification with `psql`:
 
-```bash
+``` bash
 
 psql -U soundwave_app -d soundwave_allison_dev
-
 ```
 
 Then:
 
-```sql
+``` sql
 
 SELECT id, name
 
 FROM artists
 
 ORDER BY id;
-
 ```
 
-```sql
+``` sql
 
 SELECT id, artist_id, title
 
 FROM albums
 
 ORDER BY id;
-
 ```
 
-```sql
+``` sql
 
-SELECT id, album_id, title, duration_ms
+SELECT id, album_id, title, duration_ms, media_path
 
 FROM tracks
 
 ORDER BY id;
-
 ```
 
 Full catalog join:
 
-```sql
+``` sql
 
 SELECT
 
@@ -2226,6 +2974,8 @@ SELECT
     t.title AS track_title,
 
     t.duration_ms,
+
+    t.media_path,
 
     a.id AS album_id,
 
@@ -2246,34 +2996,32 @@ JOIN artists ar
     ON ar.id = a.artist_id
 
 ORDER BY t.id;
-
 ```
 
 Exit with:
 
-```text
+``` text
 
 \q
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 17. Server Environment Setup
+# 26. Server Environment Setup
 
-The shared server uses PostgreSQL-backed repositories and JWT authentication.
+The shared server uses PostgreSQL-backed repositories and JWT
+authentication.
 
 Create:
 
-```text
+``` text
 
 server/.env
-
 ```
 
 Example:
 
-```dotenv
+``` dotenv
 
 PGHOST=localhost
 
@@ -2286,96 +3034,89 @@ PGPASSWORD=<your-local-postgres-password>
 PGDATABASE=<your-development-database>
 
 JWT_SECRET=<development-only-secret>
-
 ```
 
 Do not commit `server/.env`.
 
-Do not commit database passwords, JWT secrets, access tokens, private keys, or plaintext authentication passwords.
+Do not commit database passwords, JWT secrets, access tokens, private
+keys, or plaintext authentication passwords.
 
----
+------------------------------------------------------------------------
 
-# 18. Start the Backend
+# 27. Start the Backend
 
 From `server/`:
 
-```bash
+``` bash
 
 node --env-file=.env src/server.js
-
 ```
 
 The backend listens on port `8080` by default.
 
 Expected startup behavior:
 
-```text
+``` text
 
 Soundwave API listening on http://localhost:8080
-
 ```
 
-If the required environment variables are already exported in the shell, `npm start` may also be used:
+If the required environment variables are already exported in the shell,
+`npm start` may also be used:
 
-```bash
+``` bash
 
 npm start
-
 ```
 
 Stop with `Ctrl+C`.
 
----
+------------------------------------------------------------------------
 
-# 19. Verify Backend Health
+# 28. Verify Backend Health
 
 With the backend running:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/health
-
 ```
 
 Expected body:
 
-```json
+``` json
 
 {"status":"ok"}
-
 ```
 
 Unknown routes should return HTTP `404` with:
 
-```json
+``` json
 
 {"error":"not_found"}
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 20. Verify the Catalog API
+# 29. Verify the Catalog API
 
 With migrations applied, the database seeded, and the backend running:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/api/catalog/tracks
-
 ```
 
 Expected status:
 
-```text
+``` text
 
 HTTP/1.1 200 OK
-
 ```
 
 Expected response shape:
 
-```json
+``` json
 
 [
 
@@ -2406,85 +3147,87 @@ Expected response shape:
   }
 
 ]
-
 ```
 
-The seeded development database returns four deterministic track records.
+The seeded development database returns four deterministic track
+records.
 
-The catalog API must not expose local filesystem paths, media storage paths, storage keys, or media implementation details.
+The catalog API must not expose local filesystem paths, media storage
+paths, storage keys, or media implementation details.
 
 Shared contract:
 
-```text
+``` text
 
 docs/catalog-media-boundary.md
-
 ```
 
-## 20.1 Verify the Artist Catalog API
+## 29.1 Verify the Artist Catalog API
 
 With migrations applied, the database seeded, and the backend running:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/api/catalog/artists
 
 curl -i http://localhost:8080/api/catalog/artists/1001
-
 ```
 
 Expected status for the seeded Artist records:
 
-```text
+``` text
 
 HTTP/1.1 200 OK
-
 ```
 
-The Artist list returns catalog Artist identity. Artist detail returns the selected Artist and that Artist's related Albums.
+The Artist list returns catalog Artist identity. Artist detail returns
+the selected Artist and that Artist's related Albums.
 
-Valid but missing Artist IDs return HTTP `404`. Malformed Artist IDs return HTTP `400`.
+Valid but missing Artist IDs return HTTP `404`. Malformed Artist IDs
+return HTTP `400`.
 
-## 20.2 Verify the Album Catalog API
+## 29.2 Verify the Album Catalog API
 
 With migrations applied, the database seeded, and the backend running:
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/api/catalog/albums
 
 curl -i http://localhost:8080/api/catalog/albums/2001
-
 ```
 
 Expected status for the seeded Album records:
 
-```text
+``` text
 
 HTTP/1.1 200 OK
-
 ```
 
-The Album list returns each Album with Artist identity. Album detail returns the selected Album, its Artist identity, and basic related Track catalog metadata.
+The Album list returns each Album with Artist identity. Album detail
+returns the selected Album, its Artist identity, and basic related Track
+catalog metadata.
 
-Valid but missing Album IDs return HTTP `404`. Malformed Album IDs return HTTP `400`.
+Valid but missing Album IDs return HTTP `404`. Malformed Album IDs
+return HTTP `400`.
 
-The Artist and Album catalog responses do not expose local filesystem paths, storage keys, or media implementation details.
+The Artist and Album catalog responses do not expose local filesystem
+paths, storage keys, or media implementation details.
 
+## 29.3 Verify the Sprint 2 Search API --- Christian McGowan
 
-## 20.3 Verify the Sprint 2 Search API — Christian McGowan
-
-Sprint 2 adds public catalog discovery across tracks, artists, and albums.
+Sprint 2 adds public catalog discovery across tracks, artists, and
+albums.
 
 Endpoint:
 
-```text
+``` text
 GET /api/search?q=<query>&type=<type>
 ```
 
 Supported `type` values:
 
-```text
+``` text
 all
 track
 artist
@@ -2495,22 +3238,23 @@ If `type` is omitted, `all` is used.
 
 Search rules:
 
-- `q` is required.
-- Leading and trailing whitespace is trimmed.
-- The query must contain 1-100 characters after trimming.
-- Matching is case-insensitive.
-- Matching uses substring behavior backed by parameterized PostgreSQL queries.
-- No-match searches return HTTP `200` with empty grouped arrays.
+-   `q` is required.
+-   Leading and trailing whitespace is trimmed.
+-   The query must contain 1-100 characters after trimming.
+-   Matching is case-insensitive.
+-   Matching uses substring behavior backed by parameterized PostgreSQL
+    queries.
+-   No-match searches return HTTP `200` with empty grouped arrays.
 
 Example:
 
-```bash
+``` bash
 curl -i "http://localhost:8080/api/search?q=fixture"
 ```
 
 Expected response shape:
 
-```json
+``` json
 {
   "query": "fixture",
   "tracks": [],
@@ -2521,13 +3265,13 @@ Expected response shape:
 
 Filtered example:
 
-```bash
+``` bash
 curl -i "http://localhost:8080/api/search?q=track&type=track"
 ```
 
 Invalid query behavior:
 
-```text
+``` text
 missing q        -> 400 invalid_search_query
 blank q          -> 400 invalid_search_query
 q > 100 chars    -> 400 invalid_search_query
@@ -2535,75 +3279,82 @@ invalid type     -> 400 invalid_search_type
 repository error -> 500 search_unavailable
 ```
 
-Search is public catalog discovery for Sprint 2 and does not require a Bearer token.
+Search is public catalog discovery for Sprint 2 and does not require a
+Bearer token.
 
-Search responses use stable catalog IDs, including `tracks.id`, and do not expose filesystem paths, media paths, storage keys, filenames, media bytes, or other storage implementation details.
+Search responses use stable catalog IDs, including `tracks.id`, and do
+not expose filesystem paths, media paths, storage keys, filenames, media
+bytes, or other storage implementation details.
 
 Backend search implementation:
 
-```text
+``` text
 server/src/data/search.repository.js
 server/src/search/search.service.js
 server/src/search/search.handler.js
 ```
 
+------------------------------------------------------------------------
 
----
-
-# 21. Run Server Tests
+# 30. Run Server Tests
 
 From `server/`:
 
-```bash
+``` bash
 
 npm test
-
 ```
 
 The suite currently covers:
 
-- authentication route behavior
+-   authentication route behavior
 
-- authentication middleware
+-   authentication middleware
 
-- password hashing
+-   password hashing
 
-- access tokens
+-   access tokens
 
-- `/health`
+-   `/health`
 
-- unknown-route behavior
+-   unknown-route behavior
 
-- catalog/media identity contract
+-   catalog/media identity contract
 
-- catalog storage-isolation contract
+-   catalog storage-isolation contract
 
-- catalog HTTP success contract
+-   catalog HTTP success contract
 
-- catalog HTTP controlled failure behavior
+-   catalog HTTP controlled failure behavior
 
-- catalog route isolation
+-   catalog route isolation
 
-- Artist repository queries and service response mapping
+-   Artist repository queries and service response mapping
 
-- Artist browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior
+-   Artist browse/detail HTTP success, invalid-ID, missing-resource, and
+    controlled-failure behavior
 
-- Album repository queries and service response mapping
+-   Album repository queries and service response mapping
 
-- Album browse/detail HTTP success, invalid-ID, missing-resource, and controlled-failure behavior
-- Search repository parameterization and result retrieval
-- Search service mapping, filtering, trimming, and validation
-- `/api/search` grouped success, filter, empty-result, invalid-query, invalid-type, failure, and route-isolation behavior
+-   Album browse/detail HTTP success, invalid-ID, missing-resource, and
+    controlled-failure behavior
+
+-   Search repository parameterization and result retrieval
+
+-   Search service mapping, filtering, trimming, and validation
+
+-   `/api/search` grouped success, filter, empty-result, invalid-query,
+    invalid-type, failure, and route-isolation behavior
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
-tests 125
+tests 130
 
 suites 12
 
-pass 125
+pass 130
 
 fail 0
 
@@ -2612,82 +3363,76 @@ cancelled 0
 skipped 0
 
 todo 0
-
 ```
 
-The durable requirement is `fail 0` because later sprints may add more tests and change the total count.
+The durable requirement is `fail 0` because later sprints may add more
+tests and change the total count.
 
----
+------------------------------------------------------------------------
 
-# 22. Start the Client
+# 31. Start the Client
 
 From `client/`:
 
-```bash
+``` bash
 
 npm ci
 
 npm run dev
-
 ```
 
 Vite will print the local development URL, typically:
 
-```text
+``` text
 
 http://localhost:5173/
-
 ```
 
 Use the actual port printed by Vite.
 
 The Vite development server proxies:
 
-```text
+``` text
 
 /health
 
 /auth
 
 /api
-
 ```
 
 The default backend target is:
 
-```text
+``` text
 
 http://localhost:8080
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 23. Catalog Debug Browser Proof
+# 32. Catalog Debug Browser Proof
 
 With the backend and client running, open:
 
-```text
+``` text
 
 http://localhost:5173/catalog-debug
-
 ```
 
 Use the actual Vite port if it differs.
 
 Expected page result:
 
-```text
+``` text
 
 Catalog Debug
 
-Loaded 4 tracks.
-
+Loaded 5 tracks.
 ```
 
 Expected rows:
 
-```text
+``` text
 
 3001  Fixture Track One    Fixture Artist One  Fixture Album Alpha  180000 ms
 
@@ -2697,21 +3442,21 @@ Expected rows:
 
 3004  Fixture Track Four   Fixture Artist Two  Fixture Album Beta   222000 ms
 
+3005  Kontekst             Buddha              No Copyright         209136 ms
 ```
 
 Browser Developer Tools should show:
 
-```text
+``` text
 
 GET /api/catalog/tracks
 
 200 OK
-
 ```
 
 This proves the Sprint 1 vertical read path:
 
-```text
+``` text
 
 PostgreSQL
 
@@ -2742,14 +3487,13 @@ CatalogDebug.jsx
     ↓
 
 browser
-
 ```
 
-## 23.1 Artist and Album Browser Proof
+## 32.1 Artist and Album Browser Proof
 
 With PostgreSQL seeded and both the backend and client running, open:
 
-```text
+``` text
 
 http://localhost:5173/artists
 
@@ -2758,12 +3502,11 @@ http://localhost:5173/artists/1001
 http://localhost:5173/albums
 
 http://localhost:5173/albums/2001
-
 ```
 
 Expected behavior:
 
-```text
+``` text
 
 /artists
   -> GET /api/catalog/artists
@@ -2784,23 +3527,23 @@ Expected behavior:
   -> GET /api/catalog/albums/2001
   -> HTTP 200
   -> renders the Album, Artist identity, and related Track catalog data
-
 ```
 
-This verifies the Sprint 2 Artist/Album read path from PostgreSQL through the catalog repository, service, and HTTP handler to the React client.
+This verifies the Sprint 2 Artist/Album read path from PostgreSQL
+through the catalog repository, service, and HTTP handler to the React
+client.
 
-
-## 23.2 Sprint 2 Search Browser Proof
+## 32.2 Sprint 2 Search Browser Proof
 
 With PostgreSQL seeded and both the backend and client running, open:
 
-```text
+``` text
 http://localhost:5173/search
 ```
 
 Expected initial behavior:
 
-```text
+``` text
 Search field
 All / Tracks / Artists / Albums filter
 Search button
@@ -2809,7 +3552,7 @@ Initial prompt
 
 Search for:
 
-```text
+``` text
 fixture
 ```
 
@@ -2817,7 +3560,7 @@ with the `All` filter.
 
 The deterministic seed should produce grouped results for:
 
-```text
+``` text
 Tracks:  4
 Artists: 2
 Albums:  2
@@ -2825,7 +3568,7 @@ Albums:  2
 
 Additional browser checks:
 
-```text
+``` text
 track + Tracks   -> track results only
 one + Artists    -> Fixture Artist One
 alpha + Albums   -> Fixture Album Alpha
@@ -2833,13 +3576,15 @@ unknown term     -> no-results state
 blank input      -> client-side validation message
 ```
 
-Artist and album results reuse the existing `/artists/:id` and `/albums/:id` routes.
+Artist and album results reuse the existing `/artists/:id` and
+`/albums/:id` routes.
 
-Track results display stable catalog metadata and duration without exposing media-storage details.
+Track results display stable catalog metadata and duration without
+exposing media-storage details.
 
 Browser Developer Tools should show requests such as:
 
-```text
+``` text
 GET /api/search?q=fixture&type=all
 GET /api/search?q=track&type=track
 GET /api/search?q=one&type=artist
@@ -2848,44 +3593,42 @@ GET /api/search?q=alpha&type=album
 
 with HTTP `200` for valid searches.
 
+------------------------------------------------------------------------
 
----
-
-# 24. Verify the Client
+# 33. Verify the Client
 
 From `client/`:
 
-```bash
+``` bash
 
 npm run test:run
 npm run lint
 npm run build
-
 ```
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
 Client tests: 25 passed, 0 failed
 Client lint:  PASS
 Client build: PASS
-
 ```
 
-Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`, `Albums`, `ArtistDetail`, `AlbumDetail`, and `Search` tests.
+Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`,
+`Albums`, `ArtistDetail`, `AlbumDetail`, and `Search` tests.
 
 The production build completes successfully.
 
 The client uses `npm run test:run` for the automated Vitest suite.
 
----
+------------------------------------------------------------------------
 
-# 25. Authentication Persistence
+# 34. Authentication Persistence
 
 The Sprint 1 `users` table contains:
 
-```text
+``` text
 
 id
 
@@ -2896,58 +3639,55 @@ password_hash
 role
 
 created_at
-
 ```
 
 Current constraints include:
 
-- username is required
+-   username is required
 
-- username cannot be blank
+-   username cannot be blank
 
-- username is unique
+-   username is unique
 
-- password hash is required
+-   password hash is required
 
-- password hash cannot be blank
+-   password hash cannot be blank
 
-- role must be `user` or `admin`
+-   role must be `user` or `admin`
 
 The persistence adapter is located at:
 
-```text
+``` text
 
 server/src/data/auth-user.repository.js
-
 ```
 
 It exposes:
 
-```text
+``` text
 
 findUserByUsername(username)
-
 ```
 
 Passwords must never be stored as plaintext.
 
-Real authentication testing requires an Argon2 hash generated through the authentication hashing implementation.
+Real authentication testing requires an Argon2 hash generated through
+the authentication hashing implementation.
 
----
+------------------------------------------------------------------------
 
-# 26. Catalog Persistence
+# 35. Catalog Persistence
 
 The catalog persistence adapter is located at:
 
-```text
+``` text
 
 server/src/data/catalog.repository.js
-
 ```
 
 Runtime path:
 
-```text
+``` text
 
 PostgreSQL
 
@@ -2971,20 +3711,21 @@ GET /api/catalog/artists/:id
 GET /api/catalog/albums
 GET /api/catalog/albums/:id
 GET /api/search
-
 ```
 
-The backend is the only application layer that should directly access PostgreSQL.
+The backend is the only application layer that should directly access
+PostgreSQL.
 
 The React client consumes HTTP APIs only.
 
-## 26.1 Sprint 2 Artist and Album Browse / Detail — Allison Yu
+## 35.1 Sprint 2 Artist and Album Browse / Detail --- Allison Yu
 
-Sprint 2 extends the Sprint 1 PostgreSQL catalog foundation into an end-to-end Artist and Album browse/detail vertical slice.
+Sprint 2 extends the Sprint 1 PostgreSQL catalog foundation into an
+end-to-end Artist and Album browse/detail vertical slice.
 
 Frontend implementation includes:
 
-```text
+``` text
 
 client/src/components/ArtistCard.jsx
 client/src/components/AlbumCard.jsx
@@ -2995,58 +3736,59 @@ client/src/pages/Albums.jsx
 client/src/pages/AlbumDetail.jsx
 client/src/pages/ArtistAlbumBrowse.css
 client/src/pages/ArtistAlbumDetail.css
-
 ```
 
 Registered client routes:
 
-```text
+``` text
 
 /artists
 /artists/:id
 /albums
 /albums/:id
-
 ```
 
-Backend implementation extends the existing catalog repository, service, and handler rather than introducing a competing backend path.
+Backend implementation extends the existing catalog repository, service,
+and handler rather than introducing a competing backend path.
 
 Artist browse/detail behavior:
 
-```text
+``` text
 
 GET /api/catalog/artists
 GET /api/catalog/artists/:id
-
 ```
 
 Album browse/detail behavior:
 
-```text
+``` text
 
 GET /api/catalog/albums
 GET /api/catalog/albums/:id
-
 ```
 
-Artist detail returns the selected Artist and related Albums. Album detail returns the selected Album, Artist identity, and basic Track catalog metadata.
+Artist detail returns the selected Artist and related Albums. Album
+detail returns the selected Album, Artist identity, and basic Track
+catalog metadata.
 
 The detail APIs use controlled HTTP behavior:
 
-```text
+``` text
 
 existing resource -> 200
 valid but missing ID -> 404
 malformed ID -> 400
 internal catalog failure -> 500 with catalog_unavailable
-
 ```
 
-Album detail intentionally does not implement Track Detail navigation, playback controls, streaming behavior, codec/bitrate information, filesystem paths, storage keys, or other media-storage implementation details.
+Album detail intentionally does not implement Track Detail navigation,
+playback controls, streaming behavior, codec/bitrate information,
+filesystem paths, storage keys, or other media-storage implementation
+details.
 
 Dedicated Sprint 2 server tests include:
 
-```text
+``` text
 
 server/test/catalog-artists.repository.test.js
 server/test/catalog-artists.service.test.js
@@ -3054,50 +3796,49 @@ server/test/catalog-artists-routes.test.js
 server/test/catalog-albums.repository.test.js
 server/test/catalog-albums.service.test.js
 server/test/catalog-albums-routes.test.js
-
 ```
 
 Verified Sprint 2 full server result:
 
-```text
+``` text
 
-tests 125
+tests 130
 suites 12
-pass 125
+pass 130
 fail 0
 cancelled 0
 skipped 0
 todo 0
-
 ```
 
 Client verification for this slice uses:
 
-```bash
+``` bash
 
 cd client
 npm run test:run
 npm run lint
 npm run build
-
 ```
 
 `client/dist/` is generated by the Vite build and is ignored by Git.
 
+## 35.2 Sprint 2 Catalog Search --- Christian McGowan
 
-## 26.2 Sprint 2 Catalog Search — Christian McGowan
-
-Sprint 2 adds an independently owned search vertical slice while consuming the shared catalog schema and existing Artist/Album UI contracts.
+Sprint 2 adds an independently owned search vertical slice while
+consuming the shared catalog schema and existing Artist/Album UI
+contracts.
 
 Database support:
 
-```text
+``` text
 database/migrations/20260927_cmg_001_catalog_search_support.sql
 ```
 
-The migration enables PostgreSQL `pg_trgm` and creates GIN trigram indexes for:
+The migration enables PostgreSQL `pg_trgm` and creates GIN trigram
+indexes for:
 
-```text
+``` text
 artists.name
 albums.title
 tracks.title
@@ -3105,7 +3846,7 @@ tracks.title
 
 Runtime path:
 
-```text
+``` text
 React Search page
     ↓
 GET /api/search
@@ -3121,7 +3862,7 @@ PostgreSQL
 
 Search source files:
 
-```text
+``` text
 client/src/pages/Search.jsx
 client/src/pages/Search.css
 server/src/search/search.handler.js
@@ -3131,7 +3872,7 @@ server/src/data/search.repository.js
 
 Dedicated regression coverage:
 
-```text
+``` text
 client/src/pages/Search.test.jsx
 server/test/search-routes.test.js
 server/test/search.repository.test.js
@@ -3139,56 +3880,56 @@ server/test/search.service.test.js
 database/test/catalog-db.integration.test.js
 ```
 
-The search implementation consumes shared catalog identities and existing Artist/Album routes rather than duplicating teammate-owned browse/detail functionality.
+The search implementation consumes shared catalog identities and
+existing Artist/Album routes rather than duplicating teammate-owned
+browse/detail functionality.
 
+------------------------------------------------------------------------
 
----
-
-# 27. Catalog / Media Boundary
+# 36. Catalog / Media Boundary
 
 The canonical cross-feature catalog track identity is:
 
-```text
+``` text
 
 tracks.id
-
 ```
 
 The media subsystem owns:
 
-- resolving `trackId` to an audio resource
+-   resolving `trackId` to an audio resource
 
-- storage representation
+-   storage representation
 
-- file availability
+-   file availability
 
-- byte-range streaming
+-   byte-range streaming
 
-- buffering
+-   buffering
 
-- transcoding
+-   transcoding
 
-- media-specific errors
+-   media-specific errors
 
-- media-specific authorization behavior
+-   media-specific authorization behavior
 
-The catalog does not expose local filesystem paths or internal media storage details.
+The catalog does not expose local filesystem paths or internal media
+storage details.
 
 Full contract:
 
-```text
+``` text
 
 docs/catalog-media-boundary.md
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 28. Full Local Startup Sequence
+# 37. Full Local Startup Sequence
 
 ## Terminal 1 - Database
 
-```bash
+``` bash
 
 cd Soundwave-Live-Version/database
 
@@ -3197,48 +3938,44 @@ npm ci
 npm run db:migrate
 
 npm run db:seed
-
 ```
 
 Optional verification:
 
-```bash
+``` bash
 
 npm run test:db
-
 ```
 
 ## Terminal 2 - Backend
 
-```bash
+``` bash
 
 cd Soundwave-Live-Version/server
 
 npm ci
 
 node --env-file=.env src/server.js
-
 ```
 
 Leave this terminal running.
 
 ## Terminal 3 - Client
 
-```bash
+``` bash
 
 cd Soundwave-Live-Version/client
 
 npm ci
 
 npm run dev
-
 ```
 
 Leave this terminal running.
 
 Open the Vite URL and navigate to:
 
-```text
+``` text
 
 /catalog-debug
 /artists
@@ -3246,16 +3983,15 @@ Open the Vite URL and navigate to:
 /albums
 /albums/2001
 /search
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 29. Full Verification Sequence
+# 38. Full Verification Sequence
 
 ## Database
 
-```bash
+``` bash
 
 cd database
 
@@ -3268,47 +4004,42 @@ npm run db:migrate:test
 npm run db:seed:test
 
 npm run test:db
-
 ```
 
 Required:
 
-```text
+``` text
 
 31 passed
 0 failed
-
 ```
 
 ## Server
 
-```bash
+``` bash
 
 cd server
 
 npm test
-
 ```
 
 Required:
 
-```text
+``` text
 
-125 passed
+130 passed
 0 failed
-
 ```
 
 ## Client
 
-```bash
+``` bash
 
 cd client
 
 npm run test:run
 npm run lint
 npm run build
-
 ```
 
 All commands must complete successfully.
@@ -3317,7 +4048,7 @@ All commands must complete successfully.
 
 With backend and client running:
 
-```text
+``` text
 
 /catalog-debug
 /artists
@@ -3325,62 +4056,62 @@ With backend and client running:
 /albums
 /albums/2001
 /search
-
 ```
 
 Verify:
 
-```text
+``` text
 
-Loaded 4 tracks.
+Loaded 5 tracks.
 GET /api/catalog/tracks -> HTTP 200
 GET /api/catalog/artists -> HTTP 200
 GET /api/catalog/artists/1001 -> HTTP 200
 GET /api/catalog/albums -> HTTP 200
 GET /api/catalog/albums/2001 -> HTTP 200
 GET /api/search?q=fixture&type=all -> HTTP 200
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 30. Troubleshooting
+# 39. Troubleshooting
 
 ## PostgreSQL password / SCRAM error
 
 If Node reports an error similar to:
 
-```text
+``` text
 
 SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
-
 ```
 
 verify that:
 
-1. The process is loading the expected environment file.
+1.  The process is loading the expected environment file.
 
-2. `PGPASSWORD` exists.
+2.  `PGPASSWORD` exists.
 
-3. The environment file is in the package directory from which the command is being run.
+3.  The environment file is in the package directory from which the
+    command is being run.
 
-Database scripts already load `.env` or `.env.test` through package scripts.
+Database scripts already load `.env` or `.env.test` through package
+scripts.
 
 For server runtime, use:
 
-```bash
+``` bash
 
 node --env-file=.env src/server.js
-
 ```
 
 unless the PostgreSQL variables are already exported.
 
 ## Migration is skipped
 
-This is expected when a migration is already recorded in `schema_migrations`.
+This is expected when a migration is already recorded in
+`schema_migrations`.
 
-Do not delete migration-history rows merely to force migrations to rerun.
+Do not delete migration-history rows merely to force migrations to
+rerun.
 
 Create a new migration for later schema changes.
 
@@ -3388,30 +4119,29 @@ Create a new migration for later schema changes.
 
 Check in this order:
 
-1. PostgreSQL is running.
+1.  PostgreSQL is running.
 
-2. Development migrations are applied.
+2.  Development migrations are applied.
 
-3. Development seed completed.
+3.  Development seed completed.
 
-4. Backend is running on port `8080`.
+4.  Backend is running on port `8080`.
 
-5. `GET http://localhost:8080/api/catalog/tracks` returns HTTP `200`.
+5.  `GET http://localhost:8080/api/catalog/tracks` returns HTTP `200`.
 
-6. Vite is running.
+6.  Vite is running.
 
-7. Browser is using `/catalog-debug`.
+7.  Browser is using `/catalog-debug`.
 
-8. Network panel shows `/api/catalog/tracks`.
+8.  Network panel shows `/api/catalog/tracks`.
 
 Do not hardcode `http://localhost:8080` into `CatalogDebug.jsx`.
 
 Use the relative path:
 
-```text
+``` text
 
 /api/catalog/tracks
-
 ```
 
 through the Vite development proxy.
@@ -3420,116 +4150,120 @@ through the Vite development proxy.
 
 Check in this order:
 
-1. PostgreSQL is running.
-2. `20260927_cmg_001_catalog_search_support.sql` has been applied.
-3. The deterministic catalog seed has been loaded.
-4. The backend is running.
-5. `GET /api/search?q=fixture` returns HTTP `200`.
-6. Vite is running and proxying `/api`.
-7. The browser is using `/search`.
-8. The Network panel shows the expected `/api/search` request.
+1.  PostgreSQL is running.
+2.  `20260927_cmg_001_catalog_search_support.sql` has been applied.
+3.  The deterministic catalog seed has been loaded.
+4.  The backend is running.
+5.  `GET /api/search?q=fixture` returns HTTP `200`.
+6.  Vite is running and proxying `/api`.
+7.  The browser is using `/search`.
+8.  The Network panel shows the expected `/api/search` request.
 
-For a valid but unmatched query, the correct API behavior is HTTP `200` with empty `tracks`, `artists`, and `albums` arrays.
+For a valid but unmatched query, the correct API behavior is HTTP `200`
+with empty `tracks`, `artists`, and `albums` arrays.
 
----
+------------------------------------------------------------------------
 
-# 14. Authentication Setup — Emmanuel De Guzman
+# 40. Authentication Setup --- Emmanuel De Guzman
 
-Emmanuel De Guzman owns the Sprint 1 login and identity/authentication spike.
+Emmanuel De Guzman owns the Sprint 1 login and identity/authentication
+spike.
 
-The authentication implementation is currently being developed on Emmanuel's
+The authentication implementation is currently being developed on
+Emmanuel's
 
-development branch. Much of what is required of it, such as a hasher, token manager, verifiers, identity handlers, request handlers and login requests have been merged into `main`
+development branch. Much of what is required of it, such as a hasher,
+token manager, verifiers, identity handlers, request handlers and login
+requests have been merged into `main`
 
 Current authentication work includes:
 
-- Argon2id password hashing and password verification;
+-   Argon2id password hashing and password verification;
 
-- signed JWT access-token creation and verification;
+-   signed JWT access-token creation and verification;
 
-- short-lived access-token expiration;
+-   short-lived access-token expiration;
 
-- Bearer-token request authentication;
+-   Bearer-token request authentication;
 
-- validation of supported authentication roles;
+-   validation of supported authentication roles;
 
-- backend authentication tests using Node.js `node:test`.
+-   backend authentication tests using Node.js `node:test`.
 
-## 14.1 Authentication Dependencies
+## 40.1 Authentication Dependencies
 
-The current authentication implementation uses the following external Node.js
+The current authentication implementation uses the following external
+Node.js
 
 packages:
 
-| Package | Purpose |
+| Package \| Purpose \|
 
-| --- | --- |
+| --- \| --- \|
 
-| `argon2` | Argon2id password hashing and password verification |
+| `argon2` \| Argon2id password hashing and password verification \|
 
-| `jsonwebtoken` | JWT creation, signing, and verification |
+| `jsonwebtoken` \| JWT creation, signing, and verification \|
 
-These dependencies are currently required by Emmanuel's authentication branch.
+These dependencies are currently required by Emmanuel's authentication
+branch.
 
-They are within the server directory, under /src/auth. Because they are now within the server directory, authentication is ready to be wired into the next sprint.
+They are within the server directory, under /src/auth. Because they are
+now within the server directory, authentication is ready to be wired
+into the next sprint.
 
-## 14.2 Authentication Source Files
+## 40.2 Authentication Source Files
 
 The current authentication implementation is organized under:
 
-```
+    server/src/auth 
 
-server/src/auth 
+    login.js for login requests
 
-login.js for login requests
+    me.js for identity handler
 
-me.js for identity handler
+    auth.js for request handler
 
-auth.js for request handler
+    hasher.js for argon password hasher and verifier
 
-hasher.js for argon password hasher and verifier
+    token.js for token creator and verifier
 
-token.js for token creator and verifier
+    server.test
 
-server.test
+    login.test.js to test login requests
 
-login.test.js to test login requests
+    me.test.js to test identity handler
 
-me.test.js to test identity handler
+    auth.test.js to test the request handler
 
-auth.test.js to test the request handler
+    hasher.test.js to test hasher and verifier
 
-hasher.test.js to test hasher and verifier
+    token.test.js to test token creator and verifier
 
-token.test.js to test token creator and verifier
+## 40.3 Authentication Tests
 
-```
-
-## 14.3 Authentication Tests
-
-Once the authentication dependencies are installed, run the authentication
+Once the authentication dependencies are installed, run the
+authentication
 
 test suite from the server development directory:
 
-```bash
+``` bash
 
 npm test
-
 ```
 
 The latest local authentication test run produced:
 
-```text
+``` text
 
 tests 42
 
 pass 42
 
 fail 0
-
 ```
 
-## 14.4 Auth Config
+## 40.4 Auth Config
 
 The Sprint 1 authentication implementation defines `JWT_SECRET` as the
 
@@ -3539,57 +4273,71 @@ The secret is supplied to:
 
 `createTokenService(secretKey)`
 
-Real signing secrets must not be committed to Git, exposed to the client,
+Real signing secrets must not be committed to Git, exposed to the
+client,
 
 or written to logs.
 
-The shared backend now reads `JWT_SECRET` during startup and passes it to
+The shared backend now reads `JWT_SECRET` during startup and passes it
+to
 
 `createTokenService(secretKey)`.
 
 Server startup requires a valid `JWT_SECRET`. The value must be supplied
 
-through the server environment and must not be hardcoded in source control.
+through the server environment and must not be hardcoded in source
+control.
 
 See `AUTHCONFIG.md` for generation, handling, testing, and configuration
 
 details.
 
-# 15. Media and Streaming Setup — Matthew Choi
+# 41. Media and Streaming Setup --- Matthew Choi
 
-Matthew Choi owns the Sprint 1 media-ingest and HTTP Range playback spike.
+Sprint 2 integrates the Sprint 1 media spike into the shared Soundwave
+backend.
 
-Once that implementation is merged into `main`, this section should contain verified instructions for:
+Current media implementation includes:
 
-- legal test-media setup;
+-   legal test media stored under `mediaFiles/`
+-   source/license documentation in `mediaFiles/license.txt`
+-   metadata extraction through `music-metadata`
+-   metadata fields for title, artist, album, and duration
+-   fallback behavior for missing metadata
+-   PostgreSQL-backed Track persistence with `media_path`
+-   database-backed Track lookup through `catalog.repository.js`
+-   HTTP full-file audio responses
+-   HTTP byte-range streaming with `206 Partial Content`
+-   invalid-range handling with HTTP `416`
+-   missing Track and missing media handling
+-   automated metadata, Track persistence, and media-streaming tests
 
-- media directory configuration;
+Current media source files:
 
-- media ingest;
+``` text
+mediaFiles/test.mp3
+mediaFiles/license.txt
+server/src/media/metadata.js
+server/src/media/streaming.js
+server/test/metadata.test.js
+server/test/track-persistence.test.js
+server/test/media-streaming.test.js
+```
 
-- metadata extraction;
+------------------------------------------------------------------------
 
-- media endpoint verification;
+# 42. Packaging and Self-Hosted Setup --- Konner Rigby
 
-- HTTP Range requests;
+Konner Rigby owns the Sprint 1 client-shell and self-host packaging
+implementation.
 
-- HTTP `206 Partial Content` verification;
+Sprint 1 establishes Docker packaging for the Soundwave client and
+backend, Docker Compose orchestration, automated smoke testing, and
+self-host setup documentation.
 
-- media-specific automated tests.
+## 42.1 Current Packaging Architecture
 
-Do not implement or document a competing media endpoint outside the established media contract.
-
----
-
-# 16. Packaging and Self-Hosted Setup — Konner Rigby
-
-Konner Rigby owns the Sprint 1 client-shell and self-host packaging implementation.
-
-Sprint 1 establishes Docker packaging for the Soundwave client and backend, Docker Compose orchestration, automated smoke testing, and self-host setup documentation.
-
-## 16.1 Current Packaging Architecture
-
-```text
+``` text
 Browser
    |
    | localhost:5173
@@ -3607,185 +4355,190 @@ Host PostgreSQL
 
 Docker Compose currently manages:
 
-- React/Vite client
-- Node.js backend server
+-   React/Vite client
+-   Node.js backend server
 
 PostgreSQL currently runs on the host machine.
 
-## 16.2 Required Tooling
+## 42.2 Required Tooling
 
 Verify Docker:
 
-```bash
+``` bash
 docker --version
 docker compose version
 ```
 
-Docker Desktop must be running before starting the Compose stack. PostgreSQL must also be running and configured according to the database setup documented elsewhere in this README.
+Docker Desktop must be running before starting the Compose stack.
+PostgreSQL must also be running and configured according to the database
+setup documented elsewhere in this README.
 
-## 16.3 Packaging Files
+## 42.3 Packaging Files
 
-```text
+``` text
 client/Dockerfile
 server/Dockerfile
 compose.yml
 scripts/compose-smoke-test.mjs
 ```
 
-## 16.4 Environment and Networking
+## 42.4 Environment and Networking
 
 Docker Compose consumes the existing local configuration:
 
-```text
+``` text
 database/.env
 server/.env
 ```
 
-These files contain local credentials and secrets and must not be committed.
+These files contain local credentials and secrets and must not be
+committed.
 
 The server container reaches PostgreSQL running on the host through:
 
-```text
+``` text
 host.docker.internal
 ```
 
 The client communicates with the backend through:
 
-```text
+``` text
 http://server:8080
 ```
 
-## 16.5 Start Soundwave with Docker Compose
+## 42.5 Start Soundwave with Docker Compose
 
 From the repository root:
 
-```bash
+``` bash
 docker compose up --build
 ```
 
 The client is available at:
 
-```text
+``` text
 http://localhost:5173
 ```
 
 The backend is available at:
 
-```text
+``` text
 http://localhost:8080
 ```
 
 Verify backend health:
 
-```bash
+``` bash
 curl http://localhost:8080/health
 ```
 
 Expected:
 
-```json
+``` json
 {"status":"ok"}
 ```
 
 The client should display `Backend online`.
 
-## 16.6 Stop Soundwave
+## 42.6 Stop Soundwave
 
-```bash
+``` bash
 docker compose down
 ```
 
-## 16.7 Automated Compose Smoke Test
+## 42.7 Automated Compose Smoke Test
 
 From the repository root:
 
-```bash
+``` bash
 node scripts/compose-smoke-test.mjs
 ```
 
-The smoke test builds and starts the Compose stack, waits for readiness, verifies backend health and client availability, reports success or failure, and cleans up the Compose services.
+The smoke test builds and starts the Compose stack, waits for readiness,
+verifies backend health and client availability, reports success or
+failure, and cleans up the Compose services.
 
 Successful output includes:
 
-```text
+``` text
 Backend health check passed.
 Client check passed.
 Soundwave Compose smoke test passed.
 ```
 
-## 16.8 Supporting Documentation
+## 42.8 Supporting Documentation
 
 Detailed self-host setup:
 
-```text
+``` text
 docs/self-host-setup.md
 ```
 
 Pull-request review checklist:
 
-```text
+``` text
 docs/pr-review-checklist.md
 ```
 
-## 16.9 Sprint 1 Scope
+## 42.9 Sprint 1 Scope
 
-Sprint 1 establishes the initial development/self-host packaging foundation. Production deployment hardening, clean-machine release verification, backup/recovery procedures, and final release configuration remain later-sprint work.
+Sprint 1 establishes the initial development/self-host packaging
+foundation. Production deployment hardening, clean-machine release
+verification, backup/recovery procedures, and final release
+configuration remain later-sprint work.
 
----
+------------------------------------------------------------------------
 
-# 17. Git Development Workflow
+# 43. Git Development Workflow
 
-Implementation work should be performed on a developer branch rather than directly on `main`.
+Implementation work should be performed on a developer branch rather
+than directly on `main`.
 
-## 17.1 Check Current Repository State
+## 43.1 Check Current Repository State
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
 git status
 
 git branch --show-current
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 17.2 Switch to Your Development Branch
+## 43.2 Switch to Your Development Branch
 
-```bash
+``` bash
 
 git switch <your-development-branch>
-
 ```
 
 Example:
 
-```bash
+``` bash
 
 git switch christian-dev
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 17.3 Synchronize With the Latest `main`
+## 43.3 Synchronize With the Latest `main`
 
 Before beginning a new block of work:
 
-```bash
+``` bash
 
 git fetch origin
 
 git merge origin/main
 
 git status
-
 ```
 
 Example complete sequence:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
@@ -3796,226 +4549,207 @@ git fetch origin
 git merge origin/main
 
 git status
-
 ```
 
-This should also be done after another teammate merges work that your implementation depends on.
+This should also be done after another teammate merges work that your
+implementation depends on.
 
-If Git reports a merge conflict, stop and resolve the affected files before continuing.
+If Git reports a merge conflict, stop and resolve the affected files
+before continuing.
 
 Do not blindly overwrite another teammate's changes.
 
----
+------------------------------------------------------------------------
 
-# 18. Inspect Changes Before Committing
+# 44. Inspect Changes Before Committing
 
 Check status:
 
-```bash
+``` bash
 
 git status
-
 ```
 
 Inspect unstaged changes:
 
-```bash
+``` bash
 
 git diff
-
 ```
 
 Avoid the Git pager if desired:
 
-```bash
+``` bash
 
 git --no-pager diff
-
 ```
 
 Check for whitespace errors:
 
-```bash
+``` bash
 
 git diff --check
-
 ```
 
-No output from `git diff --check` means Git did not detect whitespace errors.
+No output from `git diff --check` means Git did not detect whitespace
+errors.
 
----
+------------------------------------------------------------------------
 
-# 19. Stage Changes
+# 45. Stage Changes
 
 Stage only files related to the current task.
 
 General form:
 
-```bash
+``` bash
 
 git add <files>
-
 ```
 
 Example:
 
-```bash
+``` bash
 
 git add README.md
-
 ```
 
 Example for backend files:
 
-```bash
+``` bash
 
 git add server
-
 ```
 
 Check staged files:
 
-```bash
+``` bash
 
 git status
-
 ```
 
 View a summary:
 
-```bash
+``` bash
 
 git diff --cached --stat
-
 ```
 
 Inspect the full staged change:
 
-```bash
+``` bash
 
 git --no-pager diff --cached
-
 ```
 
 Check staged whitespace:
 
-```bash
+``` bash
 
 git diff --cached --check
-
 ```
 
 Do not commit until you understand what is staged.
 
----
+------------------------------------------------------------------------
 
-# 20. Commit Changes
+# 46. Commit Changes
 
 Create a descriptive commit:
 
-```bash
+``` bash
 
 git commit -m "<descriptive *commit* *message*>"
-
 ```
 
 Examples used or planned during Sprint 1:
 
-```bash
+``` bash
 
 git commit -m "feat: add Node.js backend health check skeleton"
-
 ```
 
-```bash
+``` bash
 
 git commit -m "docs: add complete development setup guide"
-
 ```
 
-```bash
+``` bash
 
 git commit -m "chore: establish pull request workflow"
-
 ```
 
-```bash
+``` bash
 
 git commit -m "ci: add Node.js and client verification checks"
-
 ```
 
 Inspect recent commit history:
 
-```bash
+``` bash
 
 git log --oneline -3
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 21. Push Your Development Branch
+# 47. Push Your Development Branch
 
 Push the current development branch:
 
-```bash
+``` bash
 
 git push origin <your-development-branch>
-
 ```
 
 Example:
 
-```bash
+``` bash
 
 git push origin christian-dev
-
 ```
 
 Then verify:
 
-```bash
+``` bash
 
 git status
-
 ```
 
 A synchronized branch should report approximately:
 
-```text
+``` text
 
 On branch <your-development-branch>
 
 Your branch is up to date with 'origin/<your-development-branch>'.
 
 nothing to commit, working tree clean
-
 ```
 
----
+------------------------------------------------------------------------
 
-# 22. Pull Request Workflow
+# 48. Pull Request Workflow
 
 After pushing:
 
-1. Open the Soundwave GitHub repository.
+1.  Open the Soundwave GitHub repository.
 
-2. Select ******Pull requests******.
+2.  Select **Pull requests**.
 
-3. Create a new pull request.
+3.  Create a new pull request.
 
-4. Set the base branch to `main`.
+4.  Set the base branch to `main`.
 
-5. Set the compare branch to your development branch.
+5.  Set the compare branch to your development branch.
 
-6. Explain what changed.
+6.  Explain what changed.
 
-7. Explain how the change was tested.
+7.  Explain how the change was tested.
 
-8. Link the corresponding Jira issue when available.
+8.  Link the corresponding Jira issue when available.
 
-9. Request review from at least one teammate.
+9.  Request review from at least one teammate.
 
 10. Address review comments.
 
@@ -4025,7 +4759,7 @@ After pushing:
 
 The expected integration flow is:
 
-```text
+``` text
 
 Developer Branch
 
@@ -4052,18 +4786,17 @@ Peer Review
        v
 
 main
-
 ```
 
 Direct feature development on `main` should be avoided.
 
----
+------------------------------------------------------------------------
 
-# 23. Synchronize After a Pull Request Is Merged
+# 49. Synchronize After a Pull Request Is Merged
 
 After your pull request is merged, update your development branch.
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
@@ -4074,12 +4807,11 @@ git fetch origin
 git merge origin/main
 
 git status
-
 ```
 
 Christian example:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
@@ -4090,72 +4822,70 @@ git fetch origin
 git merge origin/main
 
 git status
-
 ```
 
-This keeps the development branch synchronized with work merged by other teammates.
+This keeps the development branch synchronized with work merged by other
+teammates.
 
----
+------------------------------------------------------------------------
 
-# 24. Environment and Secrets
+# 50. Environment and Secrets
 
 Do not commit:
 
-- passwords;
+-   passwords;
 
-- API keys;
+-   API keys;
 
-- authentication tokens;
+-   authentication tokens;
 
-- private keys;
+-   private keys;
 
-- database passwords;
+-   database passwords;
 
-- personal credentials;
+-   personal credentials;
 
-- production secrets;
+-   production secrets;
 
-- real `.env` files containing secret values.
+-   real `.env` files containing secret values.
 
-Environment-specific configuration should use environment variables or another team-approved configuration mechanism.
+Environment-specific configuration should use environment variables or
+another team-approved configuration mechanism.
 
-A sanitized `.env.example` may be committed once the complete environment-variable contract is established.
+A sanitized `.env.example` may be committed once the complete
+environment-variable contract is established.
 
 The current backend already supports:
 
-```text
+``` text
 
 PORT
-
 ```
 
 Example:
 
-```bash
+``` bash
 
 PORT=8081 npm start
-
 ```
 
-## 24.1 Authentication Environment
+## 50.1 Authentication Environment
 
 The Sprint 1 authentication implementation defines:
 
-```
+    `JWT_SECRET` is the server-side secret used to sign and verify JWT access
 
-`JWT_SECRET` is the server-side secret used to sign and verify JWT access
-
-tokens.
-
-```
+    tokens.
 
 The shared backend consumes this environment variable during startup.
 
-`server/src/server.js` reads `JWT_SECRET` and passes it to the token service.
+`server/src/server.js` reads `JWT_SECRET` and passes it to the token
+service.
 
 Startup fails intentionally when a valid signing secret is not supplied.
 
-Real JWT signing secrets must not be committed to Git, exposed to the client,
+Real JWT signing secrets must not be committed to Git, exposed to the
+client,
 
 or written to logs.
 
@@ -4163,113 +4893,118 @@ See `AUTHCONFIG.md` for generation, handling, testing, and deferred
 
 configuration details.
 
----
+------------------------------------------------------------------------
 
-# 25. Sprint 1 Ownership Boundaries
+# 51. Sprint 1 Ownership Boundaries
 
-Sprint 1 implementation is divided so teammates can integrate without creating competing implementations of the same feature.
+Sprint 1 implementation is divided so teammates can integrate without
+creating competing implementations of the same feature.
 
-| Team Member | Sprint 1 Primary Responsibility |
+| Team Member \| Sprint 1 Primary Responsibility \|
 
-| --- | --- |
+| --- \| --- \|
 
-| Christian McGowan | Walking skeleton, backend health contract, CI/delivery workflow |
+| Christian McGowan \| Walking skeleton, backend health contract,
+  CI/delivery workflow \|
 
-| Allison Yu | Catalog data foundation and deterministic seed |
+| Allison Yu \| Catalog data foundation and deterministic seed \|
 
-| Emmanuel De Guzman | Login and identity/authentication spike |
+| Emmanuel De Guzman \| Login and identity/authentication spike \|
 
-| Matthew Choi | Media ingest and HTTP Range playback spike |
+| Matthew Choi \| Media ingest and HTTP Range playback spike \|
 
-| Konner Rigby | Client shell and self-host packaging |
+| Konner Rigby \| Client shell and self-host packaging \|
 
 Shared integration is expected.
 
 A developer may:
 
-- consume another teammate's interface;
+-   consume another teammate's interface;
 
-- review another teammate's pull request;
+-   review another teammate's pull request;
 
-- integrate their own feature with another subsystem.
+-   integrate their own feature with another subsystem.
 
-A developer should not independently implement another teammate's primary Sprint 1 feature.
+A developer should not independently implement another teammate's
+primary Sprint 1 feature.
 
----
+------------------------------------------------------------------------
 
-# 26. Current Sprint 1 / Sprint 2 Status
+# 52. Current Sprint 1 / Sprint 2 Status
 
 Currently established or merged:
 
-- GitHub repository
-- individual development branches
-- peer-reviewed PR workflow
-- Node.js + JavaScript backend
-- configurable backend port
-- public `GET /health`
-- backend automated tests
-- React/Vite client scaffold
-- React Router application routing
-- persistent client shell
-- shared CSS design tokens
-- sidebar navigation
-- persistent playback region
-- Home, Library, Login, and Search pages
-- backend-health status integration
-- client shell component tests
-- client Dockerfile
-- server Dockerfile for Compose packaging
-- Docker Compose client/server orchestration
-- automated Compose smoke test
-- self-host setup documentation
-- pull-request review checklist
-- PostgreSQL catalog-data foundation
-- authentication/identity integration
+-   GitHub repository
+-   individual development branches
+-   peer-reviewed PR workflow
+-   Node.js + JavaScript backend
+-   configurable backend port
+-   public `GET /health`
+-   backend automated tests
+-   React/Vite client scaffold
+-   React Router application routing
+-   persistent client shell
+-   shared CSS design tokens
+-   sidebar navigation
+-   persistent playback region
+-   Home, Library, Login, and Search pages
+-   backend-health status integration
+-   client shell component tests
+-   client Dockerfile
+-   server Dockerfile for Compose packaging
+-   Docker Compose client/server orchestration
+-   automated Compose smoke test
+-   self-host setup documentation
+-   pull-request review checklist
+-   PostgreSQL catalog-data foundation
+-   authentication/identity integration
 
 Sprint 2 Christian McGowan additions currently include:
 
-- PostgreSQL `pg_trgm` search-support migration and GIN indexes
-- `GET /api/search` for tracks, artists, and albums
-- `all`, `track`, `artist`, and `album` filtering
-- grouped React Search page UI
-- search query validation and controlled error behavior
-- parameterized search repository queries
-- stable track-ID / media-storage boundary verification
-- dedicated search repository, service, route, database, and client tests
-- Client Tests GitHub Actions gate
-- PostgreSQL-backed Database Tests GitHub Actions gate
-- Build Metadata GitHub Actions check
-- `s2.<run_number>+<short_sha>` build identity
-- `build-info.json` traceability metadata
-- Build Metadata `version` job output
-- `SOUNDWAVE_BUILD_VERSION` workflow environment export
-- hosted build-version export verification
-- build/version contract documentation
-- Search API and test-notes documentation
-- Sprint 2 CI/CD analysis and results documentation
+-   PostgreSQL `pg_trgm` search-support migration and GIN indexes
+-   `GET /api/search` for tracks, artists, and albums
+-   `all`, `track`, `artist`, and `album` filtering
+-   grouped React Search page UI
+-   search query validation and controlled error behavior
+-   parameterized search repository queries
+-   stable track-ID / media-storage boundary verification
+-   dedicated search repository, service, route, database, and client
+    tests
+-   Client Tests GitHub Actions gate
+-   PostgreSQL-backed Database Tests GitHub Actions gate
+-   Build Metadata GitHub Actions check
+-   `s2.<run_number>+<short_sha>` build identity
+-   `build-info.json` traceability metadata
+-   Build Metadata `version` job output
+-   `SOUNDWAVE_BUILD_VERSION` workflow environment export
+-   hosted build-version export verification
+-   build/version contract documentation
+-   Search API and test-notes documentation
+-   Sprint 2 CI/CD analysis and results documentation
 
 Sprint 2 Allison Yu additions currently include:
 
-- Artist and Album browse cards
-- Artist and Album browse pages
-- Artist and Album detail pages
-- Artist and Album client routes
-- PostgreSQL-backed Artist browse/detail catalog APIs
-- PostgreSQL-backed Album browse/detail catalog APIs
-- controlled Artist/Album `400`, `404`, and `500` behavior
-- Artist/Album repository, service, route, and client tests
+-   Artist and Album browse cards
+-   Artist and Album browse pages
+-   Artist and Album detail pages
+-   Artist and Album client routes
+-   PostgreSQL-backed Artist browse/detail catalog APIs
+-   PostgreSQL-backed Album browse/detail catalog APIs
+-   controlled Artist/Album `400`, `404`, and `500` behavior
+-   Artist/Album repository, service, route, and client tests
 
-Other Sprint 1 subsystem work may continue to evolve as remaining team pull requests are merged.
+Other Sprint 1 subsystem work may continue to evolve as remaining team
+pull requests are merged.
 
----
+------------------------------------------------------------------------
 
-# 27. Shared README Ownership
+# 53. Shared README Ownership
 
 The root `README.md` is shared team documentation.
 
 Before modifying it:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
@@ -4280,86 +5015,83 @@ git fetch origin
 git merge origin/main
 
 git status
-
 ```
 
 To minimize conflicts:
 
-1. Update only the section relevant to your subsystem where practical.
+1.  Update only the section relevant to your subsystem where practical.
 
-2. Do not reorganize or rewrite another teammate's section unnecessarily.
+2.  Do not reorganize or rewrite another teammate's section
+    unnecessarily.
 
-3. Do not document commands that have not actually been verified.
+3.  Do not document commands that have not actually been verified.
 
-4. Update commands whenever implementation changes make older instructions invalid.
+4.  Update commands whenever implementation changes make older
+    instructions invalid.
 
-5. Merge documentation changes regularly instead of allowing large conflicting README changes to accumulate.
+5.  Merge documentation changes regularly instead of allowing large
+    conflicting README changes to accumulate.
 
-6. Each teammate should document the setup and verification commands associated with the subsystem they implement.
+6.  Each teammate should document the setup and verification commands
+    associated with the subsystem they implement.
 
----
+------------------------------------------------------------------------
 
-# 28. Troubleshooting
+# 54. Troubleshooting
 
-## 28.1 `npm` Cannot Find `package.json`
+## 54.1 `npm` Cannot Find `package.json`
 
 If npm reports an error similar to:
 
-```text
+``` text
 
 ENOENT
 
 Could not read package.json
-
 ```
 
 check your location:
 
-```bash
+``` bash
 
 pwd
-
 ```
 
 For backend commands, the path should end with:
 
-```text
+``` text
 
 /Soundwave-Live-Version/server
-
 ```
 
 For client commands, the path should end with:
 
-```text
+``` text
 
 /Soundwave-Live-Version/client
-
 ```
 
 Inspect the current directory:
 
-```bash
+``` bash
 
 ls -la
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.2 Inspect Backend Files
+## 54.2 Inspect Backend Files
 
 From the repository root:
 
-```bash
+``` bash
 
 find server -maxdepth 4 -type f -print | sort
-
 ```
 
 Expected current backend files:
 
-```text
+``` text
 
 server/package.json
 
@@ -4368,233 +5100,213 @@ server/src/app.js
 server/src/server.js
 
 server/test/health.test.js
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.3 Inspect Client Files
+## 54.3 Inspect Client Files
 
 From the repository root:
 
-```bash
+``` bash
 
 find client -maxdepth 3 -type f -print | sort
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.4 Accidentally Created a Nested `server/server`
+## 54.4 Accidentally Created a Nested `server/server`
 
 Always check your current directory before creating relative paths:
 
-```bash
+``` bash
 
 pwd
-
 ```
 
 If you are already inside:
 
-```text
+``` text
 
 Soundwave-Live-Version/server
-
 ```
 
 use paths such as:
 
-```bash
+``` bash
 
 mkdir -p src
 
 mkdir -p test
-
 ```
 
-Do ******not****** run:
+Do **not** run:
 
-```bash
+``` bash
 
 mkdir -p server/src
-
 ```
 
 from inside `server/`, because that creates:
 
-```text
+``` text
 
 server/server/src
-
 ```
 
 From the repository root, this is correct:
 
-```bash
+``` bash
 
 mkdir -p server/src
 
 mkdir -p server/test
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.5 Port 8080 Already in Use
+## 54.5 Port 8080 Already in Use
 
 If the backend reports:
 
-```text
+``` text
 
 EADDRINUSE
-
 ```
 
 check for a running Node.js process:
 
-```bash
+``` bash
 
 ps aux | grep "[n]ode"
-
 ```
 
-If the backend is running in another terminal, return to that terminal and press:
+If the backend is running in another terminal, return to that terminal
+and press:
 
-```text
+``` text
 
 Ctrl+C
-
 ```
 
 Then retry:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm start
-
 ```
 
 Alternatively:
 
-```bash
+``` bash
 
 PORT=8081 npm start
-
 ```
 
 and verify:
 
-```bash
+``` bash
 
 curl -i http://localhost:8081/health
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.6 Exit the Git Pager
+## 54.6 Exit the Git Pager
 
 Some Git commands may open a pager.
 
 Press:
 
-```text
+``` text
 
 q
-
 ```
 
 to exit.
 
 To avoid the pager:
 
-```bash
+``` bash
 
 git --no-pager diff
-
 ```
 
 or:
 
-```bash
+``` bash
 
 git --no-pager diff --cached
-
 ```
 
----
+------------------------------------------------------------------------
 
-## 28.7 Verify Repository Structure
+## 54.7 Verify Repository Structure
 
 From the repository root:
 
-```bash
+``` bash
 
 tree -I 'node_modules|.git|build'
-
 ```
 
-This is useful after pulling another teammate's changes to confirm what was added.
+This is useful after pulling another teammate's changes to confirm what
+was added.
 
----
+------------------------------------------------------------------------
 
-# 29. Fresh-Clone Verification Checklist
+# 55. Fresh-Clone Verification Checklist
 
-The sequence below can be used to verify that a new developer can run the current Soundwave skeleton from scratch.
+The sequence below can be used to verify that a new developer can run
+the current Soundwave skeleton from scratch.
 
 ## Clone
 
-```bash
+``` bash
 
 cd ~
 
 git clone https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version.git
 
 cd Soundwave-Live-Version
-
 ```
 
 ## Inspect
 
-```bash
+``` bash
 
 git status
 
 git branch --show-current
 
 tree -I 'node_modules|.git|build'
-
 ```
 
 ## Install Client Dependencies
 
-```bash
+``` bash
 
 cd client
 
 npm ci
-
 ```
 
 ## Verify Client
 
-```bash
+``` bash
 
 npm run test:run
 npm run lint
 npm run build
-
 ```
 
 ## Start Client
 
-```bash
+``` bash
 
 npm run dev
-
 ```
 
 Leave that terminal running.
@@ -4603,71 +5315,68 @@ Leave that terminal running.
 
 Before starting the backend, make sure:
 
-- PostgreSQL is running;
+-   PostgreSQL is running;
 
-- the development database has been migrated;
+-   the development database has been migrated;
 
-- `server/.env` exists locally;
+-   `server/.env` exists locally;
 
-- server dependencies are installed.
+-   server dependencies are installed.
 
 Then:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm ci
 
 node --env-file=.env src/server.js
-
 ```
 
 Leave that terminal running.
 
-If the required PostgreSQL variables and `JWT_SECRET` are already exported in the shell, `npm start` may be used instead.
+If the required PostgreSQL variables and `JWT_SECRET` are already
+exported in the shell, `npm start` may be used instead.
 
 ## Verify Backend in Another Terminal
 
-```bash
+``` bash
 
 curl -i http://localhost:8080/health
 
 curl -i http://localhost:8080/not-real
-
 ```
 
 Expected behavior:
 
-```text
+``` text
 
 GET /health   -> HTTP 200
 
 unknown route -> HTTP 404
-
 ```
 
 ## Run Backend Tests
 
 Stop the backend with `Ctrl+C`, then:
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm test
-
 ```
 
 Verified Sprint 2 result:
 
-```text
+``` text
 
-tests 125
+tests 130
 
 suites 12
 
-pass 125
+pass 130
 
 fail 0
 
@@ -4676,134 +5385,137 @@ cancelled 0
 skipped 0
 
 todo 0
-
 ```
 
-Later sprint work may increase the test count; the durable requirement is `fail 0`.
+Later sprint work may increase the test count; the durable requirement
+is `fail 0`.
 
-If all of these steps succeed, the current Soundwave development checkout is installed and functioning correctly.
+If all of these steps succeed, the current Soundwave development
+checkout is installed and functioning correctly.
 
----
+------------------------------------------------------------------------
 
 ## Verify Self-Host Packaging
 
-After PostgreSQL and the required local environment files are configured:
+After PostgreSQL and the required local environment files are
+configured:
 
-```bash
+``` bash
 cd ~/Soundwave-Live-Version
 node scripts/compose-smoke-test.mjs
 ```
 
 Expected successful output:
 
-```text
+``` text
 Backend health check passed.
 Client check passed.
 Soundwave Compose smoke test passed.
 ```
 
----
+------------------------------------------------------------------------
 
-# 30. Development Verification Checklist
+# 56. Development Verification Checklist
 
-Before opening a pull request, verify the portions of the application affected by your change.
+Before opening a pull request, verify the portions of the application
+affected by your change.
 
 ## Database
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/database
 
 npm run db:migrate:test
 npm run db:seed:test
 npm run test:db
-
 ```
 
 ## Backend
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/server
 
 npm test
-
 ```
 
 ## Client
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version/client
 
 npm run test:run
 npm run lint
 npm run build
-
 ```
 
 ## Repository
 
-```bash
+``` bash
 
 cd ~/Soundwave-Live-Version
 
 git status
 
 git diff --check
-
 ```
 
 After staging:
 
-```bash
+``` bash
 
 git status
 
 git diff --cached --stat
 
 git diff --cached --check
-
 ```
 
 Inspect the staged patch:
 
-```bash
+``` bash
 
 git --no-pager diff --cached
-
 ```
 
 Only commit files that belong to the intended change.
 
----
+------------------------------------------------------------------------
 
-# 31. Soundwave Project Direction
+# 57. Soundwave Project Direction
 
-Soundwave is being developed as a secure, responsive, self-hostable music-streaming application.
+Soundwave is being developed as a secure, responsive, self-hostable
+music-streaming application.
 
-The current Sprint 2 implementation extends the Sprint 1 foundation with PostgreSQL-backed catalog search, Artist/Album browse-detail flows, broader automated regression coverage, and stronger CI/build traceability.
+The current Sprint 2 implementation extends the Sprint 1 foundation with
+PostgreSQL-backed catalog search, Artist/Album browse-detail flows,
+broader automated regression coverage, and stronger CI/build
+traceability.
 
 Future integrations include:
 
-- PostgreSQL-backed catalog data;
+-   PostgreSQL-backed catalog data;
 
-- authentication and user identity;
+-   authentication and user identity;
 
-- HTTP Range-based audio streaming;
+-   HTTP Range-based audio streaming;
 
-- client/backend integration;
+-   client/backend integration;
 
-- media ingest;
+-   media ingest;
 
-- playback;
+-   playback;
 
-- automated CI with server, client, database, authentication-security, and build-metadata checks;
+-   automated CI with server, client, database, authentication-security,
+    and build-metadata checks;
 
-- self-host deployment;
+-   self-host deployment;
 
-- playback analytics;
+-   playback analytics;
 
-- administration functionality.
+-   administration functionality.
 
-Features should be added through small, attributable, peer-reviewed pull requests rather than large conflicting implementations.
+Features should be added through small, attributable, peer-reviewed pull
+requests rather than large conflicting implementations.
