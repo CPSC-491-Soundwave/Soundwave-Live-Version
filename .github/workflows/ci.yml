@@ -155,6 +155,48 @@ jobs:
 
           echo "Server started successfully with a generated CI-only JWT secret."
 
+  dependency-security:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Audit server dependencies
+        working-directory: server
+        run: npm audit --audit-level=high
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Audit client production dependencies
+        working-directory: client
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report full client dependency audit
+        working-directory: client
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Install database dependencies
+        working-directory: database
+        run: npm ci
+
+      - name: Audit database dependencies
+        working-directory: database
+        run: npm audit --audit-level=high
+
   client-test:
     name: Client Tests
     runs-on: ubuntu-latest
