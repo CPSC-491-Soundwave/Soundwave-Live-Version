@@ -82,7 +82,7 @@ The current merged Sprint 2 implementation uses:
 
   Access Tokens                      JWT via `jsonwebtoken`
 
-  Howl                               Audio playback
+  Audio Playback                     Howler (`howler`)
 
   music-metadata                     Metadata grabbing
 
@@ -367,15 +367,23 @@ The current backend test suite verifies:
 -   Album browse/detail HTTP success, invalid-ID, missing-resource, and
     controlled-failure behavior.
 
+-   Track detail metadata HTTP success, invalid-ID, missing-resource, and
+    controlled-failure behavior.
+
+-   Media streaming full-file `200`, byte-range `206`, invalid-range
+    `416`, unknown-track `404`, and missing-media behavior.
+
+-   Metadata extraction and Track persistence behavior.
+
 Verified Sprint 2 result:
 
 ``` text
 
-tests 130
+tests 135
 
 suites 12
 
-pass 130
+pass 135
 
 fail 0
 
@@ -424,10 +432,14 @@ Run:
 npm run test:run
 ```
 
-The tests cover the Sidebar navigation/Recently Played shell region, the
-PlaybackBar empty state, ArtistCard, AlbumCard, Artist browse/detail
-behavior, Album browse/detail behavior, and grouped catalog Search
-behavior.
+The tests cover the Sidebar navigation/Recently Played shell region,
+ArtistCard, AlbumCard, Artist browse/detail behavior, Album browse/detail
+behavior, grouped catalog Search behavior, profile/library behavior, and
+the integrated playback flow.
+
+Playback coverage includes the empty state, Track metadata loading and
+display, Play/Pause interaction, volume updates, controlled metadata
+errors, Howl cleanup, and Album Detail Track selection.
 
 ------------------------------------------------------------------------
 
@@ -551,901 +563,187 @@ tree -I 'node_modules|.git|build'
 # 6. Current Repository Structure
 
 The repository is organized by application subsystem, shared
-documentation, and deployment tooling.
+documentation, media fixtures, testing, and deployment tooling.
+
+Ignored dependency directories such as `node_modules/` and generated
+client build output such as `client/dist/` are intentionally omitted
+from this tree.
 
 ``` text
 .
-├── Dockerfile
-├── node_modules
-│   ├── argon2
-│   │   ├── argon2
-│   │   │   ├── CHANGELOG.md
-│   │   │   ├── include
-│   │   │   │   └── argon2.h
-│   │   │   ├── LICENSE
-│   │   │   └── src
-│   │   │       ├── argon2.c
-│   │   │       ├── blake2
-│   │   │       │   ├── blake2b.c
-│   │   │       │   ├── blake2.h
-│   │   │       │   ├── blake2-impl.h
-│   │   │       │   ├── blamka-round-opt.h
-│   │   │       │   └── blamka-round-ref.h
-│   │   │       ├── core.c
-│   │   │       ├── core.h
-│   │   │       ├── encoding.c
-│   │   │       ├── encoding.h
-│   │   │       ├── opt.c
-│   │   │       ├── ref.c
-│   │   │       ├── thread.c
-│   │   │       └── thread.h
-│   │   ├── argon2.cjs
-│   │   ├── argon2.cpp
-│   │   ├── argon2.d.cts
-│   │   ├── argon2.d.cts.map
-│   │   ├── binding.gyp
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── prebuilds
-│   │   │   ├── darwin-arm64
-│   │   │   │   └── argon2.armv8.glibc.node
-│   │   │   ├── freebsd-arm64
-│   │   │   │   └── argon2.armv8.glibc.node
-│   │   │   ├── freebsd-x64
-│   │   │   │   └── argon2.glibc.node
-│   │   │   ├── linux-arm
-│   │   │   │   ├── argon2.armv7.glibc.node
-│   │   │   │   └── argon2.armv7.musl.node
-│   │   │   ├── linux-arm64
-│   │   │   │   ├── argon2.armv8.glibc.node
-│   │   │   │   └── argon2.armv8.musl.node
-│   │   │   ├── linux-x64
-│   │   │   │   ├── argon2.glibc.node
-│   │   │   │   └── argon2.musl.node
-│   │   │   └── win32-x64
-│   │   │       └── argon2.glibc.node
-│   │   └── README.md
-│   ├── @borewit
-│   │   └── text-codec
-│   │       ├── lib
-│   │       │   ├── index.d.ts
-│   │       │   └── index.js
-│   │       ├── LICENSE.txt
-│   │       ├── package.json
-│   │       └── README.md
-│   ├── buffer-equal-constant-time
-│   │   ├── index.js
-│   │   ├── LICENSE.txt
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── test.js
-│   ├── content-type
-│   │   ├── dist
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   └── index.js.map
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── cross-env
-│   │   ├── dist
-│   │   │   ├── bin
-│   │   │   │   ├── cross-env.d.ts
-│   │   │   │   ├── cross-env.js
-│   │   │   │   ├── cross-env-shell.d.ts
-│   │   │   │   └── cross-env-shell.js
-│   │   │   ├── command.d.ts
-│   │   │   ├── command.js
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   ├── is-windows.d.ts
-│   │   │   ├── is-windows.js
-│   │   │   ├── variable.d.ts
-│   │   │   └── variable.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── cross-spawn
-│   │   ├── index.js
-│   │   ├── lib
-│   │   │   ├── enoent.js
-│   │   │   ├── parse.js
-│   │   │   └── util
-│   │   │       ├── escape.js
-│   │   │       ├── readShebang.js
-│   │   │       └── resolveCommand.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── debug
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── src
-│   │       ├── browser.js
-│   │       ├── common.js
-│   │       ├── index.js
-│   │       └── node.js
-│   ├── ecdsa-sig-formatter
-│   │   ├── CODEOWNERS
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── src
-│   │       ├── ecdsa-sig-formatter.d.ts
-│   │       ├── ecdsa-sig-formatter.js
-│   │       └── param-bytes-for-alg.js
-│   ├── @epic-web
-│   │   └── invariant
-│   │       ├── dist
-│   │       │   ├── index.d.ts
-│   │       │   └── index.js
-│   │       ├── package.json
-│   │       └── README.md
-│   ├── file-type
-│   │   ├── core.d.ts
-│   │   ├── core.js
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   ├── readme.md
-│   │   ├── supported.js
-│   │   └── util.js
-│   ├── ieee754
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── isexe
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── mode.js
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   ├── test
-│   │   │   └── basic.js
-│   │   └── windows.js
-│   ├── jsonwebtoken
-│   │   ├── decode.js
-│   │   ├── index.js
-│   │   ├── lib
-│   │   │   ├── asymmetricKeyDetailsSupported.js
-│   │   │   ├── JsonWebTokenError.js
-│   │   │   ├── NotBeforeError.js
-│   │   │   ├── psSupported.js
-│   │   │   ├── rsaPssKeyDetailsSupported.js
-│   │   │   ├── timespan.js
-│   │   │   ├── TokenExpiredError.js
-│   │   │   └── validateAsymmetricKey.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   ├── sign.js
-│   │   └── verify.js
-│   ├── jwa
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── opslevel.yml
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── jws
-│   │   ├── CHANGELOG.md
-│   │   ├── index.js
-│   │   ├── lib
-│   │   │   ├── data-stream.js
-│   │   │   ├── sign-stream.js
-│   │   │   ├── tostring.js
-│   │   │   └── verify-stream.js
-│   │   ├── LICENSE
-│   │   ├── opslevel.yml
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── lodash.includes
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.isboolean
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.isinteger
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.isnumber
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.isplainobject
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.isstring
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── lodash.once
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── media-typer
-│   │   ├── dist
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   └── index.js.map
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── ms
-│   │   ├── index.js
-│   │   ├── license.md
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── music-metadata
-│   │   ├── lib
-│   │   │   ├── aiff
-│   │   │   │   ├── AiffLoader.d.ts
-│   │   │   │   ├── AiffLoader.js
-│   │   │   │   ├── AiffParser.d.ts
-│   │   │   │   ├── AiffParser.js
-│   │   │   │   ├── AiffTagMap.d.ts
-│   │   │   │   ├── AiffTagMap.js
-│   │   │   │   ├── AiffToken.d.ts
-│   │   │   │   └── AiffToken.js
-│   │   │   ├── apev2
-│   │   │   │   ├── Apev2Loader.d.ts
-│   │   │   │   ├── Apev2Loader.js
-│   │   │   │   ├── APEv2Parser.d.ts
-│   │   │   │   ├── APEv2Parser.js
-│   │   │   │   ├── APEv2TagMapper.d.ts
-│   │   │   │   ├── APEv2TagMapper.js
-│   │   │   │   ├── APEv2Token.d.ts
-│   │   │   │   └── APEv2Token.js
-│   │   │   ├── asf
-│   │   │   │   ├── AsfGuid.d.ts
-│   │   │   │   ├── AsfGuid.js
-│   │   │   │   ├── AsfLoader.d.ts
-│   │   │   │   ├── AsfLoader.js
-│   │   │   │   ├── AsfObject.d.ts
-│   │   │   │   ├── AsfObject.js
-│   │   │   │   ├── AsfParser.d.ts
-│   │   │   │   ├── AsfParser.js
-│   │   │   │   ├── AsfTagMapper.d.ts
-│   │   │   │   ├── AsfTagMapper.js
-│   │   │   │   ├── AsfUtil.d.ts
-│   │   │   │   └── AsfUtil.js
-│   │   │   ├── common
-│   │   │   │   ├── BasicParser.d.ts
-│   │   │   │   ├── BasicParser.js
-│   │   │   │   ├── CaseInsensitiveTagMap.d.ts
-│   │   │   │   ├── CaseInsensitiveTagMap.js
-│   │   │   │   ├── CombinedTagMapper.d.ts
-│   │   │   │   ├── CombinedTagMapper.js
-│   │   │   │   ├── FourCC.d.ts
-│   │   │   │   ├── FourCC.js
-│   │   │   │   ├── GenericTagMapper.d.ts
-│   │   │   │   ├── GenericTagMapper.js
-│   │   │   │   ├── GenericTagTypes.d.ts
-│   │   │   │   ├── GenericTagTypes.js
-│   │   │   │   ├── MetadataCollector.d.ts
-│   │   │   │   ├── MetadataCollector.js
-│   │   │   │   ├── Util.d.ts
-│   │   │   │   └── Util.js
-│   │   │   ├── core.d.ts
-│   │   │   ├── core.js
-│   │   │   ├── dsdiff
-│   │   │   │   ├── DsdiffLoader.d.ts
-│   │   │   │   ├── DsdiffLoader.js
-│   │   │   │   ├── DsdiffParser.d.ts
-│   │   │   │   ├── DsdiffParser.js
-│   │   │   │   ├── DsdiffToken.d.ts
-│   │   │   │   └── DsdiffToken.js
-│   │   │   ├── dsf
-│   │   │   │   ├── DsfChunk.d.ts
-│   │   │   │   ├── DsfChunk.js
-│   │   │   │   ├── DsfLoader.d.ts
-│   │   │   │   ├── DsfLoader.js
-│   │   │   │   ├── DsfParser.d.ts
-│   │   │   │   └── DsfParser.js
-│   │   │   ├── ebml
-│   │   │   │   ├── EbmlIterator.d.ts
-│   │   │   │   ├── EbmlIterator.js
-│   │   │   │   ├── types.d.ts
-│   │   │   │   └── types.js
-│   │   │   ├── flac
-│   │   │   │   ├── FlacLoader.d.ts
-│   │   │   │   ├── FlacLoader.js
-│   │   │   │   ├── FlacParser.d.ts
-│   │   │   │   ├── FlacParser.js
-│   │   │   │   ├── FlacToken.d.ts
-│   │   │   │   └── FlacToken.js
-│   │   │   ├── id3v1
-│   │   │   │   ├── ID3v1Parser.d.ts
-│   │   │   │   ├── ID3v1Parser.js
-│   │   │   │   ├── ID3v1TagMap.d.ts
-│   │   │   │   └── ID3v1TagMap.js
-│   │   │   ├── id3v2
-│   │   │   │   ├── AbstractID3Parser.d.ts
-│   │   │   │   ├── AbstractID3Parser.js
-│   │   │   │   ├── FrameHeader.d.ts
-│   │   │   │   ├── FrameHeader.js
-│   │   │   │   ├── FrameParser.d.ts
-│   │   │   │   ├── FrameParser.js
-│   │   │   │   ├── ID3v22TagMapper.d.ts
-│   │   │   │   ├── ID3v22TagMapper.js
-│   │   │   │   ├── ID3v24TagMapper.d.ts
-│   │   │   │   ├── ID3v24TagMapper.js
-│   │   │   │   ├── ID3v2ChapterToken.d.ts
-│   │   │   │   ├── ID3v2ChapterToken.js
-│   │   │   │   ├── ID3v2Parser.d.ts
-│   │   │   │   ├── ID3v2Parser.js
-│   │   │   │   ├── ID3v2Token.d.ts
-│   │   │   │   └── ID3v2Token.js
-│   │   │   ├── iff
-│   │   │   │   ├── index.d.ts
-│   │   │   │   └── index.js
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   ├── lrc
-│   │   │   │   ├── LyricsParser.d.ts
-│   │   │   │   └── LyricsParser.js
-│   │   │   ├── lyrics3
-│   │   │   │   ├── Lyrics3.d.ts
-│   │   │   │   └── Lyrics3.js
-│   │   │   ├── matroska
-│   │   │   │   ├── MatroskaDtd.d.ts
-│   │   │   │   ├── MatroskaDtd.js
-│   │   │   │   ├── MatroskaLoader.d.ts
-│   │   │   │   ├── MatroskaLoader.js
-│   │   │   │   ├── MatroskaParser.d.ts
-│   │   │   │   ├── MatroskaParser.js
-│   │   │   │   ├── MatroskaTagMapper.d.ts
-│   │   │   │   ├── MatroskaTagMapper.js
-│   │   │   │   ├── types.d.ts
-│   │   │   │   └── types.js
-│   │   │   ├── mp4
-│   │   │   │   ├── Atom.d.ts
-│   │   │   │   ├── Atom.js
-│   │   │   │   ├── AtomToken.d.ts
-│   │   │   │   ├── AtomToken.js
-│   │   │   │   ├── Mp4Loader.d.ts
-│   │   │   │   ├── Mp4Loader.js
-│   │   │   │   ├── MP4Parser.d.ts
-│   │   │   │   ├── MP4Parser.js
-│   │   │   │   ├── MP4TagMapper.d.ts
-│   │   │   │   └── MP4TagMapper.js
-│   │   │   ├── mpeg
-│   │   │   │   ├── ExtendedLameHeader.d.ts
-│   │   │   │   ├── ExtendedLameHeader.js
-│   │   │   │   ├── MpegLoader.d.ts
-│   │   │   │   ├── MpegLoader.js
-│   │   │   │   ├── MpegParser.d.ts
-│   │   │   │   ├── MpegParser.js
-│   │   │   │   ├── ReplayGainDataFormat.d.ts
-│   │   │   │   ├── ReplayGainDataFormat.js
-│   │   │   │   ├── XingTag.d.ts
-│   │   │   │   └── XingTag.js
-│   │   │   ├── musepack
-│   │   │   │   ├── MusepackConentError.d.ts
-│   │   │   │   ├── MusepackConentError.js
-│   │   │   │   ├── MusepackLoader.d.ts
-│   │   │   │   ├── MusepackLoader.js
-│   │   │   │   ├── MusepackParser.d.ts
-│   │   │   │   ├── MusepackParser.js
-│   │   │   │   ├── sv7
-│   │   │   │   │   ├── BitReader.d.ts
-│   │   │   │   │   ├── BitReader.js
-│   │   │   │   │   ├── MpcSv7Parser.d.ts
-│   │   │   │   │   ├── MpcSv7Parser.js
-│   │   │   │   │   ├── StreamVersion7.d.ts
-│   │   │   │   │   └── StreamVersion7.js
-│   │   │   │   └── sv8
-│   │   │   │       ├── MpcSv8Parser.d.ts
-│   │   │   │       ├── MpcSv8Parser.js
-│   │   │   │       ├── StreamVersion8.d.ts
-│   │   │   │       └── StreamVersion8.js
-│   │   │   ├── ogg
-│   │   │   │   ├── flac
-│   │   │   │   │   ├── FlacStream.d.ts
-│   │   │   │   │   └── FlacStream.js
-│   │   │   │   ├── OggLoader.d.ts
-│   │   │   │   ├── OggLoader.js
-│   │   │   │   ├── OggParser.d.ts
-│   │   │   │   ├── OggParser.js
-│   │   │   │   ├── OggToken.d.ts
-│   │   │   │   ├── OggToken.js
-│   │   │   │   ├── opus
-│   │   │   │   │   ├── Opus.d.ts
-│   │   │   │   │   ├── Opus.js
-│   │   │   │   │   ├── OpusStream.d.ts
-│   │   │   │   │   └── OpusStream.js
-│   │   │   │   ├── speex
-│   │   │   │   │   ├── Speex.d.ts
-│   │   │   │   │   ├── Speex.js
-│   │   │   │   │   ├── SpeexStream.d.ts
-│   │   │   │   │   └── SpeexStream.js
-│   │   │   │   ├── theora
-│   │   │   │   │   ├── Theora.d.ts
-│   │   │   │   │   ├── Theora.js
-│   │   │   │   │   ├── TheoraStream.d.ts
-│   │   │   │   │   └── TheoraStream.js
-│   │   │   │   └── vorbis
-│   │   │   │       ├── VorbisDecoder.d.ts
-│   │   │   │       ├── VorbisDecoder.js
-│   │   │   │       ├── Vorbis.d.ts
-│   │   │   │       ├── Vorbis.js
-│   │   │   │       ├── VorbisStream.d.ts
-│   │   │   │       ├── VorbisStream.js
-│   │   │   │       ├── VorbisTagMapper.d.ts
-│   │   │   │       └── VorbisTagMapper.js
-│   │   │   ├── ParseError.d.ts
-│   │   │   ├── ParseError.js
-│   │   │   ├── ParserFactory.d.ts
-│   │   │   ├── ParserFactory.js
-│   │   │   ├── riff
-│   │   │   │   ├── RiffChunk.d.ts
-│   │   │   │   ├── RiffChunk.js
-│   │   │   │   ├── RiffInfoTagMap.d.ts
-│   │   │   │   └── RiffInfoTagMap.js
-│   │   │   ├── type.d.ts
-│   │   │   ├── type.js
-│   │   │   ├── wav
-│   │   │   │   ├── BwfChunk.d.ts
-│   │   │   │   ├── BwfChunk.js
-│   │   │   │   ├── WaveChunk.d.ts
-│   │   │   │   ├── WaveChunk.js
-│   │   │   │   ├── WaveLoader.d.ts
-│   │   │   │   ├── WaveLoader.js
-│   │   │   │   ├── WaveParser.d.ts
-│   │   │   │   └── WaveParser.js
-│   │   │   └── wavpack
-│   │   │       ├── WavPackLoader.d.ts
-│   │   │       ├── WavPackLoader.js
-│   │   │       ├── WavPackParser.d.ts
-│   │   │       ├── WavPackParser.js
-│   │   │       ├── WavPackToken.d.ts
-│   │   │       └── WavPackToken.js
-│   │   ├── LICENSE.txt
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── node-addon-api
-│   │   ├── common.gypi
-│   │   ├── except.gypi
-│   │   ├── index.js
-│   │   ├── LICENSE.md
-│   │   ├── napi.h
-│   │   ├── napi-inl.deprecated.h
-│   │   ├── napi-inl.h
-│   │   ├── node_addon_api.gyp
-│   │   ├── node_api.gyp
-│   │   ├── noexcept.gypi
-│   │   ├── nothing.c
-│   │   ├── package.json
-│   │   ├── package-support.json
-│   │   ├── README.md
-│   │   └── tools
-│   │       ├── check-napi.js
-│   │       ├── clang-format.js
-│   │       ├── conversion.js
-│   │       └── README.md
-│   ├── node-gyp-build
-│   │   ├── bin.js
-│   │   ├── build-test.js
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── node-gyp-build.js
-│   │   ├── optional.js
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── SECURITY.md
-│   ├── path-key
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── pg
-│   │   ├── esm
-│   │   │   └── index.mjs
-│   │   ├── lib
-│   │   │   ├── client.js
-│   │   │   ├── connection.js
-│   │   │   ├── connection-parameters.js
-│   │   │   ├── crypto
-│   │   │   │   ├── cert-signatures.js
-│   │   │   │   ├── sasl.js
-│   │   │   │   └── utils.js
-│   │   │   ├── defaults.js
-│   │   │   ├── index.js
-│   │   │   ├── native
-│   │   │   │   ├── client.js
-│   │   │   │   ├── index.js
-│   │   │   │   └── query.js
-│   │   │   ├── query.js
-│   │   │   ├── result.js
-│   │   │   ├── stream.js
-│   │   │   ├── type-overrides.js
-│   │   │   └── utils.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── pg-cloudflare
-│   │   ├── dist
-│   │   │   ├── empty.d.ts
-│   │   │   ├── empty.js
-│   │   │   ├── empty.js.map
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   └── index.js.map
-│   │   ├── esm
-│   │   │   └── index.mjs
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── src
-│   │       ├── empty.ts
-│   │       ├── index.ts
-│   │       └── types.d.ts
-│   ├── pg-connection-string
-│   │   ├── esm
-│   │   │   └── index.mjs
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── pg-int8
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── pgpass
-│   │   ├── lib
-│   │   │   ├── helper.js
-│   │   │   └── index.js
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── pg-pool
-│   │   ├── esm
-│   │   │   └── index.mjs
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── pg-protocol
-│   │   ├── dist
-│   │   │   ├── b.d.ts
-│   │   │   ├── b.js
-│   │   │   ├── b.js.map
-│   │   │   ├── buffer-reader.d.ts
-│   │   │   ├── buffer-reader.js
-│   │   │   ├── buffer-reader.js.map
-│   │   │   ├── buffer-writer.d.ts
-│   │   │   ├── buffer-writer.js
-│   │   │   ├── buffer-writer.js.map
-│   │   │   ├── inbound-parser.test.d.ts
-│   │   │   ├── inbound-parser.test.js
-│   │   │   ├── inbound-parser.test.js.map
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   ├── index.js.map
-│   │   │   ├── messages.d.ts
-│   │   │   ├── messages.js
-│   │   │   ├── messages.js.map
-│   │   │   ├── outbound-serializer.test.d.ts
-│   │   │   ├── outbound-serializer.test.js
-│   │   │   ├── outbound-serializer.test.js.map
-│   │   │   ├── parser.d.ts
-│   │   │   ├── parser.js
-│   │   │   ├── parser.js.map
-│   │   │   ├── serializer.d.ts
-│   │   │   ├── serializer.js
-│   │   │   └── serializer.js.map
-│   │   ├── esm
-│   │   │   └── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── src
-│   │       ├── b.ts
-│   │       ├── buffer-reader.ts
-│   │       ├── buffer-writer.ts
-│   │       ├── inbound-parser.test.ts
-│   │       ├── index.ts
-│   │       ├── messages.ts
-│   │       ├── outbound-serializer.test.ts
-│   │       ├── parser.ts
-│   │       ├── serializer.ts
-│   │       └── testing
-│   │           ├── buffer-list.ts
-│   │           └── test-buffers.ts
-│   ├── pg-types
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── index.test-d.ts
-│   │   ├── lib
-│   │   │   ├── arrayParser.js
-│   │   │   ├── binaryParsers.js
-│   │   │   ├── builtins.js
-│   │   │   └── textParsers.js
-│   │   ├── Makefile
-│   │   ├── package.json
-│   │   ├── README.md
+├── client
+│   ├── Dockerfile
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── public
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── assets
+│   │   │   ├── hero.png
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   ├── components
+│   │   │   ├── AlbumCard.jsx
+│   │   │   ├── AlbumCard.test.jsx
+│   │   │   ├── ArtistAlbumCards.css
+│   │   │   ├── ArtistCard.jsx
+│   │   │   ├── ArtistCard.test.jsx
+│   │   │   ├── BackendStatus.css
+│   │   │   ├── BackendStatus.jsx
+│   │   │   ├── PlaybackBar.css
+│   │   │   ├── PlaybackBar.jsx
+│   │   │   ├── PlaybackBar.test.jsx
+│   │   │   ├── Sidebar.css
+│   │   │   ├── Sidebar.jsx
+│   │   │   └── Sidebar.test.jsx
+│   │   ├── index.css
+│   │   ├── main.jsx
+│   │   ├── pages
+│   │   │   ├── AlbumDetail.jsx
+│   │   │   ├── AlbumDetail.test.jsx
+│   │   │   ├── Albums.jsx
+│   │   │   ├── Albums.test.jsx
+│   │   │   ├── ArtistAlbumBrowse.css
+│   │   │   ├── ArtistAlbumDetail.css
+│   │   │   ├── ArtistDetail.jsx
+│   │   │   ├── ArtistDetail.test.jsx
+│   │   │   ├── Artists.jsx
+│   │   │   ├── Artists.test.jsx
+│   │   │   ├── CatalogDebug.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── Library.css
+│   │   │   ├── Library.jsx
+│   │   │   ├── Library.test.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── Profile.jsx
+│   │   │   ├── Profile.test.jsx
+│   │   │   ├── Search.css
+│   │   │   ├── Search.jsx
+│   │   │   └── Search.test.jsx
+│   │   ├── playback
+│   │   │   └── playback.js
+│   │   ├── styles
+│   │   │   ├── login.css
+│   │   │   ├── profile.css
+│   │   │   └── tokens.css
 │   │   └── test
-│   │       ├── index.js
-│   │       └── types.js
-│   ├── @phc
-│   │   └── format
-│   │       ├── index.js
-│   │       ├── license
-│   │       ├── package.json
-│   │       └── readme.md
-│   ├── postgres-array
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── postgres-bytea
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── postgres-date
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── postgres-interval
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── safe-buffer
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── semver
-│   │   ├── bin
-│   │   │   └── semver.js
-│   │   ├── classes
-│   │   │   ├── comparator.js
-│   │   │   ├── index.js
-│   │   │   ├── range.js
-│   │   │   └── semver.js
-│   │   ├── functions
-│   │   │   ├── clean.js
-│   │   │   ├── cmp.js
-│   │   │   ├── coerce.js
-│   │   │   ├── compare-build.js
-│   │   │   ├── compare.js
-│   │   │   ├── compare-loose.js
-│   │   │   ├── diff.js
-│   │   │   ├── eq.js
-│   │   │   ├── gte.js
-│   │   │   ├── gt.js
-│   │   │   ├── inc.js
-│   │   │   ├── lte.js
-│   │   │   ├── lt.js
-│   │   │   ├── major.js
-│   │   │   ├── minor.js
-│   │   │   ├── neq.js
-│   │   │   ├── parse.js
-│   │   │   ├── patch.js
-│   │   │   ├── prerelease.js
-│   │   │   ├── rcompare.js
-│   │   │   ├── rsort.js
-│   │   │   ├── satisfies.js
-│   │   │   ├── sort.js
-│   │   │   ├── truncate.js
-│   │   │   └── valid.js
-│   │   ├── index.js
-│   │   ├── internal
-│   │   │   ├── constants.js
-│   │   │   ├── debug.js
-│   │   │   ├── identifiers.js
-│   │   │   ├── lrucache.js
-│   │   │   ├── parse-options.js
-│   │   │   └── re.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── preload.js
-│   │   ├── range.bnf
-│   │   ├── ranges
-│   │   │   ├── gtr.js
-│   │   │   ├── intersects.js
-│   │   │   ├── ltr.js
-│   │   │   ├── max-satisfying.js
-│   │   │   ├── min-satisfying.js
-│   │   │   ├── min-version.js
-│   │   │   ├── outside.js
-│   │   │   ├── simplify.js
-│   │   │   ├── subset.js
-│   │   │   ├── to-comparators.js
-│   │   │   └── valid.js
-│   │   └── README.md
-│   ├── shebang-command
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── shebang-regex
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── split2
-│   │   ├── bench.js
-│   │   ├── index.js
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── test.js
-│   ├── strtok3
-│   │   ├── lib
-│   │   │   ├── AbstractTokenizer.d.ts
-│   │   │   ├── AbstractTokenizer.js
-│   │   │   ├── BlobTokenizer.d.ts
-│   │   │   ├── BlobTokenizer.js
-│   │   │   ├── BufferTokenizer.d.ts
-│   │   │   ├── BufferTokenizer.js
-│   │   │   ├── core.d.ts
-│   │   │   ├── core.js
-│   │   │   ├── FileTokenizer.d.ts
-│   │   │   ├── FileTokenizer.js
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.js
-│   │   │   ├── ReadStreamTokenizer.d.ts
-│   │   │   ├── ReadStreamTokenizer.js
-│   │   │   ├── stream
-│   │   │   │   ├── AbstractStreamReader.d.ts
-│   │   │   │   ├── AbstractStreamReader.js
-│   │   │   │   ├── Deferred.d.ts
-│   │   │   │   ├── Deferred.js
-│   │   │   │   ├── Errors.d.ts
-│   │   │   │   ├── Errors.js
-│   │   │   │   ├── index.d.ts
-│   │   │   │   ├── index.js
-│   │   │   │   ├── StreamReader.d.ts
-│   │   │   │   ├── StreamReader.js
-│   │   │   │   ├── WebStreamByobReader.d.ts
-│   │   │   │   ├── WebStreamByobReader.js
-│   │   │   │   ├── WebStreamDefaultReader.d.ts
-│   │   │   │   ├── WebStreamDefaultReader.js
-│   │   │   │   ├── WebStreamReader.d.ts
-│   │   │   │   ├── WebStreamReaderFactory.d.ts
-│   │   │   │   ├── WebStreamReaderFactory.js
-│   │   │   │   └── WebStreamReader.js
-│   │   │   ├── types.d.ts
-│   │   │   └── types.js
-│   │   ├── LICENSE.txt
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── @tokenizer
-│   │   ├── inflate
-│   │   │   ├── lib
-│   │   │   │   ├── GzipHandler.d.ts
-│   │   │   │   ├── GzipHandler.js
-│   │   │   │   ├── index.d.ts
-│   │   │   │   ├── index.js
-│   │   │   │   ├── ZipHandler.d.ts
-│   │   │   │   ├── ZipHandler.js
-│   │   │   │   ├── ZipToken.d.ts
-│   │   │   │   └── ZipToken.js
-│   │   │   ├── LICENSE
-│   │   │   ├── package.json
-│   │   │   └── README.md
-│   │   └── token
-│   │       ├── index.d.ts
-│   │       ├── package.json
-│   │       └── README.md
-│   ├── token-types
-│   │   ├── lib
-│   │   │   ├── index.d.ts
-│   │   │   └── index.js
-│   │   ├── LICENSE.txt
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── uint8array-extras
-│   │   ├── index.d.ts
-│   │   ├── index.js
-│   │   ├── license
-│   │   ├── package.json
-│   │   └── readme.md
-│   ├── which
-│   │   ├── bin
-│   │   │   └── node-which
-│   │   ├── CHANGELOG.md
-│   │   ├── LICENSE
-│   │   ├── package.json
-│   │   ├── README.md
-│   │   └── which.js
-│   ├── win-guid
-│   │   ├── lib
-│   │   │   ├── guid.d.ts
-│   │   │   └── guid.js
-│   │   ├── LICENSE.txt
-│   │   ├── package.json
-│   │   └── README.md
-│   └── xtend
-│       ├── immutable.js
-│       ├── LICENSE
-│       ├── mutable.js
-│       ├── package.json
-│       ├── README.md
-│       └── test.js
+│   │       └── setup.js
+│   └── vite.config.js
+├── compose.yml
+├── CONTRIBUTING.md
+├── database
+│   ├── migrate.js
+│   ├── migrations
+│   │   ├── 20260915_ayu_001_catalog_core.sql
+│   │   ├── 20260916_ayu_002_auth_users.sql
+│   │   ├── 20260924_edg_001_user_preferences.sql
+│   │   ├── 20260927_cmg_001_catalog_search_support.sql
+│   │   └── trackMediaPath.sql
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── seed.js
+│   ├── seeds
+│   │   └── 20260915_ayu_catalog_seed.sql
+│   └── test
+│       └── catalog-db.integration.test.js
+├── docs
+│   ├── account-profile.md
+│   ├── catalog-fixtures.md
+│   ├── catalog-media-boundary.md
+│   ├── pr-review-checklist.md
+│   ├── self-host-setup.md
+│   ├── sprint1-integration-contracts.md
+│   ├── sprint2-build-version-contract.md
+│   ├── sprint2-christian-baseline-and-boundaries.md
+│   ├── sprint2-christian-cicd-analysis.md
+│   └── sprint2-search-api-and-test-notes.md
+├── mediaFiles
+│   ├── license.txt
+│   └── test.mp3
 ├── output.txt
-├── package.json
-├── package-lock.json
-├── src
-│   ├── account
-│   │   └── profile.js
-│   ├── app.js
-│   ├── auth
-│   │   ├── auth-documentation
-│   │   │   ├── auth_ADR.md
-│   │   │   ├── AUTHCONFIG.md
-│   │   │   ├── auth_threat_model.md
-│   │   │   └── media-auth-requirements.md
-│   │   ├── auth.js
-│   │   ├── hasher.js
-│   │   ├── login.js
-│   │   ├── me.js
-│   │   └── token.js
-│   ├── catalog
-│   │   ├── catalog.handler.js
-│   │   └── catalog.service.js
-│   ├── data
-│   │   ├── account-profile.repository.js
-│   │   ├── auth-user.repository.js
-│   │   ├── catalog.repository.js
-│   │   └── search.repository.js
-│   ├── media
-│   │   ├── metadata.js
-│   │   └── streaming.js
-│   ├── search
-│   │   ├── search.handler.js
-│   │   └── search.service.js
-│   └── server.js
-└── test
-    ├── account-profile.repository.test.js
-    ├── account-profile-routes.test.js
-    ├── auth-routes.test.js
-    ├── auth.test.js
-    ├── catalog-albums.repository.test.js
-    ├── catalog-albums-routes.test.js
-    ├── catalog-albums.service.test.js
-    ├── catalog-artists.repository.test.js
-    ├── catalog-artists-routes.test.js
-    ├── catalog-artists.service.test.js
-    ├── catalog-media-contract.test.js
-    ├── catalog-repository.test.js
-    ├── catalog-routes.test.js
-    ├── hasher.test.js
-    ├── health.test.js
-    ├── library-recently-added-routes.test.js
-    ├── login.test.js
-    ├── media-streaming.test.js
-    ├── metadata.test.js
-    ├── me.test.js
-    ├── search.repository.test.js
-    ├── search-routes.test.js
-    ├── search.service.test.js
-    ├── token.test.js
-    └── track-persistence.test.js
+├── playback
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── playbackDoc
+│   │   ├── metadataDocumentation.md
+│   │   ├── playbackDocumentation.md
+│   │   └── testingDocumentation.md
+│   ├── playback.js
+│   └── testers
+│       ├── index.html
+│       └── server.js
+├── README.md
+├── scripts
+│   ├── compose-smoke-test.mjs
+│   └── generate-build-info.mjs
+├── server
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── src
+│   │   ├── account
+│   │   │   └── profile.js
+│   │   ├── app.js
+│   │   ├── auth
+│   │   │   ├── auth-documentation
+│   │   │   │   ├── auth_ADR.md
+│   │   │   │   ├── AUTHCONFIG.md
+│   │   │   │   ├── auth_threat_model.md
+│   │   │   │   └── media-auth-requirements.md
+│   │   │   ├── auth.js
+│   │   │   ├── hasher.js
+│   │   │   ├── login.js
+│   │   │   ├── me.js
+│   │   │   └── token.js
+│   │   ├── catalog
+│   │   │   ├── catalog.handler.js
+│   │   │   └── catalog.service.js
+│   │   ├── data
+│   │   │   ├── account-profile.repository.js
+│   │   │   ├── auth-user.repository.js
+│   │   │   ├── catalog.repository.js
+│   │   │   └── search.repository.js
+│   │   ├── media
+│   │   │   ├── metadata.js
+│   │   │   └── streaming.js
+│   │   ├── search
+│   │   │   ├── search.handler.js
+│   │   │   └── search.service.js
+│   │   └── server.js
+│   └── test
+│       ├── account-profile.repository.test.js
+│       ├── account-profile-routes.test.js
+│       ├── auth-routes.test.js
+│       ├── auth.test.js
+│       ├── catalog-albums.repository.test.js
+│       ├── catalog-albums-routes.test.js
+│       ├── catalog-albums.service.test.js
+│       ├── catalog-artists.repository.test.js
+│       ├── catalog-artists-routes.test.js
+│       ├── catalog-artists.service.test.js
+│       ├── catalog-media-contract.test.js
+│       ├── catalog-repository.test.js
+│       ├── catalog-routes.test.js
+│       ├── catalog-track-detail.test.js
+│       ├── hasher.test.js
+│       ├── health.test.js
+│       ├── library-recently-added-routes.test.js
+│       ├── login.test.js
+│       ├── media-streaming.test.js
+│       ├── metadata.test.js
+│       ├── me.test.js
+│       ├── search.repository.test.js
+│       ├── search-routes.test.js
+│       ├── search.service.test.js
+│       ├── token.test.js
+│       └── track-persistence.test.js
+└── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
 ```
 
 Local-only `.env` files, `node_modules/`, generated build output, and
@@ -1623,11 +921,11 @@ Verified Sprint 2 result:
 
 ``` text
 
-tests 130
+tests 135
 
 suites 12
 
-pass 130
+pass 135
 
 fail 0
 
@@ -2014,8 +1312,8 @@ Sprint 2 added `Client Tests`, PostgreSQL-backed `Database Tests`, and
 The current verified local test totals are:
 
 ``` text
-Server:   130 passed, 0 failed
-Client:    25 passed, 0 failed
+Server:   135 passed, 0 failed
+Client:    42 passed, 0 failed
 Database:  31 passed, 0 failed
 ```
 
@@ -2121,216 +1419,13 @@ changing `server.js`.
 
 # 14. Repository Structure
 
-The repository is organized by subsystem:
+The repository has one canonical structure tree in
+[Section 6: Current Repository Structure](#6-current-repository-structure).
 
-``` text
-Soundwave-Live-Version
-├── CONTRIBUTING.md
-├── README.md
-├── SOUNDWAVE_LOCAL_AUTH_INSTRUCTIONS.md
-├── client
-│   ├── Dockerfile
-│   ├── README.md
-│   ├── eslint.config.js
-│   ├── index.html
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── public
-│   │   ├── favicon.svg
-│   │   └── icons.svg
-│   ├── src
-│   │   ├── App.css
-│   │   ├── App.jsx
-│   │   ├── assets
-│   │   │   ├── hero.png
-│   │   │   ├── react.svg
-│   │   │   └── vite.svg
-│   │   ├── components
-│   │   │   ├── AlbumCard.jsx
-│   │   │   ├── AlbumCard.test.jsx
-│   │   │   ├── ArtistAlbumCards.css
-│   │   │   ├── ArtistCard.jsx
-│   │   │   ├── ArtistCard.test.jsx
-│   │   │   ├── BackendStatus.css
-│   │   │   ├── BackendStatus.jsx
-│   │   │   ├── PlaybackBar.css
-│   │   │   ├── PlaybackBar.jsx
-│   │   │   ├── PlaybackBar.test.jsx
-│   │   │   ├── Sidebar.css
-│   │   │   ├── Sidebar.jsx
-│   │   │   └── Sidebar.test.jsx
-│   │   ├── index.css
-│   │   ├── main.jsx
-│   │   ├── pages
-│   │   │   ├── AlbumDetail.jsx
-│   │   │   ├── AlbumDetail.test.jsx
-│   │   │   ├── Albums.jsx
-│   │   │   ├── Albums.test.jsx
-│   │   │   ├── ArtistAlbumBrowse.css
-│   │   │   ├── ArtistAlbumDetail.css
-│   │   │   ├── ArtistDetail.jsx
-│   │   │   ├── ArtistDetail.test.jsx
-│   │   │   ├── Artists.jsx
-│   │   │   ├── Artists.test.jsx
-│   │   │   ├── CatalogDebug.jsx
-│   │   │   ├── Home.jsx
-│   │   │   ├── Library.jsx
-│   │   │   ├── Login.jsx
-│   │   │   ├── Search.css
-│   │   │   ├── Search.jsx
-│   │   │   └── Search.test.jsx
-│   │   ├── styles
-│   │   │   ├── login.css
-│   │   │   └── tokens.css
-│   │   └── test
-│   │       └── setup.js
-│   └── vite.config.js
-├── compose.yml
-├── database
-│   ├── migrate.js
-│   ├── migrations
-│   │   ├── 20260915_ayu_001_catalog_core.sql
-│   │   ├── 20260916_ayu_002_auth_users.sql
-│   │   ├── 20260924_edg_001_user_preferences.sql
-│   │   ├── 20260927_cmg_001_catalog_search_support.sql
-│   │   └── trackMediaPath.sql
-
-trackMediaPath.sql
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── seed.js
-│   ├── seeds
-│   │   └── 20260915_ayu_catalog_seed.sql
-│   └── test
-│       └── catalog-db.integration.test.js
-├── docs
-│   ├── catalog-fixtures.md
-│   ├── catalog-media-boundary.md
-│   ├── pr-review-checklist.md
-│   ├── self-host-setup.md
-│   ├── sprint1-integration-contracts.md
-│   ├── sprint2-build-version-contract.md
-│   ├── sprint2-christian-baseline-and-boundaries.md
-│   ├── sprint2-christian-cicd-analysis.md
-│   └── sprint2-search-api-and-test-notes.md
-├── mediaFiles
-│   └── test.mp3
-├── playback
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── playback.js
-│   ├── playbackDoc
-│   │   ├── metadataDocumentation.md
-│   │   ├── playbackDocumentation.md
-│   │   └── testingDocumentation.md
-│   └── testers
-│       ├── index.html
-│       └── server.js
-├── scripts
-│   └── compose-smoke-test.mjs
-└── server
-    ├── Dockerfile
-    ├── package-lock.json
-    ├── package.json
-    ├── src
-    │   ├── app.js
-    │   ├── auth
-    │   │   ├── auth-documentation
-    │   │   │   ├── AUTHCONFIG.md
-    │   │   │   ├── auth_ADR.md
-    │   │   │   ├── auth_threat_model.md
-    │   │   │   └── media-auth-requirements.md
-    │   │   ├── auth.js
-    │   │   ├── hasher.js
-    │   │   ├── login.js
-    │   │   ├── me.js
-    │   │   └── token.js
-    │   ├── catalog
-    │   │   ├── catalog.handler.js
-    │   │   └── catalog.service.js
-    │   ├── data
-    │   │   ├── auth-user.repository.js
-    │   │   ├── catalog.repository.js
-    │   │   └── search.repository.js
-    │   ├── media
-    │   │   └── metadata.js
-    │   ├── search
-    │   │   ├── search.handler.js
-    │   │   └── search.service.js
-    │   └── server.js
-    └── test
-        ├── auth-routes.test.js
-        ├── auth.test.js
-        ├── catalog-albums-routes.test.js
-        ├── catalog-albums.repository.test.js
-        ├── catalog-albums.service.test.js
-        ├── catalog-artists-routes.test.js
-        ├── catalog-artists.repository.test.js
-        ├── catalog-artists.service.test.js
-        ├── catalog-media-contract.test.js
-        ├── catalog-repository.test.js
-        ├── catalog-routes.test.js
-        ├── hasher.test.js
-        ├── health.test.js
-        ├── login.test.js
-        ├── me.test.js
-        ├── media-streaming.test.js
-        ├── metadata.test.js
-        ├── search-routes.test.js
-        ├── search.repository.test.js
-        ├── search.service.test.js
-        └── token.test.js
-```
-
-The exact tree will continue to evolve as later sprint work is merged.
-
-`database/.env`, `database/.env.test`, `server/.env.`, and all
-`node_modules/` directories are local-only and must not be committed.
+That tree intentionally omits `node_modules/`, generated build output,
+local `.env` files, and other ignored/local-only files.
 
 ------------------------------------------------------------------------
-
-## Prerequisites
-
--   PostgreSQL installed and running
-
--   Node.js installed
-
--   npm
-
--   PostgreSQL role with access to a development and test database
-
-Allison's current local setup uses:
-
-``` text
-
-Role: soundwave_app
-
-Development DB: soundwave_allison_dev
-
-Test DB: soundwave_allison_test
-
-Host: localhost
-
-Port: 5432
-```
-
-Other developers can use different local database names as long as their
-environment files point to the correct databases.
-
-------------------------------------------------------------------------
-
-Verify:
-
-``` bash
-
-node --version
-
-npm --version
-
-psql --version
-```
-
-Course work must be attributable to the developer who authored it.
 
 # 15. Install Dependencies
 
@@ -2672,6 +1767,8 @@ docs/catalog-fixtures.md
 
 | 1002 \| Fixture Artist Two \|
 
+| 1003 \| Buddha \|
+
 ## Albums
 
 | ID \| Title \| Artist ID \|
@@ -2681,6 +1778,8 @@ docs/catalog-fixtures.md
 | 2001 \| Fixture Album Alpha \| 1001 \|
 
 | 2002 \| Fixture Album Beta \| 1002 \|
+
+| 2003 \| No Copyright \| 1003 \|
 
 ## Tracks
 
@@ -2695,6 +1794,8 @@ docs/catalog-fixtures.md
 | 3003 \| Fixture Track Three \| 2002 \| 1002 \| 195000 ms \|
 
 | 3004 \| Fixture Track Four \| 2002 \| 1002 \| 222000 ms \|
+
+| 3005 \| Kontekst \| 2003 \| 1003 \| 209136 ms \|
 
 Fixture IDs are stable development/test contracts.
 
@@ -3149,8 +2250,7 @@ Expected response shape:
 ]
 ```
 
-The seeded development database returns four deterministic track
-records.
+The seeded development database returns five Track records, including the legally usable media-backed Track `3005`.
 
 The catalog API must not expose local filesystem paths, media storage
 paths, storage keys, or media implementation details.
@@ -3214,7 +2314,87 @@ return HTTP `400`.
 The Artist and Album catalog responses do not expose local filesystem
 paths, storage keys, or media implementation details.
 
-## 29.3 Verify the Sprint 2 Search API --- Christian McGowan
+## 29.3 Verify Track Detail and Media Streaming --- Matthew Choi
+
+Sprint 2 integrates Track metadata and media streaming into the real
+Soundwave backend.
+
+Track detail endpoint:
+
+``` text
+GET /api/catalog/tracks/:id
+```
+
+Example using the legal seeded Track:
+
+``` bash
+curl -i http://localhost:8080/api/catalog/tracks/3005
+```
+
+Expected response includes stable public catalog metadata:
+
+``` json
+{
+  "id": 3005,
+  "title": "Kontekst",
+  "durationMs": 209136,
+  "album": {
+    "id": 2003,
+    "title": "No Copyright"
+  },
+  "artist": {
+    "id": 1003,
+    "name": "Buddha"
+  }
+}
+```
+
+The public Track metadata response intentionally does not expose
+`media_path` or other filesystem/storage implementation details.
+
+Track detail behavior:
+
+``` text
+existing Track      -> 200
+missing Track       -> 404 track_not_found
+malformed Track ID  -> 400 invalid_track_id
+repository failure  -> 500 catalog_unavailable
+```
+
+Media endpoint:
+
+``` text
+GET /api/tracks/:id/stream
+```
+
+The media route resolves the stable catalog Track ID to its internal
+media resource and supports HTTP byte-range playback.
+
+Automated media coverage verifies:
+
+``` text
+full-file request       -> 200
+valid byte range        -> 206
+invalid byte range      -> 416
+unknown Track           -> 404
+missing media resource  -> 404
+```
+
+Dedicated regression coverage includes:
+
+``` text
+server/test/catalog-track-detail.test.js
+server/test/media-streaming.test.js
+server/test/metadata.test.js
+server/test/track-persistence.test.js
+```
+
+The old `playback/server.js` test harness is not required by the
+production backend path.
+
+------------------------------------------------------------------------
+
+## 29.4 Verify the Sprint 2 Search API --- Christian McGowan
 
 Sprint 2 adds public catalog discovery across tracks, artists, and
 albums.
@@ -3346,15 +2526,26 @@ The suite currently covers:
 -   `/api/search` grouped success, filter, empty-result, invalid-query,
     invalid-type, failure, and route-isolation behavior
 
+-   Track detail metadata success, invalid-ID, missing-resource, and
+    controlled-failure behavior
+
+-   public Track metadata does not expose `media_path`
+
+-   media full-file and HTTP byte-range streaming behavior
+
+-   invalid Range, unknown Track, and missing-media behavior
+
+-   metadata extraction and Track persistence
+
 Verified Sprint 2 result:
 
 ``` text
 
-tests 130
+tests 135
 
 suites 12
 
-pass 130
+pass 135
 
 fail 0
 
@@ -3595,6 +2786,60 @@ with HTTP `200` for valid searches.
 
 ------------------------------------------------------------------------
 
+## 32.3 Sprint 2 Integrated Playback Browser Proof --- Matthew Choi
+
+Sprint 2 moves playback out of the Sprint 1 standalone test HTML and
+into the real React/Vite application.
+
+Production client flow:
+
+``` text
+AlbumDetail
+    ↓
+onSelectTrack(track.id)
+    ↓
+App.jsx selectedTrackId
+    ↓
+PlaybackBar
+    ↓
+GET /api/catalog/tracks/:id
+    ↓
+Howler
+    ↓
+GET /api/tracks/:id/stream
+```
+
+With PostgreSQL seeded and both the backend and client running, open the
+Album Detail page containing Track `3005` (`Kontekst`).
+
+Verify:
+
+``` text
+Track can be selected from Album Detail
+PlaybackBar displays Kontekst
+PlaybackBar displays Buddha
+PlaybackBar displays No Copyright
+Play starts real audio
+Pause stops playback
+Volume control updates playback volume
+```
+
+The production playback module is:
+
+``` text
+client/src/playback/playback.js
+```
+
+It reuses the Sprint 1 Howler behavior while removing the production
+dependency on `playback/index.html` and the temporary playback server.
+Loading another Track unloads the previous Howl instance before creating
+the replacement.
+
+Manual end-to-end playback through the real Soundwave client and
+integrated backend has been verified.
+
+------------------------------------------------------------------------
+
 # 33. Verify the Client
 
 From `client/`:
@@ -3610,13 +2855,15 @@ Verified Sprint 2 result:
 
 ``` text
 
-Client tests: 25 passed, 0 failed
+Client tests: 42 passed, 0 failed
 Client lint:  PASS
 Client build: PASS
 ```
 
 Sprint 2 client coverage includes `ArtistCard`, `AlbumCard`, `Artists`,
-`Albums`, `ArtistDetail`, `AlbumDetail`, and `Search` tests.
+`Albums`, `ArtistDetail`, `AlbumDetail`, `Search`, `Library`, `Profile`,
+and `PlaybackBar` tests. Playback tests cover metadata display,
+Play/Pause, volume, error handling, cleanup, and Track selection.
 
 The production build completes successfully.
 
@@ -3710,6 +2957,8 @@ GET /api/catalog/artists
 GET /api/catalog/artists/:id
 GET /api/catalog/albums
 GET /api/catalog/albums/:id
+GET /api/catalog/tracks/:id
+GET /api/tracks/:id/stream
 GET /api/search
 ```
 
@@ -3886,6 +3135,57 @@ browse/detail functionality.
 
 ------------------------------------------------------------------------
 
+## 35.3 Sprint 2 Track Metadata and Playback Integration --- Matthew Choi
+
+Sprint 2 converts the Sprint 1 playback spike into a production
+catalog-driven vertical slice.
+
+Backend implementation:
+
+``` text
+server/src/media/metadata.js
+server/src/media/streaming.js
+server/src/catalog/catalog.handler.js
+server/src/catalog/catalog.service.js
+server/src/data/catalog.repository.js
+```
+
+Client implementation:
+
+``` text
+client/src/playback/playback.js
+client/src/components/PlaybackBar.jsx
+client/src/components/PlaybackBar.test.jsx
+client/src/pages/AlbumDetail.jsx
+client/src/pages/AlbumDetail.test.jsx
+client/src/App.jsx
+```
+
+The implementation uses stable `tracks.id` values across persistence,
+catalog metadata, client selection, and media streaming. Physical media
+paths remain internal to the backend.
+
+Verified client result:
+
+``` text
+Test Files: 11 passed
+Tests:      42 passed
+ESLint:     PASS
+Build:      PASS
+```
+
+Verified backend result:
+
+``` text
+tests 135
+pass 135
+fail 0
+```
+
+Real application playback has also been manually verified.
+
+------------------------------------------------------------------------
+
 # 36. Catalog / Media Boundary
 
 The canonical cross-feature catalog track identity is:
@@ -3983,6 +3283,9 @@ Open the Vite URL and navigate to:
 /albums
 /albums/2001
 /search
+
+Select Track 3005 from Album Detail and verify PlaybackBar metadata and
+real audio playback.
 ```
 
 ------------------------------------------------------------------------
@@ -4027,7 +3330,7 @@ Required:
 
 ``` text
 
-130 passed
+135 passed
 0 failed
 ```
 
@@ -4056,6 +3359,9 @@ With backend and client running:
 /albums
 /albums/2001
 /search
+
+Select Track 3005 from Album Detail and verify PlaybackBar metadata and
+real audio playback.
 ```
 
 Verify:
@@ -5372,11 +4678,11 @@ Verified Sprint 2 result:
 
 ``` text
 
-tests 130
+tests 135
 
 suites 12
 
-pass 130
+pass 135
 
 fail 0
 
