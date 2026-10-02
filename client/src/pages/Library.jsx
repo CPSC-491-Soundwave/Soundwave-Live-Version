@@ -19,7 +19,8 @@ function formatDuration(durationMs) {
 }
 
 export default function Library({
-    accessToken
+    accessToken,
+    onSelectTrack
 }) {
     const [tracks, setTracks] = useState([]);
     const [loading, setLoading] = useState(
@@ -159,9 +160,13 @@ export default function Library({
                         aria-label="Recently added tracks"
                     >
                         {tracks.map((track) => (
-                            <article
+                            <button
+                                type="button"
                                 className="library-track"
                                 key={track.id}
+                                onClick={() => {
+                                    onSelectTrack?.(track.id);
+                                }}
                             >
                                 <div className="library-track__details">
                                     <h2>{track.title}</h2>
@@ -180,7 +185,7 @@ export default function Library({
                                         track.durationMs
                                     )}
                                 </span>
-                            </article>
+                            </button>
                         ))}
                     </div>
                 )}
