@@ -117,3 +117,72 @@ repository artifact:
 The generated metadata can then be inspected with:
 
     cat /tmp/soundwave-build-info.json
+
+---
+
+## Sprint 2 Final Workflow Export Contract
+
+In addition to generating `build-info.json`, the `Build Metadata` job now exposes the generated build version directly to GitHub Actions.
+
+### Job output
+
+The job exposes:
+
+    version
+
+from:
+
+    steps.build_info.outputs.version
+
+A later job may consume the value through a normal GitHub Actions `needs:` dependency.
+
+Conceptually:
+
+    needs: build-metadata
+
+and:
+
+    needs.build-metadata.outputs.version
+
+### Job environment variable
+
+The Build Metadata job also writes:
+
+    SOUNDWAVE_BUILD_VERSION
+
+to the GitHub Actions environment for later steps in that job.
+
+The workflow verifies that:
+
+    SOUNDWAVE_BUILD_VERSION
+
+matches:
+
+    steps.build_info.outputs.version
+
+before the metadata artifact is displayed or uploaded.
+
+## Hosted Sprint 2 Evidence
+
+Verified main-branch metadata run:
+
+    Run number: 147
+    Build version: s2.147+78ed45f
+    Branch: main
+    Event: push
+    Artifact: soundwave-build-info-147.zip
+
+The artifact upload completed successfully and contained the generated `build-info.json`.
+
+Final hosted workflow-output verification:
+
+    Build version export verified: s2.149+c2f90e3
+
+The following Build Metadata steps completed successfully:
+
+    Generate build metadata
+    Verify build metadata exports
+    Display build metadata
+    Upload build metadata
+
+This satisfies the Sprint 2 requirement that the Soundwave build identity be both traceable as an artifact and directly consumable by CI orchestration.
