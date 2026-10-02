@@ -108,9 +108,9 @@ endpoint returns:
 
 ## Frontend Behavior
 
-Sprint 2 will provide a minimal read-only account profile view.
+Sprint 2 provides a minimal read-only account profile view.
 
-The client will:
+The client:
 
 - Request `GET /account/profile` using the existing authenticated session.
 - Display the authenticated user's username.
@@ -157,13 +157,223 @@ HTTP route tests verify:
 - Principal-to-profile identity consistency.
 - Controlled repository failure behavior.
 
-PostgreSQL-backed integration verification will confirm that the real users and
+PostgreSQL-backed integration verification confirms that the real users and
 user_preferences tables work through the repository and authenticated
 `GET /account/profile` path.
 
-Final manual verification will demonstrate:
-
+Final manual verification demonstrates:
 `POST /auth/login` -> Bearer access token -> `GET /account/profile`
+
+## Reproducible Local Profile Fixture and Verification
+
+The following fixture is intended only for local Sprint 2 verification. The
+credentials and `test-quality` preference are test-only values and are not
+product-defined account defaults.
+
+From the repository root, create the disposable verification fixtures:
+
+```bash
+cd server
+
+node --env-file=../database/.env.test --input-type=module <<'NODE'
+import pg from "pg";
+import { hash_password } from "./src/auth/hasher.js";
+
+const { Client } = pg;
+const database = new Client();
+
+await database.connect();
+
+const password = "Sprint2ProfileTest123!";
+const passwordHash = await hash_password(password);
+
+const withPreferenceUsername =
+  "edg_profile_e2e";
+
+const noPreferenceUsername =
+  "edg_profile_no_pref";
+
+try {
+  await database.query(
+    `
+    DELETE FROM users
+    WHERE username IN ($1, $2)
+    `,
+    [
+      withPreferenceUsername,
+      noPreferenceUsername
+    ]
+  );
+
+  const withPreference =
+    await database.query(
+      `
+      INSERT INTO users (
+        username,
+        password_hash,
+        role
+      )
+      VALUES ($1, $2, $3)
+      RETURNING id
+      `,
+      [
+        withPreferenceUsername,
+        passwordHash,
+        "user"
+      ]
+    );
+
+  await database.query(
+    `
+    INSERT INTO user_preferences (
+      user_id,
+      audio_quality_preference
+    )
+    VALUES ($1, $2)
+    `,
+    [
+      withPreference.rows[0].id,
+      "test-quality"
+    ]
+  );
+
+  await database.query(
+    `
+    INSERT INTO users (
+      username,
+      password_hash,
+      role
+    )
+    VALUES ($1, $2, $3)
+    `,
+    [
+      noPreferenceUsername,
+      passwordHash,
+      "user"
+    ]
+  );
+
+  console.log(
+    "Created Sprint 2 account/profile verification fixtures."
+  );
+} finally {
+  await database.end();
+}
+NODE
+```
+
+The fixture creates two disposable users:
+
+- `edg_profile_e2e` with `audio_quality_preference = test-quality`
+- `edg_profile_no_pref` with no `user_preferences` row
+
+Both fixture accounts use the local test-only password:
+
+```text
+Sprint2ProfileTest123!
+```
+
+### Start the Backend
+
+From `server`:
+
+```bash
+JWT_SECRET="$(openssl rand -hex 32)" \
+PORT=8080 \
+node --env-file=../database/.env.test src/server.js
+```
+
+The API should report that it is listening on port `8080`.
+
+### Start the Client
+
+In a separate terminal, from the repository root:
+
+```bash
+cd client
+npm run dev
+```
+
+The Vite development server proxies `/auth`, `/account`, `/api`, and `/health`
+requests to the backend.
+
+### Verify the Populated Preference Case
+
+1. Open the Soundwave client in the browser.
+2. Navigate to Login.
+3. Authenticate using:
+   - Username: `edg_profile_e2e`
+   - Password: `Sprint2ProfileTest123!`
+4. Navigate to Profile.
+5. Verify the page displays:
+   - Username: `edg_profile_e2e`
+   - Role: `user`
+   - Audio Quality Preference: `test-quality`
+6. Verify no password hash, JWT secret, or access token is displayed.
+
+Expected result:
+
+```text
+Authenticated profile loads successfully and displays test-quality.
+```
+
+### Verify the No-Preference Case
+
+1. Log in using:
+   - Username: `edg_profile_no_pref`
+   - Password: `Sprint2ProfileTest123!`
+2. Navigate to Profile.
+3. Verify the page still loads successfully.
+4. Verify the UI displays `Not set` for the audio-quality preference.
+
+The corresponding API value is:
+
+```json
+{
+  "preferences": {
+    "audioQualityPreference": null
+  }
+}
+```
+
+### Cleanup
+
+After manual verification, remove both disposable fixture users:
+
+```bash
+cd server
+
+node --env-file=../database/.env.test --input-type=module <<'NODE'
+import pg from "pg";
+
+const { Client } = pg;
+const database = new Client();
+
+await database.connect();
+
+try {
+  await database.query(
+    `
+    DELETE FROM users
+    WHERE username IN ($1, $2)
+    `,
+    [
+      "edg_profile_e2e",
+      "edg_profile_no_pref"
+    ]
+  );
+
+  console.log(
+    "Removed Sprint 2 account/profile verification fixtures."
+  );
+} finally {
+  await database.end();
+}
+NODE
+```
+
+The `user_preferences` row associated with `edg_profile_e2e` is removed through
+the existing `ON DELETE CASCADE` relationship.
 
 ## Deferred Work
 

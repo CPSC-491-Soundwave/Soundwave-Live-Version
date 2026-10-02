@@ -16,63 +16,83 @@ import "./App.css";
 
 export default function App() {
   const [accessToken, setAccessToken] = useState("");
+  const [selectedTrackId, setSelectedTrackId] =
+  useState(null);
 
   return (
     <div className="app-shell">
-      <Sidebar />
+    <Sidebar />
 
-      <main className="page-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/search" element={<Search />} />
+    <main className="page-content">
+    <Routes>
+    <Route path="/" element={<Home />} />
 
-          <Route
-            path="/library"
-            element={
-              <Library accessToken={accessToken} />
-            }
-          />
+    <Route
+    path="/search"
+    element={<Search />}
+    />
 
-          <Route
-            path="/login"
-            element={
-              <Login
-                setAccessToken={setAccessToken}
-              />
-            }
-          />
+    <Route
+    path="/library"
+    element={
+      <Library
+      accessToken={accessToken}
+      />
+    }
+    />
 
-          <Route
-            path="/profile"
-            element={
-              <Profile
-                accessToken={accessToken}
-              />
-            }
-          />
+    <Route
+    path="/login"
+    element={
+      <Login
+      setAccessToken={setAccessToken}
+      />
+    }
+    />
 
-          <Route path="/artists" element={<Artists />} />
+    <Route
+    path="/profile"
+    element={
+      <Profile
+      accessToken={accessToken}
+      />
+    }
+    />
 
-          <Route
-            path="/artists/:id"
-            element={<ArtistDetail />}
-          />
+    <Route
+    path="/artists"
+    element={<Artists />}
+    />
 
-          <Route path="/albums" element={<Albums />} />
+    <Route
+    path="/artists/:id"
+    element={<ArtistDetail />}
+    />
 
-          <Route
-            path="/albums/:id"
-            element={<AlbumDetail />}
-          />
+    <Route
+    path="/albums"
+    element={<Albums />}
+    />
 
-          <Route
-            path="/catalog-debug"
-            element={<CatalogDebug />}
-          />
-        </Routes>
-      </main>
+    <Route
+    path="/albums/:id"
+    element={
+      <AlbumDetail
+      onSelectTrack={setSelectedTrackId}
+      />
+    }
+    />
 
-      <PlaybackBar />
+    <Route
+    path="/catalog-debug"
+    element={<CatalogDebug />}
+    />
+    </Routes>
+    </main>
+
+    <PlaybackBar
+    trackId={selectedTrackId}
+    />
     </div>
   );
 }
