@@ -9,6 +9,7 @@
     "db:migrate:test": "node --env-file=.env.test migrate.js",
     "db:seed": "node --env-file=.env seed.js",
     "db:seed:test": "node --env-file=.env.test seed.js",
+    "test:integrity": "node --env-file=.env.test --test test/catalog-integrity.test.js",
     "test:db": "node --env-file=.env.test --test test/catalog-db.integration.test.js"
   },
   "dependencies": {
