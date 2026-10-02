@@ -227,6 +227,10 @@ jobs:
         working-directory: database
         run: npm run db:migrate:test
 
+      - name: Verify database migration rerun is safe
+        working-directory: database
+        run: npm run db:migrate:test
+
       - name: Seed database test fixtures
         working-directory: database
         run: npm run db:seed:test
