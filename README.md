@@ -65,7 +65,8 @@ The current merged Sprint 2 implementation uses:
 
   CI                                 GitHub Actions (server, client,
                                      database, authentication-security,
-                                     and build-metadata checks)
+                                     build-metadata, Docker Packaging,
+                                     and Compose Runtime Smoke checks)
 
   Database                           PostgreSQL
 
@@ -367,8 +368,8 @@ The current backend test suite verifies:
 -   Album browse/detail HTTP success, invalid-ID, missing-resource, and
     controlled-failure behavior.
 
--   Track detail metadata HTTP success, invalid-ID, missing-resource, and
-    controlled-failure behavior.
+-   Track detail metadata HTTP success, invalid-ID, missing-resource,
+    and controlled-failure behavior.
 
 -   Media streaming full-file `200`, byte-range `206`, invalid-range
     `416`, unknown-track `404`, and missing-media behavior.
@@ -433,9 +434,9 @@ npm run test:run
 ```
 
 The tests cover the Sidebar navigation/Recently Played shell region,
-ArtistCard, AlbumCard, Artist browse/detail behavior, Album browse/detail
-behavior, grouped catalog Search behavior, profile/library behavior, and
-the integrated playback flow.
+ArtistCard, AlbumCard, Artist browse/detail behavior, Album
+browse/detail behavior, grouped catalog Search behavior, profile/library
+behavior, and the integrated playback flow.
 
 Playback coverage includes the empty state, Track metadata loading and
 display, Play/Pause interaction, volume updates, controlled metadata
@@ -656,6 +657,8 @@ from this tree.
 │   ├── account-profile.md
 │   ├── catalog-fixtures.md
 │   ├── catalog-media-boundary.md
+│   ├── compose-runtime-smoke-test.md
+│   ├── library-recently-added.md
 │   ├── pr-review-checklist.md
 │   ├── self-host-setup.md
 │   ├── sprint1-integration-contracts.md
@@ -964,7 +967,9 @@ curl -i http://localhost:8081/health
 # 9. Client Setup --- Konner Rigby
 
 Konner Rigby owns the Sprint 1 client-shell and self-host packaging
-implementation.
+implementation. In Sprint 2, Konner extends that ownership with the
+authenticated Library recently-added integration and Docker/Compose CI
+automation.
 
 Completed Sprint 1 client/self-host work includes:
 
@@ -981,6 +986,28 @@ Completed Sprint 1 client/self-host work includes:
 -   automated Compose smoke testing
 -   self-host setup documentation
 -   pull-request review checklist
+
+Completed Sprint 2 Library/CI work includes:
+
+-   authenticated recently-added Library browsing
+
+-   Library loading, empty, unauthorized, and error states
+
+-   Library Track selection through the shared `selectedTrackId`
+    playback seam
+
+-   Library integration contract documentation
+
+-   Docker Compose configuration validation in GitHub Actions
+
+-   server and client Docker image builds in GitHub Actions
+
+-   shared build-version metadata consumption for container images
+
+-   Compose runtime smoke testing in GitHub Actions with disposable
+    CI-only configuration
+
+-   Compose runtime configuration contract documentation
 
 The current client uses:
 
@@ -1302,7 +1329,9 @@ Build Metadata
 Client Build
 Client Lint
 Client Tests
+Compose Runtime Smoke Test
 Database Tests
+Docker Packaging
 Server Tests
 ```
 
@@ -1371,7 +1400,32 @@ final export verification: s2.149+c2f90e3
 
 GitHub Actions now enforces server tests, client tests, client lint,
 client build, database integration tests, authentication-security
-checks, and build-metadata generation.
+checks, build-metadata generation, Docker packaging validation, and
+Compose runtime smoke verification.
+
+The `Docker Packaging` job validates the Compose configuration, builds
+the server and client Docker images, consumes the shared
+`SOUNDWAVE_BUILD_VERSION`, uses a Docker-safe image tag when required,
+and verifies the shared build version in image metadata.
+
+The `Compose Runtime Smoke Test` job reuses:
+
+``` text
+scripts/compose-smoke-test.mjs
+```
+
+with disposable CI-only PostgreSQL and JWT configuration. The smoke path
+starts the Compose services, verifies backend `/health`, verifies that
+unauthenticated access to `/api/library/recently-added` returns HTTP
+`401`, verifies client availability, fails CI on runtime errors, and
+cleans up Compose containers and networks.
+
+Konner's Sprint 2 CI/runtime contracts are documented in:
+
+``` text
+docs/compose-runtime-smoke-test.md
+docs/library-recently-added.md
+```
 
 ------------------------------------------------------------------------
 
@@ -1419,8 +1473,8 @@ changing `server.js`.
 
 # 14. Repository Structure
 
-The repository has one canonical structure tree in
-[Section 6: Current Repository Structure](#6-current-repository-structure).
+The repository has one canonical structure tree in [Section 6: Current
+Repository Structure](#6-current-repository-structure).
 
 That tree intentionally omits `node_modules/`, generated build output,
 local `.env` files, and other ignored/local-only files.
@@ -2250,7 +2304,8 @@ Expected response shape:
 ]
 ```
 
-The seeded development database returns five Track records, including the legally usable media-backed Track `3005`.
+The seeded development database returns five Track records, including
+the legally usable media-backed Track `3005`.
 
 The catalog API must not expose local filesystem paths, media storage
 paths, storage keys, or media implementation details.
@@ -2786,7 +2841,57 @@ with HTTP `200` for valid searches.
 
 ------------------------------------------------------------------------
 
-## 32.3 Sprint 2 Integrated Playback Browser Proof --- Matthew Choi
+## 32.3 Sprint 2 Library Recently-Added Browser Proof --- Konner Rigby
+
+Sprint 2 adds an authenticated recently-added Library view that consumes
+the shared catalog identity and playback selection contracts.
+
+With PostgreSQL seeded and both the backend and client running, log in
+with a valid local test account and open:
+
+``` text
+http://localhost:5173/library
+```
+
+Expected behavior:
+
+``` text
+Unauthenticated visit -> Login required state
+Authenticated visit   -> GET /api/library/recently-added
+Loading request        -> loading state
+Empty response         -> explicit empty state
+HTTP 401               -> authorization message
+Successful response    -> recently-added Track rows
+```
+
+Each rendered Track displays its title, Artist, Album, and formatted
+duration.
+
+Selecting a Library Track uses the existing shared playback seam:
+
+``` text
+Library
+    ↓
+onSelectTrack(track.id)
+    ↓
+App.jsx selectedTrackId
+    ↓
+PlaybackBar
+```
+
+The Library does not create a second player or a separate Track
+identity. The stable catalog `track.id` is reused by the existing
+playback flow.
+
+Detailed integration contract:
+
+``` text
+docs/library-recently-added.md
+```
+
+------------------------------------------------------------------------
+
+## 32.4 Sprint 2 Integrated Playback Browser Proof --- Matthew Choi
 
 Sprint 2 moves playback out of the Sprint 1 standalone test HTML and
 into the real React/Vite application.
@@ -2855,7 +2960,7 @@ Verified Sprint 2 result:
 
 ``` text
 
-Client tests: 42 passed, 0 failed
+Client tests: 43 passed, 0 failed
 Client lint:  PASS
 Client build: PASS
 ```
@@ -3183,6 +3288,57 @@ fail 0
 ```
 
 Real application playback has also been manually verified.
+
+------------------------------------------------------------------------
+
+## 35.4 Sprint 2 Library Recently-Added Integration --- Konner Rigby
+
+Sprint 2 connects the authenticated Library to the existing catalog and
+playback contracts without introducing a competing backend or playback
+path.
+
+Backend/API contract:
+
+``` text
+GET /api/library/recently-added
+```
+
+The route requires Bearer authentication and returns recently-added
+catalog Tracks using stable public Track IDs. Missing or invalid
+authentication returns HTTP `401`.
+
+Client implementation:
+
+``` text
+client/src/pages/Library.jsx
+client/src/pages/Library.css
+client/src/pages/Library.test.jsx
+client/src/App.jsx
+```
+
+Runtime selection path:
+
+``` text
+GET /api/library/recently-added
+    ↓
+Library.jsx
+    ↓
+onSelectTrack(track.id)
+    ↓
+App.jsx selectedTrackId
+    ↓
+PlaybackBar
+```
+
+Library client coverage verifies login-required, loading, successful,
+empty, unauthorized, error, request-cleanup, and Track-selection
+behavior.
+
+Detailed contract:
+
+``` text
+docs/library-recently-added.md
+```
 
 ------------------------------------------------------------------------
 
@@ -3635,11 +3791,18 @@ server/test/media-streaming.test.js
 # 42. Packaging and Self-Hosted Setup --- Konner Rigby
 
 Konner Rigby owns the Sprint 1 client-shell and self-host packaging
-implementation.
+implementation and the Sprint 2 Docker/Compose CI automation.
 
 Sprint 1 establishes Docker packaging for the Soundwave client and
 backend, Docker Compose orchestration, automated smoke testing, and
 self-host setup documentation.
+
+Sprint 2 moves the established packaging checks into GitHub Actions.
+`Docker Packaging` validates the Compose configuration and builds both
+images using the team's shared build identity.
+`Compose Runtime Smoke Test` reuses the existing smoke-test script with
+disposable CI-only configuration to validate the running container
+stack.
 
 ## 42.1 Current Packaging Architecture
 
@@ -3772,7 +3935,46 @@ Client check passed.
 Soundwave Compose smoke test passed.
 ```
 
-## 42.8 Supporting Documentation
+## 42.8 Sprint 2 Docker/Compose CI Automation
+
+The shared GitHub Actions workflow includes Konner-owned container
+verification through:
+
+``` text
+Docker Packaging
+Compose Runtime Smoke Test
+```
+
+`Docker Packaging` runs Compose configuration validation, builds the
+server and client images, and verifies that container metadata preserves
+the shared `SOUNDWAVE_BUILD_VERSION`.
+
+`Compose Runtime Smoke Test` creates disposable CI-only PostgreSQL and
+JWT configuration and runs:
+
+``` bash
+node scripts/compose-smoke-test.mjs
+```
+
+The runtime smoke path verifies:
+
+``` text
+backend /health
+unauthenticated /api/library/recently-added -> HTTP 401
+client availability
+Compose cleanup
+```
+
+Real JWT secrets, database passwords, and local `.env` files are not
+committed for CI.
+
+Runtime CI contract:
+
+``` text
+docs/compose-runtime-smoke-test.md
+```
+
+## 42.9 Supporting Documentation
 
 Detailed self-host setup:
 
@@ -3786,7 +3988,7 @@ Pull-request review checklist:
 docs/pr-review-checklist.md
 ```
 
-## 42.9 Sprint 1 Scope
+## 42.10 Sprint 1 Scope
 
 Sprint 1 establishes the initial development/self-host packaging
 foundation. Production deployment hardening, clean-machine release
@@ -4299,6 +4501,31 @@ Sprint 2 Allison Yu additions currently include:
 -   controlled Artist/Album `400`, `404`, and `500` behavior
 -   Artist/Album repository, service, route, and client tests
 
+Sprint 2 Konner Rigby additions currently include:
+
+-   authenticated `GET /api/library/recently-added` integration
+
+-   recently-added Library loading, success, empty, unauthorized, and
+    error states
+
+-   Library Track selection through the shared application playback seam
+
+-   Library recently-added integration contract documentation
+
+-   Docker Compose configuration validation in GitHub Actions
+
+-   server and client Docker image builds in GitHub Actions
+
+-   shared build identity consumption in container metadata
+
+-   Docker-safe CI image tagging
+
+-   Compose runtime smoke verification in GitHub Actions
+
+-   disposable CI-only PostgreSQL/JWT runtime configuration
+
+-   Compose runtime smoke-test contract documentation
+
 Other Sprint 1 subsystem work may continue to evolve as remaining team
 pull requests are merged.
 
@@ -4797,8 +5024,10 @@ music-streaming application.
 
 The current Sprint 2 implementation extends the Sprint 1 foundation with
 PostgreSQL-backed catalog search, Artist/Album browse-detail flows,
-broader automated regression coverage, and stronger CI/build
-traceability.
+authenticated recently-added Library integration, shared playback
+selection, broader automated regression coverage, stronger CI/build
+traceability, Docker packaging validation, and Compose runtime smoke
+automation.
 
 Future integrations include:
 
