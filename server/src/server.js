@@ -3,7 +3,6 @@ import pg from "pg";
 import { createApp } from "./app.js";
 import { createTokenService } from "./auth/token.js";
 
-
 import {
   createAuthUserRepository
 } from "./data/auth-user.repository.js";
@@ -39,71 +38,75 @@ import {
 const { Pool } = pg;
 
 const port =
-  Number(process.env.PORT ?? 8080);
+Number(process.env.PORT ?? 8080);
 
 const database =
-  new Pool();
+new Pool();
 
 const tokenService =
-  createTokenService(
-    process.env.JWT_SECRET
-  );
+createTokenService(
+  process.env.JWT_SECRET
+);
 
 const authUserRepository =
-  createAuthUserRepository(
-    database
-  );
+createAuthUserRepository(
+  database
+);
 
 const catalogRepository =
-  createCatalogRepository(
-    database
-  );
+createCatalogRepository(
+  database
+);
 
 const searchRepository =
-  createSearchRepository(
-    database
-  );
+createSearchRepository(
+  database
+);
 
 const catalogService =
-  createCatalogService(
-    catalogRepository
-  );
+createCatalogService(
+  catalogRepository
+);
 
 const handleCatalogRequest =
-  createCatalogHandler(
-    catalogService
-  );
+createCatalogHandler(
+  catalogService
+);
 
 const searchService =
-  createSearchService(
-    searchRepository
-  );
+createSearchService(
+  searchRepository
+);
 
 const handleSearchRequest =
-  createSearchHandler(
-    searchService
-  );
+createSearchHandler(
+  searchService
+);
 
 const accountProfileRepository =
-  createAccountProfileRepository(
-    database
-  );
+createAccountProfileRepository(
+  database
+);
 
 const server =
-  createApp({
-    tokenService,
+createApp({
+  tokenService,
 
-    findUserByUsername:
-      authUserRepository.findUserByUsername,
+  findUserByUsername:
+  authUserRepository.findUserByUsername,
 
-    findProfileByUserId:
-      accountProfileRepository.findProfileByUserId,
+  findProfileByUserId:
+  accountProfileRepository.findProfileByUserId,
 
-    handleCatalogRequest,
+  findTrackById:
+  catalogRepository.findTrackById,
 
-    handleSearchRequest
-  });
-  server.listen(
+  handleCatalogRequest,
+
+  handleSearchRequest
+});
+
+server.listen(
   port,
   () => {
     console.log(
