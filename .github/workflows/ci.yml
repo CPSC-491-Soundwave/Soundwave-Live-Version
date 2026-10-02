@@ -344,7 +344,7 @@ jobs:
             --tag "soundwave-client:$SOUNDWAVE_IMAGE_TAG" \
             ./client
 
-            - name: Verify server image metadata
+      - name: Verify server image metadata
         run: |
           ACTUAL_VERSION="$(
             docker image inspect \
