@@ -235,6 +235,10 @@ jobs:
         working-directory: database
         run: npm run db:seed:test
 
+      - name: Verify database schema and fixture integrity
+        working-directory: database
+        run: npm run test:integrity
+
       - name: Run database integration tests
         working-directory: database
         run: npm run test:db
