@@ -7,6 +7,7 @@ import {
 } from "vitest";
 
 import {
+  fireEvent,
   render,
   screen,
 } from "@testing-library/react";
@@ -23,17 +24,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderAlbumDetail() {
+function renderAlbumDetail({
+  onSelectTrack,
+} = {}) {
   render(
     <MemoryRouter
-      initialEntries={["/albums/2001"]}
+    initialEntries={["/albums/2001"]}
     >
-      <Routes>
-        <Route
-          path="/albums/:id"
-          element={<AlbumDetail />}
-        />
-      </Routes>
+    <Routes>
+    <Route
+    path="/albums/:id"
+    element={
+      <AlbumDetail
+      onSelectTrack={onSelectTrack}
+      />
+    }
+    />
+    </Routes>
     </MemoryRouter>
   );
 }
@@ -41,6 +48,62 @@ function renderAlbumDetail() {
 describe("AlbumDetail", () => {
   it("loads and renders album detail", async () => {
     vi.spyOn(globalThis, "fetch")
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 2001,
+        title: "Fixture Album Alpha",
+        artist: {
+          id: 1001,
+          name: "Fixture Artist One",
+        },
+        tracks: [
+          {
+            id: 3001,
+            title: "Fixture Track One",
+            durationMs: 180000,
+          },
+        ],
+      }),
+    });
+
+    renderAlbumDetail();
+
+    expect(
+      screen.getByText("Loading album...")
+    ).toBeTruthy();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Fixture Album Alpha",
+      })
+    ).toBeTruthy();
+
+    expect(
+      screen.getByText(
+        "Fixture Artist One",
+        { selector: "p" }
+      )
+    ).toBeTruthy();
+
+    expect(
+      screen.getByText("Fixture Track One")
+    ).toBeTruthy();
+
+    expect(
+      screen.getByText("3:00")
+    ).toBeTruthy();
+
+    expect(globalThis.fetch)
+    .toHaveBeenCalledWith(
+      "/api/catalog/albums/2001"
+    );
+  });
+
+  it(
+    "selects a Track for playback",
+    async () => {
+      vi.spyOn(globalThis, "fetch")
       .mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -60,53 +123,51 @@ describe("AlbumDetail", () => {
         }),
       });
 
-    renderAlbumDetail();
+      const onSelectTrack =
+      vi.fn();
 
-    expect(
-      screen.getByText("Loading album...")
-    ).toBeTruthy();
+      renderAlbumDetail({
+        onSelectTrack,
+      });
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "Fixture Album Alpha",
-      })
-    ).toBeTruthy();
-
-    expect(
-        screen.getByText(
-            "Fixture Artist One",
-            { selector: "p" }
-        )
-    ).toBeTruthy();
-
-    expect(
-      screen.getByText("Fixture Track One")
-    ).toBeTruthy();
-
-    expect(
-      screen.getByText("3:00")
-    ).toBeTruthy();
-
-    expect(globalThis.fetch)
-      .toHaveBeenCalledWith(
-        "/api/catalog/albums/2001"
+      const playButton =
+      await screen.findByRole(
+        "button",
+        {
+          name: "Play Fixture Track One",
+        }
       );
-  });
+
+      fireEvent.click(
+        playButton
+      );
+
+      expect(
+        onSelectTrack
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        onSelectTrack
+      ).toHaveBeenCalledWith(
+        3001
+      );
+    }
+  );
 
   it("renders an empty-track state", async () => {
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          id: 2001,
-          title: "Fixture Album Alpha",
-          artist: {
-            id: 1001,
-            name: "Fixture Artist One",
-          },
-          tracks: [],
-        }),
-      });
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 2001,
+        title: "Fixture Album Alpha",
+        artist: {
+          id: 1001,
+          name: "Fixture Artist One",
+        },
+        tracks: [],
+      }),
+    });
 
     renderAlbumDetail();
 
@@ -119,10 +180,10 @@ describe("AlbumDetail", () => {
 
   it("renders an error state", async () => {
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValue({
-        ok: false,
-        status: 404,
-      });
+    .mockResolvedValue({
+      ok: false,
+      status: 404,
+    });
 
     renderAlbumDetail();
 
