@@ -304,6 +304,12 @@ jobs:
           test -n "$SOUNDWAVE_BUILD_VERSION"
           echo "Using Soundwave build version: $SOUNDWAVE_BUILD_VERSION"
 
+      - name: Create Docker-safe image tag
+        run: |
+          SOUNDWAVE_IMAGE_TAG="${SOUNDWAVE_BUILD_VERSION//+/-}"
+          echo "SOUNDWAVE_IMAGE_TAG=$SOUNDWAVE_IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "Using Docker image tag: $SOUNDWAVE_IMAGE_TAG"
+
       - name: Create CI-only Compose environment
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
@@ -328,21 +334,21 @@ jobs:
         run: |
           docker build \
             --build-arg SOUNDWAVE_BUILD_VERSION="$SOUNDWAVE_BUILD_VERSION" \
-            --tag "soundwave-server:$SOUNDWAVE_BUILD_VERSION" \
+            --tag "soundwave-server:$SOUNDWAVE_IMAGE_TAG" \
             ./server
 
       - name: Build client Docker image
         run: |
           docker build \
             --build-arg SOUNDWAVE_BUILD_VERSION="$SOUNDWAVE_BUILD_VERSION" \
-            --tag "soundwave-client:$SOUNDWAVE_BUILD_VERSION" \
+            --tag "soundwave-client:$SOUNDWAVE_IMAGE_TAG" \
             ./client
 
-      - name: Verify server image metadata
+            - name: Verify server image metadata
         run: |
           ACTUAL_VERSION="$(
             docker image inspect \
-              "soundwave-server:$SOUNDWAVE_BUILD_VERSION" \
+              "soundwave-server:$SOUNDWAVE_IMAGE_TAG" \
               --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
           )"
 
@@ -352,7 +358,7 @@ jobs:
         run: |
           ACTUAL_VERSION="$(
             docker image inspect \
-              "soundwave-client:$SOUNDWAVE_BUILD_VERSION" \
+              "soundwave-client:$SOUNDWAVE_IMAGE_TAG" \
               --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
           )"
 
