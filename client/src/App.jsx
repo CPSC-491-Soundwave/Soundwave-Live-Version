@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
+import Profile from "./pages/Profile";
 import CatalogDebug from "./pages/CatalogDebug";
 import Artists from "./pages/Artists";
 import ArtistDetail from "./pages/ArtistDetail";
@@ -37,6 +38,15 @@ export default function App() {
             element={
               <Login
                 setAccessToken={setAccessToken}
+              />
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <Profile
+                accessToken={accessToken}
               />
             }
           />
