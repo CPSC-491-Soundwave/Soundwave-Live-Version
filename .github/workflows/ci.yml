@@ -363,3 +363,36 @@ jobs:
           )"
 
           test "$ACTUAL_VERSION" = "$SOUNDWAVE_BUILD_VERSION"
+  compose-runtime-smoke:
+    name: Compose Runtime Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create CI-only Compose environment
+        run: |
+          JWT_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$JWT_SECRET"
+
+          cat > database/.env <<'EOF'
+          PGHOST=host.docker.internal
+          PGPORT=5432
+          PGUSER=soundwave_app
+          PGPASSWORD=soundwave_ci_only_password
+          PGDATABASE=soundwave_ci
+          EOF
+
+          cat > server/.env <<EOF
+          JWT_SECRET=$JWT_SECRET
+          EOF
+
+      - name: Run Compose runtime smoke test
+        run: node scripts/compose-smoke-test.mjs
+
