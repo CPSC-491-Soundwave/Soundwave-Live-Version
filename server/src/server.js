@@ -70,7 +70,10 @@ createCatalogService(
 
 const handleCatalogRequest =
 createCatalogHandler(
-  catalogService
+  catalogService,
+  {
+    tokenService
+  }
 );
 
 const searchService =
