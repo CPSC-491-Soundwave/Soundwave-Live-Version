@@ -346,11 +346,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 111
+tests 125
 
 suites 12
 
-pass 111
+pass 125
 
 fail 0
 
@@ -612,7 +612,9 @@ Soundwave-Live-Version
 │   ├── self-host-setup.md
 │   ├── sprint1-integration-contracts.md
 │   ├── sprint2-build-version-contract.md
-│   └── sprint2-christian-baseline-and-boundaries.md
+│   ├── sprint2-christian-baseline-and-boundaries.md
+│   ├── sprint2-christian-cicd-analysis.md
+│   └── sprint2-search-api-and-test-notes.md
 ├── mediaFiles/
 │   └── test.mp3
 ├── playback/
@@ -865,11 +867,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 111
+tests 125
 
 suites 12
 
-pass 111
+pass 125
 
 fail 0
 
@@ -1202,8 +1204,8 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 30
-pass 30
+tests 31
+pass 31
 fail 0
 
 ```
@@ -1269,9 +1271,9 @@ Sprint 2 added `Client Tests`, PostgreSQL-backed `Database Tests`, and `Build Me
 The current verified local test totals are:
 
 ```text
-Server:   111 passed, 0 failed
+Server:   125 passed, 0 failed
 Client:    25 passed, 0 failed
-Database:  30 passed, 0 failed
+Database:  31 passed, 0 failed
 ```
 
 The `Build Metadata` job generates:
@@ -1288,6 +1290,15 @@ s2.<run_number>+<short_sha>
 
 The metadata records the full commit SHA, short SHA, GitHub Actions run number, run ID, branch/ref, event name, and UTC generation timestamp.
 
+The `Build Metadata` job also exposes the generated version as:
+
+```text
+job output: version
+environment: SOUNDWAVE_BUILD_VERSION
+```
+
+A verification step confirms that the exported values match the generated `build-info.json` version.
+
 Pull-request runs validate metadata generation. Pushes to `main` additionally upload the build metadata as a GitHub Actions artifact named:
 
 ```text
@@ -1302,6 +1313,14 @@ Detailed contract:
 
 ```text
 docs/sprint2-build-version-contract.md
+```
+
+Verified hosted Sprint 2 build evidence includes:
+
+```text
+main build identity: s2.147+78ed45f
+main artifact: soundwave-build-info-147.zip
+final export verification: s2.149+c2f90e3
 ```
 
 GitHub Actions now enforces server tests, client tests, client lint, client build, database integration tests, authentication-security checks, and build-metadata generation.
@@ -1432,7 +1451,9 @@ Soundwave-Live-Version
 │   ├── self-host-setup.md
 │   ├── sprint1-integration-contracts.md
 │   ├── sprint2-build-version-contract.md
-│   └── sprint2-christian-baseline-and-boundaries.md
+│   ├── sprint2-christian-baseline-and-boundaries.md
+│   ├── sprint2-christian-cicd-analysis.md
+│   └── sprint2-search-api-and-test-notes.md
 ├── mediaFiles
 │   └── test.mp3
 ├── playback
@@ -1986,9 +2007,9 @@ Verified Sprint 2 database result:
 
 ```text
 
-tests 30
+tests 31
 
-pass 30
+pass 31
 
 fail 0
 
@@ -2433,7 +2454,6 @@ With migrations applied, the database seeded, and the backend running:
 curl -i http://localhost:8080/api/catalog/albums
 
 curl -i http://localhost:8080/api/catalog/albums/2001
-/search
 
 ```
 
@@ -2579,11 +2599,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 111
+tests 125
 
 suites 12
 
-pass 111
+pass 125
 
 fail 0
 
@@ -3041,9 +3061,9 @@ Verified Sprint 2 full server result:
 
 ```text
 
-tests 111
+tests 125
 suites 12
-pass 111
+pass 125
 fail 0
 cancelled 0
 skipped 0
@@ -3225,6 +3245,7 @@ Open the Vite URL and navigate to:
 /artists/1001
 /albums
 /albums/2001
+/search
 
 ```
 
@@ -3254,7 +3275,7 @@ Required:
 
 ```text
 
-30 passed
+31 passed
 0 failed
 
 ```
@@ -3273,7 +3294,7 @@ Required:
 
 ```text
 
-111 passed
+125 passed
 0 failed
 
 ```
@@ -4220,7 +4241,12 @@ Sprint 2 Christian McGowan additions currently include:
 - Build Metadata GitHub Actions check
 - `s2.<run_number>+<short_sha>` build identity
 - `build-info.json` traceability metadata
+- Build Metadata `version` job output
+- `SOUNDWAVE_BUILD_VERSION` workflow environment export
+- hosted build-version export verification
 - build/version contract documentation
+- Search API and test-notes documentation
+- Sprint 2 CI/CD analysis and results documentation
 
 Sprint 2 Allison Yu additions currently include:
 
@@ -4637,11 +4663,11 @@ Verified Sprint 2 result:
 
 ```text
 
-tests 111
+tests 125
 
 suites 12
 
-pass 111
+pass 125
 
 fail 0
 
