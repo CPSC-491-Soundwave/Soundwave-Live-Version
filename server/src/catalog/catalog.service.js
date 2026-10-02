@@ -14,8 +14,54 @@ export function createCatalogService(repository) {
 
       return rows.map((row) => ({
         id: Number(row.track_id),
+                                title: row.track_title,
+                                durationMs: row.duration_ms,
+
+                                album: {
+                                  id: Number(row.album_id),
+                                title: row.album_title
+                                },
+
+                                artist: {
+                                  id: Number(row.artist_id),
+                                name: row.artist_name
+                                }
+      }));
+    },
+
+    async getTrackById(trackId) {
+      if (
+        !Number.isInteger(trackId) ||
+        trackId <= 0
+      ) {
+        throw new TypeError(
+          "Track ID must be a positive integer."
+        );
+      }
+
+      if (
+        typeof repository.findTrackById !== "function"
+      ) {
+        throw new TypeError(
+          "Catalog repository does not support track detail queries."
+        );
+      }
+
+      const row =
+      await repository.findTrackById(
+        trackId
+      );
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        id: Number(row.track_id),
         title: row.track_title,
-        durationMs: row.duration_ms,
+        durationMs: Number(
+          row.duration_ms
+        ),
 
         album: {
           id: Number(row.album_id),
@@ -26,8 +72,9 @@ export function createCatalogService(repository) {
           id: Number(row.artist_id),
           name: row.artist_name
         }
-      }));
+      };
     },
+
     async listRecentlyAddedTracks(limit = 10) {
       if (
         typeof repository.listRecentlyAddedTracks !== "function"
@@ -38,23 +85,23 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-        await repository.listRecentlyAddedTracks(limit);
+      await repository.listRecentlyAddedTracks(limit);
 
       return rows.map((row) => ({
         id: Number(row.track_id),
-        title: row.track_title,
-        durationMs: row.duration_ms,
-        createdAt: row.track_created_at,
+                                title: row.track_title,
+                                durationMs: row.duration_ms,
+                                createdAt: row.track_created_at,
 
-        album: {
-          id: Number(row.album_id),
-          title: row.album_title
-        },
+                                album: {
+                                  id: Number(row.album_id),
+                                title: row.album_title
+                                },
 
-        artist: {
-          id: Number(row.artist_id),
-          name: row.artist_name
-        }
+                                artist: {
+                                  id: Number(row.artist_id),
+                                name: row.artist_name
+                                }
       }));
     },
 
@@ -68,11 +115,11 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-        await repository.listArtists();
+      await repository.listArtists();
 
       return rows.map((row) => ({
         id: Number(row.artist_id),
-        name: row.artist_name
+                                name: row.artist_name
       }));
     },
 
@@ -96,18 +143,18 @@ export function createCatalogService(repository) {
       }
 
       const artistRow =
-        await repository.findArtistById(
-          artistId
-        );
+      await repository.findArtistById(
+        artistId
+      );
 
       if (!artistRow) {
         return null;
       }
 
       const albumRows =
-        await repository.listAlbumsByArtistId(
-          artistId
-        );
+      await repository.listAlbumsByArtistId(
+        artistId
+      );
 
       return {
         id: Number(artistRow.artist_id),
@@ -115,7 +162,7 @@ export function createCatalogService(repository) {
 
         albums: albumRows.map((row) => ({
           id: Number(row.album_id),
-          title: row.album_title
+                                        title: row.album_title
         }))
       };
     },
@@ -130,16 +177,16 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-        await repository.listAlbums();
+      await repository.listAlbums();
 
       return rows.map((row) => ({
         id: Number(row.album_id),
-        title: row.album_title,
+                                title: row.album_title,
 
-        artist: {
-          id: Number(row.artist_id),
-          name: row.artist_name
-        }
+                                artist: {
+                                  id: Number(row.artist_id),
+                                name: row.artist_name
+                                }
       }));
     },
 
@@ -163,18 +210,18 @@ export function createCatalogService(repository) {
       }
 
       const albumRow =
-        await repository.findAlbumById(
-          albumId
-        );
+      await repository.findAlbumById(
+        albumId
+      );
 
       if (!albumRow) {
         return null;
       }
 
       const trackRows =
-        await repository.listTracksByAlbumId(
-          albumId
-        );
+      await repository.listTracksByAlbumId(
+        albumId
+      );
 
       return {
         id: Number(albumRow.album_id),
@@ -187,10 +234,10 @@ export function createCatalogService(repository) {
 
         tracks: trackRows.map((row) => ({
           id: Number(row.track_id),
-          title: row.track_title,
-          durationMs: Number(
-            row.duration_ms
-          )
+                                        title: row.track_title,
+                                        durationMs: Number(
+                                          row.duration_ms
+                                        )
         }))
       };
     }
