@@ -32,7 +32,11 @@ export default function App() {
 
           <Route
             path="/search"
-            element={<Search />}
+            element={
+              <Search
+                onSelectTrack={setSelectedTrackId}
+              />
+            }
           />
 
           <Route
