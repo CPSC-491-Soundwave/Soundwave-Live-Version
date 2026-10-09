@@ -186,6 +186,27 @@ PGDATABASE=<your-test-database>
 
 The development and test databases should be separate.
 
+The PostgreSQL role and development database must actually exist on the
+local machine; copying `.env` values from another developer does not copy
+their PostgreSQL database. Check with:
+
+```bash
+sudo -iu postgres psql
+```
+
+Inside `psql`, use `\du` to inspect roles and `\l` to inspect databases.
+Create only what is missing; do not overwrite another developer's data.
+After configuring the role and database, confirm connectivity without
+printing the password:
+
+```bash
+psql -h localhost -U soundwave_app -d <your-development-database> \
+  -c "SELECT current_user, current_database();"
+```
+
+Replace `<your-development-database>` with the actual database name
+before executing the command. PostgreSQL prompts for the password.
+
 ---
 
 # 5. Database Migrations
@@ -329,14 +350,31 @@ server/.env
 
 Real secrets must never be committed.
 
-Example:
+Example `server/.env` (local only; replace placeholders, never commit):
 
 ```dotenv
-JWT_SECRET=<development-only-secret>
+PGHOST=localhost
+PGPORT=5432
+PGUSER=soundwave_app
+PGPASSWORD=<your-local-postgres-password>
+PGDATABASE=<your-development-database>
+JWT_SECRET=<generated-development-only-secret>
+# Optional: an absolute directory containing the paths in tracks.media_path
+# MEDIA_ROOT=/srv/soundwave/storage
 ```
 
-Depending on local setup, PostgreSQL variables may also be present in
-`server/.env`.
+Use the same PostgreSQL connection settings in `database/.env` and
+`server/.env` when both are used on one machine. `JWT_SECRET` belongs on
+the backend only. If omitted, `MEDIA_ROOT` defaults to the repository
+root derived from the location of `server/src/app.js`, not the process's
+current working directory. `MEDIA_ROOT`, if configured, must be an
+absolute path.
+
+Alternatively, from `server/`, the backend can load its own file directly:
+
+```bash
+node --env-file=.env src/server.js
+```
 
 The verified shared local workflow is to export both database and server
 environment files before starting the backend:
@@ -702,6 +740,116 @@ invalid byte range      -> 416
 unknown Track           -> 404
 missing media resource  -> 404
 ```
+
+## 15.2 Sprint 3 configurable media root — Matthew Choi (SCRUM-169)
+
+Sprint 3 retains the existing catalog Track-ID playback contract and
+improves the server-side storage location handling. The frontend builds
+URLs such as `/api/tracks/3005/stream`; it does not know filesystem paths.
+
+The integration follows:
+
+```text
+App.jsx / PlaybackBar.jsx
+    -> client/src/playback/playback.js (Howler, html5: true)
+    -> GET /api/tracks/:id/stream
+    -> catalog.repository.js findTrackById(id)
+    -> tracks.media_path (internal only)
+    -> validated path under mediaRoot
+    -> streamTrackFile() with HTTP Range support
+```
+
+`server/src/server.js` passes `mediaRoot: process.env.MEDIA_ROOT` into
+`createApp()`. `server/src/app.js` supplies a source-location-derived
+default when the environment variable is absent. The previous
+`path.resolve(process.cwd(), "..")` assumption has been removed.
+
+For the default repository layout:
+
+```text
+Default media root: <repository-root>/
+Database media_path: mediaFiles/test.mp3
+Resolved audio file: <repository-root>/mediaFiles/test.mp3
+```
+
+For external storage, set an absolute `MEDIA_ROOT` in `server/.env` and
+keep database `media_path` entries relative to that root. For example,
+`MEDIA_ROOT=/srv/soundwave/storage` with
+`media_path=mediaFiles/test.mp3` resolves to
+`/srv/soundwave/storage/mediaFiles/test.mp3`.
+
+The new resolver rejects empty, absolute, or escaping database paths;
+uses real filesystem paths to detect symlinks pointing outside the root;
+and returns HTTP `404` rather than serving a rejected or missing file.
+The existing plain-text missing-file response (`Audio file not found`)
+is intentionally preserved for API compatibility. These checks are a
+path-validation boundary, not a substitute for the still-pending media
+authorization policy. Deployments should keep the media directory and
+its parent directories protected against untrusted filesystem writes.
+
+## 15.3 Sprint 3 media-root regression tests — Matthew Choi
+
+`server/test/media-streaming.test.js` retains the original five HTTP
+streaming tests and adds five focused cases:
+
+| Test | Expected behavior |
+|---|---|
+| Custom absolute `mediaRoot` and relative track media path | `200`; byte-range request `206` |
+| Database `../` traversal outside the root | `404` with original text response |
+| Absolute database `media_path` | `404` |
+| Symlink resolving outside the media root | `404` |
+| Relative `mediaRoot` supplied to `createApp()` | `TypeError` |
+
+The new cases use temporary synthetic fixtures, not unlicensed music.
+The developer reported the focused streaming and complete backend tests
+passing after these additions. Re-run against the current checkout
+before committing, because total counts may change when teammate
+changes merge:
+
+```bash
+cd server
+node --test test/media-streaming.test.js
+npm test
+```
+
+A successful run must report `fail 0`.
+
+## 15.4 Sprint 3 local playback verification — Matthew Choi (SCRUM-170)
+
+The following was verified on the developer's local PostgreSQL +
+Node.js + React/Vite setup after the media-root change:
+
+| Verification | Observed result |
+|---|---|
+| `GET /api/catalog/tracks/3005` | `200`, `Kontekst` / `Buddha` / `No Copyright` |
+| `GET /api/tracks/3005/stream` with `Range: bytes=0-999` | `206 Partial Content` |
+| Open `/albums/2003` and select Track 3005 | Real audio played in the shared PlaybackBar |
+
+Reproduce the API checks:
+
+```bash
+curl -i http://localhost:8080/api/catalog/tracks/3005
+curl -sS -o /dev/null \
+  -w 'HTTP %{http_code}, bytes %{size_download}\n' \
+  -H 'Range: bytes=0-999' \
+  http://localhost:8080/api/tracks/3005/stream
+```
+
+The second command should report `HTTP 206, bytes 1000` for the seeded
+fixture. Open `http://localhost:5173/albums/2003` (or the Vite port
+shown in the console) to select and play the track. Inspect the browser
+Network panel for metadata `200` and media `200`/`206` requests. Verify
+Play, Pause, and Volume separately before claiming those controls
+passed a new manual run.
+
+Track `3005` must use audio covered by `mediaFiles/license.txt` or
+another documented public-domain, Creative Commons, or owned fixture.
+The current seed/API displays `durationMs: 12345`; confirm that the seed
+value matches the actual audio metadata before making duration-accuracy
+claims in a graded demo.
+
+These checks prove **direct local playback**, not media accessibility
+inside Docker Compose. Container audio remains a separate verification.
 
 ---
 
@@ -1109,7 +1257,14 @@ The server suite covers areas including:
 - catalog/media isolation;
 - HTTP media streaming;
 - metadata;
-- Track persistence.
+- Track persistence;
+- configurable media-root streaming and path rejection tests (Matthew
+  Choi, Sprint 3).
+
+The previously reported backend baseline was 135/135. After five focused
+media-root cases were added, the developer reported that the updated
+test runs passed. Check the current `npm test` summary for the exact
+new total rather than assuming the baseline remains fixed.
 
 The durable requirement is:
 
@@ -1195,6 +1350,23 @@ npm run dev
 
 Open the Vite URL.
 
+## Media endpoint verification (Matthew Choi, Sprint 3)
+
+With the backend running against a migrated and seeded database:
+
+```bash
+curl -i http://localhost:8080/api/catalog/tracks/3005
+curl -sS -o /dev/null \
+  -w 'HTTP %{http_code}, bytes %{size_download}\n' \
+  -H 'Range: bytes=0-999' \
+  http://localhost:8080/api/tracks/3005/stream
+```
+
+Expected results: catalog `200`, media `206` with 1,000 bytes.
+A `catalog_unavailable` response indicates that the catalog database
+lookup failed; check the server log and PostgreSQL configuration before
+investigating audio playback.
+
 ## Browser happy-path checks
 
 Verify:
@@ -1205,9 +1377,15 @@ Verify:
 /artists/1001
 /albums
 /albums/2001
+/albums/2003
 /library
 /profile
 ```
+
+Album-to-playback proof (SCRUM-170, locally verified): select Track
+`3005` in `/albums/2003`, check that the shared PlaybackBar shows
+`Kontekst` / `Buddha` / `No Copyright`, and confirm actual audio plays.
+Check the Network panel for metadata `200` and streaming `200` or `206`.
 
 Search-to-playback proof:
 
@@ -1325,6 +1503,42 @@ The exact tree continues to evolve as Sprint 3 work is merged.
 ---
 
 # 30. Troubleshooting
+
+## 30.0 `catalog_unavailable`: missing PostgreSQL role or tables
+
+A catalog response like:
+
+```json
+{"error":"catalog_unavailable"}
+```
+
+means the server's catalog query failed. Read the **backend terminal's**
+`Catalog request failed:` message rather than inferring the cause from
+the HTTP response alone.
+
+- `role "soundwave_app" does not exist`: inspect local roles with
+  `sudo -iu postgres psql` followed by `\du`. Create the role only if
+  absent and set its password locally; ensure `server/.env` and
+  `database/.env` use valid credentials. An example database name from a
+  teammate's README does not copy their database to this machine.
+- `relation "tracks" does not exist`: the configured development database
+  lacks the schema. Run `npm run db:migrate` and then `npm run db:seed`
+  from `database/`; do not hand-create the catalog tables.
+- `database "..." does not exist` or `password authentication failed`:
+  verify the actual local database, account, and environment values.
+
+Validate Track 3005 without exposing credentials:
+
+```bash
+psql -h localhost -U soundwave_app -d <your-development-database> \
+  -c "SELECT id, title, media_path FROM tracks WHERE id = 3005;"
+```
+
+Replace the placeholder before running it. Keep credentials and JWT
+secrets out of logs, chat, screenshots, and committed files; rotate any
+secret that has been exposed.
+
+---
 
 ## 30.1 JWT secret missing
 
@@ -1664,7 +1878,26 @@ Generated metadata must never contain:
 # 34. Docker / Compose Packaging
 
 Docker and Docker Compose remain supported for packaging and runtime
-verification.
+verification. In the local Sprint 3 smoke run, both images built and
+the backend health, unauthenticated protected-Library boundary, client
+availability, and Compose cleanup checks all passed. The initial
+`buildx` missing-plugin warning did not prevent building with the
+classic builder.
+
+**Important media limitation:** the passing Compose smoke check does
+**not** verify `GET /api/tracks/3005/stream` inside the server
+container. `server/Dockerfile` was observed building with `WORKDIR /app`
+and `COPY . .` from the server context. For an app module located at
+`/app/src/app.js`, the source-relative default media root resolves to
+`/`, not the repository's host-side `mediaFiles/` directory. Container
+media access and the confinement root therefore remain **unverified**.
+Before treating container playback as ready, inspect `compose.yml` and
+`server/Dockerfile`, provide an appropriately restricted media mount,
+configure an absolute container-side `MEDIA_ROOT`, and verify HTTP `206`
+against the running container. Prefer read-only mounting of rights-cleared
+fixtures for development demonstrations rather than copying a music
+library into the image. Do not claim that the current smoke test covers
+container audio.
 
 Packaging files include:
 
@@ -1702,6 +1935,26 @@ node scripts/compose-smoke-test.mjs
 
 The direct PostgreSQL + Node + Vite workflow documented earlier remains
 the normal local-development path.
+
+Compose reads the local `database/.env` and `server/.env` files in the
+current project configuration. If the smoke test reports an `env file
+.../database/.env not found` error, create the ignored file with valid
+*local* configuration; creating a file by itself does not provision a
+PostgreSQL role or database. When `docker compose` is unknown or the
+Docker socket is unavailable, confirm installation of the Compose
+plugin and availability of Docker Engine before troubleshooting Soundwave.
+
+## 34.1 Client dependency audit note (Sprint 3 local environment)
+
+The local `client/` audit reported two high-severity transitive issues:
+`brace-expansion` via ESLint/minimatch and `source-map-js` via
+jsdom/Vite/PostCSS. The production-only `npm audit --omit=dev` reported
+zero vulnerabilities. `npm audit fix --dry-run` proposed patch updates
+`brace-expansion` `5.0.9` -> `5.0.12` and `source-map-js` `1.2.1` ->
+`1.2.2`; a dry run **does not install** these fixes. Treat dependency
+updates as a separate reviewed change, verify `npm audit`, client tests,
+lint, and build afterward, and do not claim remediation until committed
+and verified.
 
 ---
 
@@ -1796,6 +2049,27 @@ HTTP media stream
 
 Authenticated failure handling and final protected-media behavior remain
 separate Sprint 3 integration work.
+
+### Matthew Choi — Sprint 3 media-storage and playback verification
+
+Matthew's SCRUM-168 inspection confirmed that the shared
+Track-ID-to-Howler playback path already existed from Sprint 2, avoiding
+duplicate implementation. SCRUM-169 adds the configurable `MEDIA_ROOT`,
+source-relative default, validated path containment, and dedicated
+regression tests. The existing backend tests and new cases passed
+locally. SCRUM-170 confirmed PostgreSQL Track 3005 metadata `200`, media
+Range `206`, and audible playback in the React application. SCRUM-169
+remains pending container-media verification, peer-reviewed PR, and
+passing integration checks before merge; SCRUM-170's local acceptance
+checks have been demonstrated. Media authentication is a separate
+Sprint 3 integration boundary, not solved by filesystem path checks.
+
+The CPSC 490 roadmap assumed a longer streaming timeline, but the CPSC
+491 syllabus governs the six-sprint calendar. Its midterm demonstration
+is October 22, immediately after Sprint 3 (October 8-15), so an actual
+playback path must remain demonstrable by October 15 rather than being
+deferred to the dedicated streaming sprint. Use only rights-cleared
+audio in the midterm and final demonstrations.
 
 ---
 

@@ -91,6 +91,15 @@ createAccountProfileRepository(
   database
 );
 
+/*
+ * Create the Soundwave application.
+ *
+ * MEDIA_ROOT optionally specifies the storage directory
+ * used to resolve media paths stored in PostgreSQL.
+ *
+ * If MEDIA_ROOT is not configured, app.js will use
+ * its default media directory.
+ */
 const server =
 createApp({
   tokenService,
@@ -106,7 +115,9 @@ createApp({
 
   handleCatalogRequest,
 
-  handleSearchRequest
+  handleSearchRequest,
+
+  mediaRoot: process.env.MEDIA_ROOT
 });
 
 server.listen(
