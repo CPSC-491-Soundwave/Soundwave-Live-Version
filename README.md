@@ -5256,3 +5256,86 @@ Future integrations include:
 
 Features should be added through small, attributable, peer-reviewed pull
 requests rather than large conflicting implementations.
+
+------------------------------------------------------------------------
+
+# 58. Sprint 3 Revocation Persistence Foundation - Christian McGowan
+
+## Purpose
+
+Sprint 3 introduces PostgreSQL-backed persistence for revoked JWT
+access-token identifiers.
+
+This work extends the existing authentication architecture without
+replacing Emmanuel's login, token-signing, or password-verification
+implementation.
+
+## Implementation
+
+Database migration:
+
+database/migrations/20261008_cmg_001_revoked_access_tokens.sql
+
+Repository:
+
+server/src/data/token-revocation.repository.js
+
+The revoked_access_tokens table stores:
+
+- jti: UUID v4 token identifier
+- user_id: reference to the existing users table
+- expires_at: JWT expiration timestamp
+- revoked_at: time revocation was recorded
+
+Raw access tokens and JWT signing secrets are not stored.
+
+The repository provides:
+
+- revokeToken({ jti, userId, expiresAt })
+- isTokenRevoked(jti)
+
+Revocation insertion is idempotent, and all queries use PostgreSQL
+parameters.
+
+## Automated Tests
+
+Repository unit tests:
+
+server/test/token-revocation.repository.test.js
+
+PostgreSQL integration tests:
+
+database/test/token-revocation-db.integration.test.js
+
+The integration tests verify transactional rollback and committed
+revocation visibility across separate PostgreSQL connections.
+
+Run backend tests:
+
+cd server
+npm test
+
+Run database tests using the configured test database:
+
+cd database
+npm run db:migrate:test
+npm run db:migrate:test
+npm run test:integrity
+npm run test:db
+
+The existing GitHub Actions Database Tests job runs npm run test:db,
+which now includes the revocation integration tests.
+
+## Current Scope and Remaining Work
+
+This milestone provides revocation persistence infrastructure only.
+
+JWT jti issuance, logout/revocation HTTP endpoints, revocation-aware
+protected-route authentication, legacy-token handling, and frontend
+session feedback remain Sprint 3 integration work.
+
+Until those changes are implemented, creating a revocation record alone
+does not invalidate a JWT at the HTTP authorization boundary.
+
+The JWT identifier and legacy-token compatibility policy must be
+coordinated with Emmanuel before integration.
