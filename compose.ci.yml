@@ -1,0 +1,25 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: soundwave_app
+      POSTGRES_PASSWORD: soundwave_ci_only_password
+      POSTGRES_DB: soundwave_ci
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U soundwave_app -d soundwave_ci
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  server:
+    environment:
+      PGHOST: database
+      PGPORT: 5432
+      PGUSER: soundwave_app
+      PGPASSWORD: soundwave_ci_only_password
+      PGDATABASE: soundwave_ci
+    depends_on:
+      database:
+        condition: service_healthy
