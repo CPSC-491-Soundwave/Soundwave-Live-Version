@@ -1,3 +1,5 @@
+import { createFavoritesRepository } from "./favorites.repository.js";
+
 const LIST_TRACKS_SQL = `
 SELECT
 t.id AS track_id,
@@ -123,7 +125,16 @@ export function createCatalogRepository(database) {
     );
   }
 
+  const favoritesRepository =
+    createFavoritesRepository(database);
+
   return {
+    async listFavoritesForPrincipal(principalId) {
+      return favoritesRepository.listForPrincipal(
+        principalId
+      );
+    },
+
     async listTracks() {
       const result = await database.query(
         LIST_TRACKS_SQL
