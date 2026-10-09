@@ -34,6 +34,42 @@ jobs:
         working-directory: server
         run: npm test
 
+
+  media-regression:
+    name: Media Streaming Regression
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run media streaming regression tests
+        working-directory: server
+        run: node --test test/media-streaming.test.js
+
+      - name: Run Track metadata regression tests
+        working-directory: server
+        run: node --test test/catalog-track-detail.test.js
+
+      - name: Run metadata extraction regression tests
+        working-directory: server
+        run: node --test test/metadata.test.js
+
+      - name: Run Track persistence regression tests
+        working-directory: server
+        run: node --test test/track-persistence.test.js
+
   client-lint:
     name: Client Lint
     runs-on: ubuntu-latest
@@ -154,6 +190,48 @@ jobs:
           fi
 
           echo "Server started successfully with a generated CI-only JWT secret."
+
+  dependency-security:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Audit server dependencies
+        working-directory: server
+        run: npm audit --audit-level=high
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Audit client production dependencies
+        working-directory: client
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report full client dependency audit
+        working-directory: client
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Install database dependencies
+        working-directory: database
+        run: npm ci
+
+      - name: Audit database dependencies
+        working-directory: database
+        run: npm audit --audit-level=high
 
   client-test:
     name: Client Tests
@@ -367,6 +445,7 @@ jobs:
           )"
 
           test "$ACTUAL_VERSION" = "$SOUNDWAVE_BUILD_VERSION"
+
   compose-runtime-smoke:
     name: Compose Runtime Smoke Test
     runs-on: ubuntu-latest
@@ -386,7 +465,7 @@ jobs:
           echo "::add-mask::$JWT_SECRET"
 
           cat > database/.env <<'EOF'
-          PGHOST=host.docker.internal
+          PGHOST=database
           PGPORT=5432
           PGUSER=soundwave_app
           PGPASSWORD=soundwave_ci_only_password
@@ -397,6 +476,10 @@ jobs:
           JWT_SECRET=$JWT_SECRET
           EOF
 
-      - name: Run Compose runtime smoke test
-        run: node scripts/compose-smoke-test.mjs
+      - name: Validate CI Compose configuration
+        run: docker compose -f compose.yml -f compose.ci.yml config --quiet
 
+      - name: Run Compose runtime smoke test
+        env:
+          CI: "true"
+        run: node scripts/compose-smoke-test.mjs

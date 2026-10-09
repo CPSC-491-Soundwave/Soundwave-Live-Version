@@ -1,4 +1,9 @@
+
 import { execSync } from "node:child_process";
+
+const composeCommand = process.env.CI
+    ? "docker compose -f compose.yml -f compose.ci.yml"
+    : "docker compose";
 
 const wait = (ms) =>
     new Promise((resolve) =>
@@ -28,12 +33,12 @@ async function checkUrl(
         attempt += 1
     ) {
         try {
-            const response =
-                await fetch(url);
+            const response = await fetch(url, {
+                signal: AbortSignal.timeout(5000),
+            });
 
             if (
-                response.status !==
-                expectedStatus
+                response.status !== expectedStatus
             ) {
                 throw new Error(
                     `${url} returned HTTP ${response.status}; expected ${expectedStatus}`
@@ -56,13 +61,11 @@ async function checkUrl(
                 }
             }
 
-            const body =
-                await response.text();
+            const body = await response.text();
 
             if (
                 expectedText &&
-                body.trim() !==
-                expectedText
+                body.trim() !== expectedText
             ) {
                 throw new Error(
                     `${url} returned unexpected response: ${body}`
@@ -74,10 +77,12 @@ async function checkUrl(
             lastError = error;
 
             console.log(
-                `Attempt ${attempt}/${attempts} failed. Retrying in 1 second...`
+                `Attempt ${attempt}/${attempts} failed: ${error.message}`
             );
 
-            await wait(1000);
+            if (attempt < attempts) {
+                await wait(1000);
+            }
         }
     }
 
@@ -89,9 +94,7 @@ console.log(
 );
 
 try {
-    run(
-        "docker compose up -d --build"
-    );
+    run(`${composeCommand} up -d --build`);
 
     console.log(
         "Waiting for backend to become ready..."
@@ -100,8 +103,7 @@ try {
     await checkUrl(
         "http://localhost:8080/health",
         {
-            expectedText:
-                '{"status":"ok"}',
+            expectedText: '{"status":"ok"}',
         }
     );
 
@@ -117,11 +119,9 @@ try {
         "http://localhost:8080/api/library/recently-added",
         {
             expectedStatus: 401,
-            expectedText:
-                '{"error":"Unauthorized"}',
+            expectedText: '{"error":"Unauthorized"}',
             expectedHeader: {
-                name:
-                    "www-authenticate",
+                name: "www-authenticate",
                 value: "Bearer",
             },
         }
@@ -151,9 +151,20 @@ try {
         "Soundwave Compose smoke test failed."
     );
 
+    console.error(error.message);
+
     console.error(
-        error.message
+        "Collecting Compose diagnostics..."
     );
+
+    try {
+        run(`${composeCommand} ps`);
+        run(`${composeCommand} logs --tail=100`);
+    } catch {
+        console.error(
+            "Unable to collect Compose diagnostics."
+        );
+    }
 
     process.exitCode = 1;
 } finally {
@@ -163,11 +174,13 @@ try {
 
     try {
         run(
-            "docker compose down"
+            `${composeCommand} down${process.env.CI ? " --volumes" : ""}`
         );
     } catch {
         console.error(
             "Unable to stop Compose services."
         );
+
+        process.exitCode = 1;
     }
 }
