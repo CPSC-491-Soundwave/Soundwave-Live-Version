@@ -68,7 +68,9 @@ function isSearchResponse(data) {
   );
 }
 
-export default function Search() {
+export default function Search({
+  onSelectTrack
+}) {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] =
     useState("all");
@@ -343,6 +345,20 @@ export default function Search() {
                             </Link>
                           </span>
                         </div>
+
+                        <button
+                          type="button"
+                          aria-label={
+                            `Play ${track.title}`
+                          }
+                          onClick={() => {
+                            onSelectTrack?.(
+                              track.id
+                            );
+                          }}
+                        >
+                          Play
+                        </button>
 
                         <span className="search-track__duration">
                           {formatDuration(

@@ -23,10 +23,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderSearch() {
+function renderSearch(
+  props = {}
+) {
   render(
     <MemoryRouter>
-      <Search />
+      <Search {...props} />
     </MemoryRouter>
   );
 }
@@ -190,6 +192,75 @@ describe("Search", () => {
               expect.anything()
           })
         );
+    }
+  );
+
+  it(
+    "selects a track for playback using its stable track ID",
+    async () => {
+      vi.spyOn(
+        globalThis,
+        "fetch"
+      ).mockResolvedValue({
+        ok: true,
+
+        json: async () =>
+          mockSearchResponse({
+            artists: [],
+            albums: []
+          })
+      });
+
+      const onSelectTrack =
+        vi.fn();
+
+      renderSearch({
+        onSelectTrack
+      });
+
+      fireEvent.change(
+        screen.getByLabelText(
+          "Search the catalog"
+        ),
+        {
+          target: {
+            value: "fixture"
+          }
+        }
+      );
+
+      fireEvent.click(
+        screen.getByRole(
+          "button",
+          {
+            name: "Search"
+          }
+        )
+      );
+
+      await screen.findByText(
+        "Fixture Track One"
+      );
+
+      fireEvent.click(
+        screen.getByRole(
+          "button",
+          {
+            name:
+              "Play Fixture Track One"
+          }
+        )
+      );
+
+      expect(
+        onSelectTrack
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        onSelectTrack
+      ).toHaveBeenCalledWith(
+        3001
+      );
     }
   );
 
