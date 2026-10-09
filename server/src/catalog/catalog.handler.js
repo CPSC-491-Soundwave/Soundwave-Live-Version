@@ -56,6 +56,63 @@ export function createCatalogHandler(
       return false;
     }
 
+    if (request.url === "/api/library/favorites") {
+      let principal;
+
+      try {
+        principal = authenticateRequest(
+          request,
+          tokenService
+        );
+      } catch (error) {
+        console.error(
+          "Favorites authentication configuration failed:",
+          error
+        );
+
+        writeJson(response, 500, {
+          error: "library_unavailable"
+        });
+
+        return true;
+      }
+
+      if (!principal) {
+        write401Response(response);
+        return true;
+      }
+
+      try {
+        if (
+          typeof catalogService.listFavoritesForPrincipal !==
+          "function"
+        ) {
+          throw new TypeError(
+            "Catalog service does not support favorites reads."
+          );
+        }
+
+        const favorites =
+          await catalogService.listFavoritesForPrincipal(
+            principal.userId
+          );
+
+        writeJson(response, 200, favorites);
+        return true;
+      } catch (error) {
+        console.error(
+          "Favorites library request failed:",
+          error
+        );
+
+        writeJson(response, 500, {
+          error: "library_unavailable"
+        });
+
+        return true;
+      }
+    }
+
     if (
       request.url === "/api/catalog/tracks"
     ) {
