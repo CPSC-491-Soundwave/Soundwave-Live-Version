@@ -8,8 +8,17 @@ let loadedTrackId = null;
  *
  * The client only needs the stable catalog Track ID.
  * It does not know the physical media path.
+ *
+ * onError allows the React playback UI to surface
+ * controlled media-load/playback failures without
+ * owning the media implementation itself.
  */
-export function loadTrack(trackId) {
+export function loadTrack(
+    trackId,
+    {
+        onError
+    } = {}
+) {
     if (
         !Number.isInteger(trackId) ||
         trackId <= 0
@@ -24,6 +33,29 @@ export function loadTrack(trackId) {
     }
 
     loadedTrackId = trackId;
+
+    function reportError(
+        type,
+        soundId,
+        error
+    ) {
+        console.error(
+            `Track ${trackId} ${type} error:`,
+            error
+        );
+
+        if (
+            typeof onError ===
+            "function"
+        ) {
+            onError({
+                type,
+                trackId,
+                soundId,
+                error
+            });
+        }
+    }
 
     music = new Howl({
         src: [
@@ -62,9 +94,24 @@ export function loadTrack(trackId) {
             );
         },
 
-        onloaderror: (id, error) => {
-            console.error(
-                `Track ${trackId} failed to load:`,
+        onloaderror: (
+            id,
+            error
+        ) => {
+            reportError(
+                "load",
+                id,
+                error
+            );
+        },
+
+        onplayerror: (
+            id,
+            error
+        ) => {
+            reportError(
+                "play",
+                id,
                 error
             );
         }
@@ -100,7 +147,9 @@ export function setMusicVolume(volume) {
     Number(volume);
 
     if (
-        !Number.isFinite(numericVolume) ||
+        !Number.isFinite(
+            numericVolume
+        ) ||
         numericVolume < 0 ||
         numericVolume > 1
     ) {
@@ -109,11 +158,16 @@ export function setMusicVolume(volume) {
         );
     }
 
-    music.volume(numericVolume);
+    music.volume(
+        numericVolume
+    );
+
     return true;
 }
 
-export function setMusicProgress(seconds) {
+export function setMusicProgress(
+    seconds
+) {
     if (!music) {
         return false;
     }
@@ -122,7 +176,9 @@ export function setMusicProgress(seconds) {
     Number(seconds);
 
     if (
-        !Number.isFinite(numericSeconds) ||
+        !Number.isFinite(
+            numericSeconds
+        ) ||
         numericSeconds < 0
     ) {
         throw new RangeError(
@@ -130,7 +186,10 @@ export function setMusicProgress(seconds) {
         );
     }
 
-    music.seek(numericSeconds);
+    music.seek(
+        numericSeconds
+    );
+
     return true;
 }
 

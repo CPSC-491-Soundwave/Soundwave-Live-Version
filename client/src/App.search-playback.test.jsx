@@ -160,7 +160,13 @@ describe(
           expect(
             loadTrack
           ).toHaveBeenCalledWith(
-            3005
+            3005,
+            expect.objectContaining({
+              onError:
+                expect.any(
+                  Function
+                )
+            })
           );
         });
 
