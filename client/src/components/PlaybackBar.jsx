@@ -67,7 +67,26 @@ export default function PlaybackBar({
                 setTrack(metadata);
 
                 loadTrack(
-                    metadata.id
+                    metadata.id,
+                    {
+                        onError: () => {
+                            if (
+                                cancelled
+                            ) {
+                                return;
+                            }
+
+                            unloadMusic();
+
+                            setIsPlaying(
+                                false
+                            );
+
+                            setError(
+                                "Unable to play this track."
+                            );
+                        }
+                    }
                 );
             } catch {
                 if (cancelled) {
@@ -75,6 +94,7 @@ export default function PlaybackBar({
                 }
 
                 setTrack(null);
+
                 setError(
                     "Unable to load track."
                 );
@@ -100,57 +120,86 @@ export default function PlaybackBar({
 
         if (isPlaying) {
             pauseMusic();
-            setIsPlaying(false);
-        } else {
+
+            setIsPlaying(
+                false
+            );
+
+            return;
+        }
+
+        const started =
             playMusic();
-            setIsPlaying(true);
+
+        if (started) {
+            setIsPlaying(
+                true
+            );
         }
     }
 
-    function handleVolumeChange(event) {
+    function handleVolumeChange(
+        event
+    ) {
         const nextVolume =
-        Number(event.target.value);
+            Number(
+                event.target.value
+            );
 
-        setVolume(nextVolume);
-        setMusicVolume(nextVolume);
+        setVolume(
+            nextVolume
+        );
+
+        setMusicVolume(
+            nextVolume
+        );
     }
 
     if (!trackId) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <div
-            className="track-placeholder"
-            />
+                <div className="track-info">
+                    <div
+                        className="track-placeholder"
+                    />
 
-            <div>
-            <strong>
-            Nothing Playing
-            </strong>
+                    <div>
+                        <strong>
+                            Nothing Playing
+                        </strong>
 
-            <p>
-            Select a track
-            </p>
-            </div>
-            </div>
+                        <p>
+                            Select a track
+                        </p>
+                    </div>
+                </div>
 
-            <div className="playback-controls">
-            <button disabled>
-            ⏮
-            </button>
+                <div className="playback-controls">
+                    <button
+                        disabled
+                        aria-label="Previous track"
+                    >
+                        ⏮
+                    </button>
 
-            <button disabled>
-            ▶
-            </button>
+                    <button
+                        disabled
+                        aria-label="Play"
+                    >
+                        ▶
+                    </button>
 
-            <button disabled>
-            ⏭
-            </button>
-            </div>
+                    <button
+                        disabled
+                        aria-label="Next track"
+                    >
+                        ⏭
+                    </button>
+                </div>
 
-            <div className="volume-placeholder">
-            Volume
-            </div>
+                <div className="volume-placeholder">
+                    Volume
+                </div>
             </footer>
         );
     }
@@ -158,11 +207,11 @@ export default function PlaybackBar({
     if (loading) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <strong>
-            Loading track...
-            </strong>
-            </div>
+                <div className="track-info">
+                    <strong>
+                        Loading track...
+                    </strong>
+                </div>
             </footer>
         );
     }
@@ -170,15 +219,15 @@ export default function PlaybackBar({
     if (error) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <strong>
-            Playback unavailable
-            </strong>
+                <div className="track-info">
+                    <strong>
+                        Playback unavailable
+                    </strong>
 
-            <p>
-            {error}
-            </p>
-            </div>
+                    <p>
+                        {error}
+                    </p>
+                </div>
             </footer>
         );
     }
@@ -189,68 +238,70 @@ export default function PlaybackBar({
 
     return (
         <footer className="playback-bar">
-        <div className="track-info">
-        <div
-        className="track-placeholder"
-        />
+            <div className="track-info">
+                <div
+                    className="track-placeholder"
+                />
 
-        <div>
-        <strong>
-        {track.title}
-        </strong>
+                <div>
+                    <strong>
+                        {track.title}
+                    </strong>
 
-        <p>
-        {track.artist.name}
-        {" • "}
-        {track.album.title}
-        </p>
-        </div>
-        </div>
+                    <p>
+                        {track.artist.name}
+                        {" • "}
+                        {track.album.title}
+                    </p>
+                </div>
+            </div>
 
-        <div className="playback-controls">
-        <button
-        disabled
-        aria-label="Previous track"
-        >
-        ⏮
-        </button>
+            <div className="playback-controls">
+                <button
+                    disabled
+                    aria-label="Previous track"
+                >
+                    ⏮
+                </button>
 
-        <button
-        onClick={handlePlayPause}
-        aria-label={
-            isPlaying
-            ? "Pause"
-            : "Play"
-        }
-        >
-        {isPlaying
-            ? "⏸"
-            : "▶"}
-            </button>
+                <button
+                    onClick={
+                        handlePlayPause
+                    }
+                    aria-label={
+                        isPlaying
+                            ? "Pause"
+                            : "Play"
+                    }
+                >
+                    {isPlaying
+                        ? "⏸"
+                        : "▶"}
+                </button>
 
-            <button
-            disabled
-            aria-label="Next track"
-            >
-            ⏭
-            </button>
+                <button
+                    disabled
+                    aria-label="Next track"
+                >
+                    ⏭
+                </button>
             </div>
 
             <label className="volume-placeholder">
-            Volume
+                Volume
 
-            <input
-            aria-label="Volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={volume}
-            onChange={
-                handleVolumeChange
-            }
-            />
+                <input
+                    aria-label="Volume"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={volume}
+                    onChange={
+                        handleVolumeChange
+                    }
+                />
             </label>
-            </footer>
+        </footer>
     );
 }
