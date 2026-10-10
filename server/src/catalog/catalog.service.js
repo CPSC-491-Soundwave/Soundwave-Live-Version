@@ -9,23 +9,56 @@ export function createCatalogService(repository) {
   }
 
   return {
+    async listFavoritesForPrincipal(principalId) {
+      if (
+        typeof repository.listFavoritesForPrincipal !==
+        "function"
+      ) {
+        throw new TypeError(
+          "Catalog repository does not support listFavoritesForPrincipal()."
+        );
+      }
+
+      const rows =
+        await repository.listFavoritesForPrincipal(
+          principalId
+        );
+
+      return rows.map((row) => ({
+        id: Number(row.track_id),
+        title: row.track_title,
+        durationMs: Number(row.duration_ms),
+        favoritedAt: row.favorited_at,
+
+        album: {
+          id: Number(row.album_id),
+          title: row.album_title
+        },
+
+        artist: {
+          id: Number(row.artist_id),
+          name: row.artist_name
+        }
+      }));
+    },
+
     async listTracks() {
       const rows = await repository.listTracks();
 
       return rows.map((row) => ({
         id: Number(row.track_id),
-                                title: row.track_title,
-                                durationMs: row.duration_ms,
+        title: row.track_title,
+        durationMs: row.duration_ms,
 
-                                album: {
-                                  id: Number(row.album_id),
-                                title: row.album_title
-                                },
+        album: {
+          id: Number(row.album_id),
+          title: row.album_title
+        },
 
-                                artist: {
-                                  id: Number(row.artist_id),
-                                name: row.artist_name
-                                }
+        artist: {
+          id: Number(row.artist_id),
+          name: row.artist_name
+        }
       }));
     },
 
