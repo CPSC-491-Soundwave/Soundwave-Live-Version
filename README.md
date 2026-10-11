@@ -239,6 +239,7 @@ Current migrations include:
 20260916_ayu_002_auth_users.sql
 20260924_edg_001_user_preferences.sql
 20260927_cmg_001_catalog_search_support.sql
+20261008_cmg_001_revoked_access_tokens.sql
 trackMediaPath.sql
 ```
 
@@ -860,13 +861,12 @@ The current Search-to-Playback happy path is operational.
 However, the current media route should not yet be treated as the final
 Sprint 3 protected-media authorization boundary.
 
-Sprint 3 work is still integrating:
+Sprint 3 backend logout and JWT revocation are implemented for the four
+protected routes documented in Section 20. Remaining integration work:
 
-- revocation-aware authentication;
-- session invalidation behavior;
 - protected media authorization;
 - authenticated client failure handling;
-- consumer behavior for `401` and `403`.
+- client consumer behavior for `401` and `403`.
 
 Do not duplicate those implementations in unrelated feature work.
 
@@ -1029,46 +1029,112 @@ This happy-path integration has been manually verified.
 
 ---
 
-# 20. Sprint 3 Session Revocation Persistence — Christian McGowan
+# 20. Sprint 3 JWT Logout and Session Revocation — Christian McGowan
 
-Sprint 3 introduces PostgreSQL-backed persistence for revoked JWT access
-token identifiers.
+## 20.1 PostgreSQL revocation persistence
 
-Current foundation includes:
+The foundational revocation migration and repository merged in PR #101:
 
 ```text
 database/migrations/20261008_cmg_001_revoked_access_tokens.sql
 server/src/data/token-revocation.repository.js
 ```
 
-The revocation table stores:
-
-- JWT identifier (`jti`);
-- user identity;
-- expiration timestamp;
-- revocation timestamp.
-
-Raw access tokens and JWT signing secrets are not stored.
-
-Repository behavior includes:
+`revoked_access_tokens` stores each JWT UUID identifier (`jti`), the
+associated user, token expiration, and revocation timestamp. Raw JWTs
+and signing secrets are not stored. The repository exposes:
 
 ```text
 revokeToken({ jti, userId, expiresAt })
 isTokenRevoked(jti)
 ```
 
-Revocation persistence is infrastructure only.
+## 20.2 JWT issuance and logout API
 
-Remaining Sprint 3 integration includes items such as:
+The Sprint 3 backend issues JWT access tokens with independent UUID v4
+`jti` claims. Token expiration remains two hours. The logout endpoint:
 
-- JWT `jti` issuance;
-- logout/revocation HTTP behavior;
-- revocation-aware protected routes;
-- legacy-token handling;
-- client session feedback.
+```http
+POST /auth/logout
+Authorization: Bearer <access-token>
+```
 
-A revocation record alone does not invalidate an access token until the
-authorization boundary consumes that persistence.
+| Situation | HTTP response |
+|---|---|
+| A valid active token is revoked | `204 No Content` |
+| Missing, invalid, expired, legacy or already-revoked token | `401 Unauthorized` |
+| PostgreSQL revocation lookup or write fails | `503 Service Unavailable` |
+
+Logout revokes the presented token only. Other sessions for the same
+user remain active until independently revoked or expired. Tokens
+issued before `jti` support are rejected at the revocation-aware
+boundary; clients must log in again to obtain a current token.
+
+## 20.3 Guarded routes and feature ownership
+
+Persistent revocation is checked before these existing HTTP handlers:
+
+```text
+GET /auth/me
+GET /account/profile
+GET /api/library/recently-added
+GET /api/library/favorites
+```
+
+The Favorites route belongs to Allison Yu's catalog work; this change
+adds only its revocation guard and associated regression coverage.
+An already-revoked token receives `401`; a failed revocation lookup
+fails closed with `503` rather than bypassing authentication.
+
+Public catalog discovery, Search, and `/health` are unchanged. The
+media stream (`GET /api/tracks/:id/stream`) is NOT protected by this
+revocation guard: Matthew Choi's storage-path hardening is separate from
+future protected-media authorization. Client handling of expired
+sessions and `401`/`403` remains separate integration work.
+
+This milestone does not query the database to refresh a user's role on
+every request; role-change enforcement is tracked independently.
+
+## 20.4 Verification and CI
+
+Implementation and test files:
+
+```text
+server/src/auth/token.js
+server/src/auth/revocation-auth.js
+server/src/auth/logout.js
+server/src/app.js
+server/src/server.js
+server/test/revocation-auth.test.js
+server/test/logout.test.js
+server/test/logout-routes.test.js
+server/test/protected-revocation-routes.test.js
+server/integration/postgres-logout.check.mjs
+```
+
+Reproduce the checks from the indicated package directory:
+
+```bash
+cd server
+npm test
+node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
+
+cd ../database
+npm run test:integrity
+npm run test:db
+```
+
+The separate HTTP/PostgreSQL test creates a temporary test user, logs
+in twice, revokes one JWT, verifies the persisted row through a second
+database connection, checks all four guarded routes, and removes its
+temporary records. Only run it with a dedicated PostgreSQL test DB.
+
+At local Block 2 verification: 188 backend tests, 34 database tests,
+2 database integrity tests, and the HTTP/PostgreSQL integration test
+passed. The existing GitHub Actions Database Tests job now includes
+the HTTP test after database setup; hosted CI and peer review must
+still pass before merge. Emmanuel De Guzman should confirm the new
+`jti` contract and legacy-token re-login policy before merge.
 
 ---
 
@@ -1132,6 +1198,10 @@ GET /api/library/recently-added
 ```
 
 The route requires Bearer authentication.
+
+Allison Yu's Favorites route is `GET /api/library/favorites`. It
+returns the authenticated user's favorites. Both Library routes
+use the revocation enforcement described in Section 20.
 
 Client flow:
 
@@ -1862,6 +1932,17 @@ Compose Runtime Smoke Test
 ```
 
 CI requirements may expand during later sprints.
+
+Christian McGowan extended the existing Database Tests job to
+install server dependencies and execute the PostgreSQL-backed
+HTTP logout integration check after the database suite:
+
+```bash
+node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
+```
+
+This uses the job's migrated and seeded test database; it does
+not create a separate workflow or replace Compose smoke checks.
 
 The project also uses build metadata for traceability.
 

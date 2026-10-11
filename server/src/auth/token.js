@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 
 const ALLOWED_ROLES = new Set(['user', 'admin']);
 
@@ -35,9 +36,10 @@ export function createTokenService(secretKey) {
         role: user.role 
       };
 
-      return jwt.sign(payload, secretKey, { 
+      return jwt.sign(payload, secretKey, {
         algorithm: ALGORITHM,
-        expiresIn: '2h' 
+        expiresIn: '2h',
+        jwtid: randomUUID()
       });
     },
     verify_token(token) {

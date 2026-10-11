@@ -104,3 +104,27 @@ describe('Generating tokens for this test', () => {
     });
   });
 });
+
+test('issued tokens have unique UUID v4 identifiers', () => {
+  const user = { id: '42', role: 'user' };
+
+  const tokenA = tokenService.create_token(user);
+  const tokenB = tokenService.create_token(user);
+
+  const claimsA = tokenService.verify_token(tokenA);
+  const claimsB = tokenService.verify_token(tokenB);
+
+  const uuidV4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  assert.match(claimsA.jti, uuidV4);
+  assert.match(claimsB.jti, uuidV4);
+
+  assert.notEqual(claimsA.jti, claimsB.jti);
+  assert.notEqual(tokenA, tokenB);
+
+  assert.equal(claimsA.sub, '42');
+  assert.equal(claimsA.role, 'user');
+
+  assert.equal(claimsA.exp - claimsA.iat, 7200);
+});

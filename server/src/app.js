@@ -6,6 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { handleLogin } from "./auth/login.js";
 import { handleMe } from "./auth/me.js";
+import { handleLogout } from "./auth/logout.js";
+import {
+  authenticateRequestWithRevocation
+} from "./auth/revocation-auth.js";
+
+import { write401Response } from "./auth/auth.js";
 
 import {
   handleAccountProfile
@@ -82,6 +88,7 @@ async function resolveMediaFile(mediaRoot, mediaPath) {
 
 export function createApp({
   tokenService,
+  tokenRevocationRepository,
   findUserByUsername,
   findProfileByUserId,
   findTrackById,
@@ -101,6 +108,52 @@ export function createApp({
   const resolvedMediaRoot = path.resolve(mediaRoot);
 
   return http.createServer(async (req, res) => {
+
+    // Enforce persistent revocation before protected handlers.
+    const isProtectedRoute =
+      req.method === "GET" &&
+      (
+        req.url === "/auth/me" ||
+        req.url === "/account/profile" ||
+        req.url === "/api/library/recently-added" ||
+        req.url === "/api/library/favorites"
+      );
+
+    if (isProtectedRoute) {
+      try {
+        const principal =
+          await authenticateRequestWithRevocation(
+            req,
+            tokenService,
+            tokenRevocationRepository
+          );
+
+        if (!principal) {
+          write401Response(res);
+          return;
+        }
+      } catch (error) {
+        console.error(
+          "Protected route authentication failed:",
+          error
+        );
+
+        res.writeHead(503, {
+          "Content-Type":
+            "application/json; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+
+        res.end(
+          JSON.stringify({
+            error: "authentication_unavailable"
+          })
+        );
+
+        return;
+      }
+    }
+
     if (
       req.method === "GET" &&
       req.url === "/health"
@@ -137,6 +190,41 @@ export function createApp({
             error: "internal_error",
           }),
         );
+      }
+
+      return;
+    }
+
+    if (
+      req.method === "POST" &&
+      req.url === "/auth/logout"
+    ) {
+      try {
+        await handleLogout(req, res, {
+          tokenService,
+          tokenRevocationRepository
+        });
+      } catch (error) {
+        console.error(
+          "Logout failed:",
+          error
+        );
+
+        if (!res.headersSent) {
+          res.writeHead(503, {
+            "Content-Type":
+              "application/json; charset=utf-8",
+            "Cache-Control": "no-store"
+          });
+
+          res.end(
+            JSON.stringify({
+              error: "authentication_unavailable"
+            })
+          );
+        } else {
+          res.destroy();
+        }
       }
 
       return;

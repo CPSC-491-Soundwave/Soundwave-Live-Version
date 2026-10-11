@@ -33,6 +33,11 @@ test(
 
     const server = createApp({
       tokenService,
+      tokenRevocationRepository: {
+        async isTokenRevoked() {
+          return false;
+        }
+      },
       findUserByUsername,
     });
 
@@ -106,6 +111,11 @@ test(
 
     const server = createApp({
       tokenService,
+      tokenRevocationRepository: {
+        async isTokenRevoked() {
+          return false;
+        }
+      },
       findUserByUsername: async () => null,
     });
 
