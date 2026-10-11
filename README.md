@@ -240,8 +240,26 @@ Current migrations include:
 20260924_edg_001_user_preferences.sql
 20260927_cmg_001_catalog_search_support.sql
 20261008_cmg_001_revoked_access_tokens.sql
+20261011_ayu_003_user_favorites.sql
 trackMediaPath.sql
 ```
+
+**Sprint 3 Favorites migration status (Allison Yu):**
+`20261011_ayu_003_user_favorites.sql` was authored on October 11 after
+the Favorites read API PR was merged. Its presence in this inventory
+indicates the intended migration file, **not** that the file was already
+merged into `main`, executed locally, or applied in CI. Confirm that the
+file exists under `database/migrations/` on the branch being tested,
+then run the migration against the intended database and inspect
+`schema_migrations` and `public.favorites` before claiming completion.
+
+The new `favorites` relation has `user_id BIGINT` and `track_id BIGINT`
+as a composite primary key, plus `created_at TIMESTAMPTZ NOT NULL`
+(default `CURRENT_TIMESTAMP`). Both IDs reference existing `users` and
+`tracks` records using `ON DELETE CASCADE`. An additional index on
+`track_id` supports the reverse foreign-key access pattern. The
+cascade-on-delete behavior is an implementation decision; the project
+specification does not prescribe an exact Favorites deletion policy.
 
 The `trackMediaPath.sql` migration adds:
 
@@ -300,6 +318,14 @@ Current shared development fixtures include:
 Track `3005` is the current shared media-backed development fixture.
 
 Production feature logic must not assume a fixture ID always exists.
+
+**Favorites seed note (Allison Yu, Sprint 3):** the shared catalog seed
+above does **not** itself prove that `devuser` has Favorites rows. The
+new Favorites migration creates the table only; it does not populate
+`favorites`. The deterministic Favorites fixture was part of the
+Sprint 3 task plan, but its inclusion in the merged repository has not
+been confirmed. For a local development-only manual association, use
+the documented SQL in Section 23.3, not an untracked table creation.
 
 ---
 
@@ -1299,6 +1325,271 @@ PlaybackBar
 The Library reuses the shared Track identity and player rather than
 creating a competing playback implementation.
 
+## 23.1 Sprint 3 authenticated Favorites read path — Allison Yu
+
+**Implementation status:** Allison's Favorites read API pull request
+was reported merged. The separate `favorites` table migration was
+subsequently authored on October 11; its application and reviewed merge
+remain to be verified. A live authenticated read from local PostgreSQL
+is therefore **not yet confirmed**.
+
+The API is:
+
+```http
+GET /api/library/favorites
+Authorization: Bearer <current-access-token>
+```
+
+It reuses the existing catalog and authorization infrastructure:
+
+```text
+Authenticated HTTP request
+    -> app.js shared JWT/jti, revocation, and role guard
+    -> catalog.handler.js: GET /api/library/favorites
+    -> catalog.service.js: listFavoritesForPrincipal(principal.userId)
+    -> catalog.repository.js: listFavoritesForPrincipal(userId)
+    -> favorites.repository.js: parameterized SELECT ... WHERE f.user_id = $1
+    -> PostgreSQL favorites JOIN tracks JOIN albums JOIN artists
+```
+
+The **server-verified principal**, not a user ID supplied in the URL or
+request body, determines which favorites are returned. Authorization
+and revocation policies for this route are maintained in the shared
+application boundary (Section 20), not reimplemented in Favorites.
+Both `user` and `admin` are currently allowed by the shared policy.
+
+A successful response is an array (empty if the authenticated account
+has no favorites). An example shape, using illustrative data, is:
+
+```json
+[
+  {
+    "id": 3001,
+    "title": "Example Track",
+    "durationMs": 180000,
+    "favoritedAt": "2026-10-11T12:00:00.000Z",
+    "album": { "id": 2001, "title": "Example Album" },
+    "artist": { "id": 1001, "name": "Example Artist" }
+  }
+]
+```
+
+The `id` field is the canonical `tracks.id`. Filesystem paths such as
+`media_path`, `storage_path`, and `file_path` are not selected or
+returned. The current endpoint is **read-only**; a Favorites write or
+unfavorite API is not established by this implementation.
+
+| Condition | Expected response |
+|---|---|
+| Active JWT, allowed role, working database | `200 OK` with an array |
+| No token, invalid/expired token, or revoked JWT | `401 Unauthorized` |
+| Revocation infrastructure unavailable | `503 Service Unavailable` (shared fail-closed guard) |
+| Favorites repository/service failure after authorization | `500 Internal Server Error`, `{"error":"library_unavailable"}` |
+
+The shared `403 Forbidden` behavior is tested with an administrator-only
+test policy, but this production Favorites route currently permits
+both `user` and `admin`; do not describe `403` as its usual user-role
+response. Media-stream credential transport is an unrelated, still
+separate integration boundary.
+
+## 23.2 Favorites migration and schema verification
+
+Place the authored file in the version-controlled migration directory:
+
+```text
+database/migrations/20261011_ayu_003_user_favorites.sql
+```
+
+From a **PowerShell terminal** at the repository root, first verify
+the file and the intended development environment:
+
+```powershell
+Test-Path .\database\migrations\20261011_ayu_003_user_favorites.sql
+Select-String -Path .\database\.env -Pattern '^PGDATABASE='
+cd database
+npm run db:migrate
+cd ..
+```
+
+Check that `PGDATABASE` refers to the intended **development** database,
+not the test database. A successful migration should create the table
+and record the filename in `schema_migrations`; a subsequent migration
+run should skip it. Do not manually modify `schema_migrations` or run
+an untracked `CREATE TABLE` command as a workaround.
+
+For Allison's documented local database (adjust host, user, and database
+name to match your own configuration):
+
+```powershell
+psql -h localhost -U soundwave_app -d soundwave_allison_dev
+```
+
+Within `psql`:
+
+```sql
+SELECT current_database(), current_user;
+SELECT to_regclass('public.favorites') AS favorites_table;
+SELECT * FROM schema_migrations ORDER BY 1;
+SELECT user_id, track_id, created_at
+FROM favorites ORDER BY user_id, track_id;
+```
+
+The relation check should return `favorites`, not `NULL`. If the
+migration runner succeeds against a different database from the
+backend, the live API may still fail, so keep the settings in
+`database/.env` and `server/.env` aligned.
+
+## 23.3 Local development-only Favorites data
+
+With the migration successfully applied and an existing `devuser` login,
+inspect the current data in the **development database**:
+
+```sql
+SELECT u.id AS user_id, u.username,
+       f.track_id, t.title AS track_title, f.created_at AS favorited_at
+FROM favorites AS f
+JOIN users AS u ON u.id = f.user_id
+JOIN tracks AS t ON t.id = f.track_id
+WHERE u.username = 'devuser'
+ORDER BY f.track_id;
+```
+
+Zero rows are valid when no favorites have been saved. For a controlled
+local demonstration only, this statement inserts **one association**
+using an existing development user and existing track, if available:
+
+```sql
+INSERT INTO favorites (user_id, track_id)
+SELECT u.id, t.id
+FROM users AS u
+CROSS JOIN (
+    SELECT id FROM tracks ORDER BY id LIMIT 1
+) AS t
+WHERE u.username = 'devuser'
+ON CONFLICT (user_id, track_id) DO NOTHING
+RETURNING user_id, track_id;
+```
+
+Do not run this fixture SQL against production or shared hosted data.
+The migration itself intentionally has **no automatic Favorites seed**.
+
+## 23.4 PowerShell authentication and Favorites smoke test
+
+Use Soundwave's existing `devuser` account and a **fresh** login token.
+The merged revocation guard rejects legacy tokens without the required
+signed UUID `jti`. Start the backend in a separate terminal using your
+own ignored `server/.env`, with matching PostgreSQL settings:
+
+```powershell
+cd server
+node --env-file=.env src/server.js
+```
+
+In a **second PowerShell terminal**, set the base URL and verify the
+health and unauthenticated boundary:
+
+```powershell
+$baseUrl = 'http://localhost:8080'
+curl.exe -i "$baseUrl/health"
+curl.exe -i "$baseUrl/api/library/favorites"
+```
+
+Expected: health `200` with `{"status":"ok"}`; unauthenticated
+Favorites `401` with `WWW-Authenticate: Bearer`.
+
+Log in without placing the plaintext password in shell history:
+
+```powershell
+$securePassword = Read-Host 'devuser password' -AsSecureString
+$plainPassword = [System.Net.NetworkCredential]::new('', $securePassword).Password
+$loginPayload = @{ username = 'devuser'; password = $plainPassword } | ConvertTo-Json
+$login = Invoke-RestMethod -Method Post -Uri "$baseUrl/auth/login" -ContentType 'application/json' -Body $loginPayload
+Remove-Variable plainPassword, loginPayload, securePassword
+$accessToken = $login.accessToken
+if ([string]::IsNullOrWhiteSpace($accessToken)) { throw 'Login did not return accessToken' }
+$me = Invoke-RestMethod -Uri "$baseUrl/auth/me" -Headers @{ Authorization = "Bearer $accessToken" }
+$favoritesResponse = Invoke-WebRequest -Uri "$baseUrl/api/library/favorites" -Headers @{ Authorization = "Bearer $accessToken" } -UseBasicParsing
+$favoritesResponse.StatusCode
+$favoritesResponse.Content
+```
+
+Expected: `/auth/me` succeeds, Favorites returns `200`, and its Track
+IDs match Section 23.3's SQL results. If there are no Favorites rows,
+`[]` is a valid response, but a nonempty development association makes
+the database-to-API demonstration stronger. Never print, screenshot,
+or commit `$accessToken` or the JWT secret.
+
+Optional revocation verification, after the authenticated read succeeds:
+
+```powershell
+curl.exe -i -X POST "$baseUrl/auth/logout" -H "Authorization: Bearer $accessToken"
+curl.exe -i "$baseUrl/api/library/favorites" -H "Authorization: Bearer $accessToken"
+Remove-Variable accessToken, login, me, favoritesResponse -ErrorAction SilentlyContinue
+```
+
+Expected: logout `204 No Content`; reuse of that revoked token returns
+`401 Unauthorized`. To verify independent sessions, log in a second
+time **before** logging out the first token, and confirm the second
+session can still read Favorites. Section 20 documents the shared
+revocation contract in full.
+
+## 23.5 Automated verification and current evidence
+
+New/extended authored backend files:
+
+```text
+server/src/data/favorites.repository.js
+server/src/data/catalog.repository.js
+server/src/catalog/catalog.service.js
+server/src/catalog/catalog.handler.js
+server/test/favorites.repository.test.js
+server/test/catalog-favorites.repository.test.js
+server/test/catalog-favorites.service.test.js
+server/test/catalog-favorites-routes.test.js
+```
+
+From `server/`:
+
+```bash
+node --test test/favorites.repository.test.js
+node --test test/catalog-favorites.repository.test.js
+node --test test/catalog-favorites.service.test.js
+node --test test/catalog-favorites-routes.test.js
+npm test
+```
+
+**Allison's verified pre-auth-hardening checkpoint:** 163 server tests
+passed and 0 failed after adding the Favorites HTTP route coverage.
+The focused Favorites tests cover principal-scoped parameter binding,
+row mapping, invalid IDs, unauthenticated requests, separate mocked
+principals, controlled error responses, and preservation of the public
+catalog. The HTTP tests use mocked data; they **do not** independently
+prove a live Favorites query against PostgreSQL.
+
+**Later merged authentication baseline (teammate-reported):** Christian
+reported 208 backend tests passed and 0 failed after the role-policy
+work. That total is **not** an Allison rerun of the latest merged
+checkout. Run `npm test` again locally after synchronizing with `main`;
+report the actual current test count instead of copying either baseline.
+
+**Observed live HTTP checks from Allison's earlier local run:**
+`GET /health` returned `200`; an unauthenticated
+`GET /api/library/favorites` returned `401` and
+`WWW-Authenticate: Bearer`. A subsequent real SQL query in
+`soundwave_allison_dev` failed with `relation "favorites" does not
+exist`, revealing the missing migration. The October 11 migration file
+was then authored, but successful application and authenticated
+PostgreSQL retrieval have **not yet been evidenced**.
+
+**Remaining AY-S3-01 / AY-S3-02 evidence:** confirm application of the
+migration in both the intended development and dedicated test DB;
+complete the deterministic fixture/seed task or document its agreed
+scope; perform a fresh login and match Favorites Track IDs to real
+PostgreSQL rows; verify revoked-token denial after logout; rerun the
+latest merged regression suite; and merge the migration/README change
+through peer review. Do not mark these steps passed before obtaining
+the actual logs.
+
 ---
 
 # 24. Artist / Album Browsing
@@ -1412,10 +1703,14 @@ The server suite covers areas including:
 - configurable media-root streaming and path rejection tests (Matthew
   Choi, Sprint 3).
 
-The previously reported backend baseline was 135/135. After five focused
-media-root cases were added, the developer reported that the updated
-test runs passed. Check the current `npm test` summary for the exact
-new total rather than assuming the baseline remains fixed.
+Earlier Sprint 3 baselines grew as work merged: Allison verified
+**163/163** server tests at the Favorites read-API checkpoint, while
+Christian subsequently reported **208/208** after shared role
+authorization. These are historical, differently timed checkpoints;
+**neither should be treated as proof of the latest local checkout**.
+Rerun `npm test` after synchronizing with `main` and record the actual
+result. The repository/service/HTTP Favorites test files are listed in
+Section 23.5.
 
 The durable requirement is:
 
@@ -1614,6 +1909,8 @@ omitted below.
 │   │   ├── 20260916_ayu_002_auth_users.sql
 │   │   ├── 20260924_edg_001_user_preferences.sql
 │   │   ├── 20260927_cmg_001_catalog_search_support.sql
+│   │   ├── 20261008_cmg_001_revoked_access_tokens.sql
+│   │   ├── 20261011_ayu_003_user_favorites.sql
 │   │   └── trackMediaPath.sql
 │   ├── seed.js
 │   ├── seeds
@@ -1870,6 +2167,51 @@ Soundwave-Live-Version/database
 ```
 
 ---
+
+
+## 30.8 Favorites reports `relation "favorites" does not exist`
+
+The error means the backend's connected database cannot find the
+`favorites` relation in its search path. It is a **database schema
+prerequisite**, not evidence that the `SELECT` syntax or the Bearer
+identity filter is wrong.
+
+Check the local checkout for
+`database/migrations/20261011_ayu_003_user_favorites.sql` and ensure it
+is committed through the reviewed migration PR. Confirm the intended
+development DB in `database/.env`, then run from `database/`:
+
+```bash
+npm run db:migrate
+```
+
+In `psql`, using that same database:
+
+```sql
+SELECT current_database(), current_schema(), current_setting('search_path');
+SELECT to_regclass('public.favorites');
+SELECT * FROM schema_migrations ORDER BY 1;
+```
+
+If the file is not present in the repo, create/review the missing
+migration in source control first. **Do not** hand-create the table,
+remove migration-history rows, or claim that a successful
+`db:migrate:test` also migrated the development database. A correctly
+migrated but empty table returns `(0 rows)` instead of a relation error;
+Section 23.3 shows how to add one local-only Favorites association.
+
+## 30.9 Favorites authentication errors after session hardening
+
+- `401` without a token is expected; obtain a new JWT from `/auth/login`.
+- Legacy JWTs without a valid signed UUID `jti`, expired JWTs, and
+  revoked JWTs also receive `401` on protected routes.
+- `503` can mean a required PostgreSQL revocation lookup failed and the
+  shared guard correctly failed closed. Inspect the server logs and
+  test-database configuration; do not bypass the revocation guard.
+- `500` with `{"error":"library_unavailable"}` after successful
+  authorization may indicate a Favorites schema, connection, or query
+  failure. Compare the backend's active `PGDATABASE` with the database
+  migrated and inspected in `psql`.
 
 # 31. Git Workflow
 
@@ -2184,11 +2526,37 @@ Current Sprint 3 work includes:
 
 - JWT revocation persistence foundation;
 - session/auth hardening integration;
-- protected-media integration;
+- protected-media integration (the authorization credential boundary
+  remains separately owned/unverified, not a completed protected stream);
 - client session integration;
 - Search-to-Playback orchestration;
+- **Allison Yu's merged, authenticated Favorites read API**;
+- **Allison's October 11 Favorites table migration, authored but not yet
+  verified as applied or merged**;
 - cross-feature regression coverage;
 - midterm integration preparation.
+
+### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02)
+
+Allison authored the Favorites database model and read vertical slice:
+parameterized per-user SQL, catalog repository wiring, catalog service
+mapping, and the protected `GET /api/library/favorites` HTTP route with
+unit and HTTP tests. Her API PR was reported merged; at that checkpoint
+**163 backend tests passed**. The endpoint reuses Christian's shared
+JWT/role/revocation enforcement, and media streaming remains Matthew's
+boundary. Allison subsequently discovered that her development database
+had no `favorites` table (`relation "favorites" does not exist`) and
+authored `20261011_ayu_003_user_favorites.sql` to supply the missing
+schema. The new migration still requires successful execution,
+consistent CI/test-database verification, and peer-reviewed merge before
+it can be marked complete.
+
+The live authenticated PostgreSQL Favorites response remains pending;
+previous confirmed live responses were health `200` and unauthenticated
+Favorites `401`. The planned next vertical-slice step is the React
+Favorites read state (AY-S3-03) after the live backend contract is
+verified; no completed Favorites UI should be inferred here. See
+Sections 23.1–23.5 for schema, API, tests, and the PowerShell procedure.
 
 Emmanuel's current Sprint 3 Search-to-Playback happy path is implemented
 and verified through:
