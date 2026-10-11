@@ -8,10 +8,8 @@ import { handleLogin } from "./auth/login.js";
 import { handleMe } from "./auth/me.js";
 import { handleLogout } from "./auth/logout.js";
 import {
-  authenticateRequestWithRevocation
-} from "./auth/revocation-auth.js";
-
-import { write401Response } from "./auth/auth.js";
+  authorizeRevocableRequest
+} from "./auth/request-authorization.js";
 
 import {
   handleAccountProfile
@@ -120,36 +118,18 @@ export function createApp({
       );
 
     if (isProtectedRoute) {
-      try {
-        const principal =
-          await authenticateRequestWithRevocation(
-            req,
+      const principal =
+        await authorizeRevocableRequest(
+          req,
+          res,
+          {
             tokenService,
-            tokenRevocationRepository
-          );
-
-        if (!principal) {
-          write401Response(res);
-          return;
-        }
-      } catch (error) {
-        console.error(
-          "Protected route authentication failed:",
-          error
+            tokenRevocationRepository,
+            allowedRoles: ["user", "admin"]
+          }
         );
 
-        res.writeHead(503, {
-          "Content-Type":
-            "application/json; charset=utf-8",
-          "Cache-Control": "no-store"
-        });
-
-        res.end(
-          JSON.stringify({
-            error: "authentication_unavailable"
-          })
-        );
-
+      if (!principal) {
         return;
       }
     }
