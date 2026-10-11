@@ -86,7 +86,7 @@ async function getWithToken(baseUrl, path, token) {
   });
 }
 
-test("logout denies access to all three protected routes", async t => {
+test("logout denies access to all four protected routes", async t => {
   const repository = createMemoryRepository();
   const baseUrl = await startApp(t, repository);
 
@@ -201,4 +201,61 @@ test("missing revocation repository cannot authorize a protected route", async t
     await getWithToken(baseUrl, "/auth/me", token);
 
   assert.equal(result.status, 503);
+});
+
+test("real application trusts signed roles and revokes admin sessions", async t => {
+  const repository = createMemoryRepository();
+  const baseUrl = await startApp(t, repository);
+
+  const adminToken = tokenService.create_token({
+    id: 42,
+    role: "admin"
+  });
+
+  const userToken = tokenService.create_token({
+    id: 42,
+    role: "user"
+  });
+
+  // Administrator is accepted by existing shared-role routes.
+  for (const path of [
+    "/auth/me",
+    "/api/library/recently-added",
+    "/api/library/favorites"
+  ]) {
+    const response =
+      await getWithToken(baseUrl, path, adminToken);
+
+    assert.equal(response.status, 200, path);
+  }
+
+  // Client-controlled headers cannot change the signed role.
+  const spoofed = await fetch(`${baseUrl}/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${userToken}`,
+      "X-Role": "admin",
+      "X-User-Id": "7"
+    }
+  });
+
+  assert.equal(spoofed.status, 200);
+
+  const identity = await spoofed.json();
+  assert.equal(identity.user.role, "user");
+  assert.equal(String(identity.user.id), "42");
+
+  // Logout invalidates even an administrator's JWT.
+  const logout = await fetch(`${baseUrl}/auth/logout`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`
+    }
+  });
+
+  assert.equal(logout.status, 204);
+
+  const rejected =
+    await getWithToken(baseUrl, "/auth/me", adminToken);
+
+  assert.equal(rejected.status, 401);
 });

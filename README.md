@@ -1131,10 +1131,91 @@ temporary records. Only run it with a dedicated PostgreSQL test DB.
 
 At local Block 2 verification: 188 backend tests, 34 database tests,
 2 database integrity tests, and the HTTP/PostgreSQL integration test
-passed. The existing GitHub Actions Database Tests job now includes
-the HTTP test after database setup; hosted CI and peer review must
-still pass before merge. Emmanuel De Guzman should confirm the new
-`jti` contract and legacy-token re-login policy before merge.
+passed. The existing GitHub Actions Database Tests job runs the HTTP
+PostgreSQL logout check after database setup. Block 2 passed hosted
+CI and peer review and merged into main through PR #107. Coordinate
+the `jti` and legacy-token re-login contract with client consumers.
+
+## 20.5 Role-Based HTTP Authorization (Sprint 3 Block 3)
+
+Christian McGowan's Block 3 refactors the four existing protected HTTP
+routes to use a reusable authenticated-and-authorized request boundary.
+The policy consumes a verified server-side principal; it does not accept
+roles or user identifiers supplied in HTTP headers, query parameters,
+or request bodies.
+
+Implementation files:
+
+```text
+server/src/auth/authorization.js
+server/src/auth/request-authorization.js
+server/src/app.js
+```
+
+`evaluateRoleAccess(principal, allowedRoles)` returns `allowed`,
+`unauthenticated`, or `forbidden`. `enforceRoleAccess(...)` maps an
+invalid/missing principal to `401 Unauthorized` and a valid principal
+without the required role to `403 Forbidden`. The request boundary
+`authorizeRevocableRequest(...)` validates the signed access token,
+checks its `jti` against PostgreSQL-backed revocation, then evaluates
+explicit allowed roles before a protected handler may continue. A
+revocation repository failure fails closed with `503 Service Unavailable`; the current adapter
+also returns `503` for authorization
+configuration errors, which must be addressed separately before any
+more specific error classification is claimed.
+
+Existing production route policies remain unchanged:
+
+| Protected GET route | Allowed roles |
+|---|---|
+| `/auth/me` | `user`, `admin` |
+| `/account/profile` | `user`, `admin` |
+| `/api/library/recently-added` | `user`, `admin` |
+| `/api/library/favorites` | `user`, `admin` |
+
+There is NO administrator-only production endpoint in this Block 3
+change. The admin-only policy and resulting `403` are verified using
+a temporary HTTP test server, not a newly created Soundwave API route.
+Both existing production roles are still permitted on all four routes.
+
+New automated coverage:
+
+```text
+server/test/authorization.test.js
+server/test/authorization-http.test.js
+server/test/request-authorization.test.js
+server/test/protected-revocation-routes.test.js
+```
+
+Tests cover explicit permitted roles, forbidden access, missing and
+invalid principals, fabricated role headers, JWT revocation, and
+fail-closed behavior when PostgreSQL revocation checks fail. Additional
+real-application coverage verifies both signed roles and administrator
+logout. The separate HTTP/PostgreSQL test verifies that revocation is
+persisted and enforced across the four existing routes.
+
+Verified locally during Block 3 implementation:
+
+```bash
+cd server
+npm test
+# 208 tests passed, 0 failed
+
+node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
+# 1 real PostgreSQL integration test passed, 0 failed
+```
+
+The PostgreSQL integration command requires the dedicated test database
+and the `database/.env.test` configuration. Block 3 changes remain
+subject to a new pull request, hosted CI, and teammate approval.
+
+Ownership and limitations: Emmanuel De Guzman retains the login/JWT
+contract; Allison Yu retains catalog, Library and Favorites handlers;
+Matthew Choi retains streaming and future media authorization; Konner
+Rigby retains shared client/CI ownership. This Block 3 change does not
+add media-stream authorization, revalidate a user's changed role
+against PostgreSQL on every request, implement token refresh, or
+implement client-side handling for expired sessions and `401`/`403`.
 
 ---
 
