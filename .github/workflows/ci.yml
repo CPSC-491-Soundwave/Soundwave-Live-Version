@@ -321,6 +321,14 @@ jobs:
         working-directory: database
         run: npm run test:db
 
+      - name: Install server dependencies for logout integration
+        working-directory: server
+        run: npm ci
+
+      - name: Verify PostgreSQL-backed HTTP logout
+        working-directory: server
+        run: node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
+
   build-metadata:
     name: Build Metadata
     runs-on: ubuntu-latest

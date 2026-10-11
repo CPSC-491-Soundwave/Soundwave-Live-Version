@@ -11,11 +11,21 @@ import {
 const tokenService = {
   verify_token(token) {
     if (token === "valid-101") {
-      return { sub: "101", role: "user" };
+      return {
+        sub: "101",
+        role: "user",
+        jti: "11111111-1111-4111-8111-111111111101",
+        exp: Math.floor(Date.now() / 1000) + 3600
+      };
     }
 
     if (token === "valid-102") {
-      return { sub: "102", role: "user" };
+      return {
+        sub: "102",
+        role: "user",
+        jti: "11111111-1111-4111-8111-111111111102",
+        exp: Math.floor(Date.now() / 1000) + 3600
+      };
     }
 
     throw new Error("Invalid token");
@@ -34,6 +44,12 @@ async function startServer(catalogService) {
   );
 
   const server = createApp({
+    tokenService,
+    tokenRevocationRepository: {
+      async isTokenRevoked() {
+        return false;
+      }
+    },
     handleCatalogRequest: handler
   });
 

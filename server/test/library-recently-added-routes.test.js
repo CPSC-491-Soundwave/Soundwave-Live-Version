@@ -59,7 +59,9 @@ function createTestTokenService() {
 
             return {
                 sub: "1",
-                role: "user"
+                role: "user",
+                jti: "22222222-2222-4222-8222-222222222222",
+                exp: Math.floor(Date.now() / 1000) + 3600
             };
         }
     };
@@ -83,6 +85,11 @@ function createTestApp(
 
     return createApp({
         tokenService,
+        tokenRevocationRepository: {
+            async isTokenRevoked() {
+                return false;
+            }
+        },
         handleCatalogRequest
     });
 }

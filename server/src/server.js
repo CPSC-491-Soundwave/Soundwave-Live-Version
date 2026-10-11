@@ -24,6 +24,10 @@ import {
 } from "./data/search.repository.js";
 
 import {
+  createTokenRevocationRepository
+} from "./data/token-revocation.repository.js";
+
+import {
   createSearchService
 } from "./search/search.service.js";
 
@@ -50,6 +54,11 @@ createTokenService(
 
 const authUserRepository =
 createAuthUserRepository(
+  database
+);
+
+const tokenRevocationRepository =
+createTokenRevocationRepository(
   database
 );
 
@@ -103,6 +112,8 @@ createAccountProfileRepository(
 const server =
 createApp({
   tokenService,
+
+  tokenRevocationRepository,
 
   findUserByUsername:
   authUserRepository.findUserByUsername,

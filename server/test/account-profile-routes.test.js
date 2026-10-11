@@ -14,7 +14,14 @@ async function startServer(
   options
 ) {
   const server =
-    createApp(options);
+    createApp({
+      tokenRevocationRepository: {
+        async isTokenRevoked() {
+          return false;
+        }
+      },
+      ...options
+    });
 
   t.after(
     () =>
