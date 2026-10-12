@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -21,6 +22,7 @@ import App from "./App";
 
 import {
   loadTrack,
+  unloadMusic,
 } from "./playback/playback.js";
 
 vi.mock(
@@ -187,6 +189,99 @@ describe(
             "No Copyright"
           )
         ).toBeInTheDocument();
+      }
+    );
+
+    it(
+      "surfaces a playback failure for a Track selected from Search",
+      async () => {
+        render(
+          <MemoryRouter
+            initialEntries={[
+              "/search"
+            ]}
+          >
+            <App />
+          </MemoryRouter>
+        );
+
+        fireEvent.change(
+          screen.getByLabelText(
+            "Search the catalog"
+          ),
+          {
+            target: {
+              value: "Kontekst"
+            }
+          }
+        );
+
+        fireEvent.click(
+          screen.getByRole(
+            "button",
+            {
+              name: "Search"
+            }
+          )
+        );
+
+        expect(
+          await screen.findByText(
+            "Kontekst"
+          )
+        ).toBeInTheDocument();
+
+        fireEvent.click(
+          screen.getByRole(
+            "button",
+            {
+              name: "Play Kontekst"
+            }
+          )
+        );
+
+        await waitFor(() => {
+          expect(
+            loadTrack
+          ).toHaveBeenCalledWith(
+            3005,
+            expect.objectContaining({
+              onError:
+                expect.any(
+                  Function
+                )
+            })
+          );
+        });
+
+        const playbackOptions =
+          loadTrack.mock.calls[0][1];
+
+        act(() => {
+          playbackOptions.onError({
+            type: "load",
+            trackId: 3005,
+            soundId: null,
+            error:
+              "MEDIA_ERR_SRC_NOT_SUPPORTED"
+          });
+        });
+
+        expect(
+          await screen.findByText(
+            "Playback unavailable"
+          )
+        ).toBeInTheDocument();
+
+        expect(
+          screen.getByText(
+            "Unable to play this track."
+          )
+        ).toBeInTheDocument();
+
+        expect(
+          unloadMusic
+        ).toHaveBeenCalled();
       }
     );
   }
