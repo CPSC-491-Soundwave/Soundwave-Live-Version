@@ -153,6 +153,7 @@ function mockAuthenticatedRequests() {
             return successfulProfile;
         }
 
+
         if (url === "/api/library/recently-added") {
             return {
                 ok: true,
@@ -161,7 +162,16 @@ function mockAuthenticatedRequests() {
             };
         }
 
+        if (url === "/api/library/favorites") {
+            return {
+                ok: true,
+                status: 200,
+                json: async () => []
+            };
+        }
+
         throw new Error(`Unexpected request: ${url}`);
+
     });
 }
 
@@ -334,6 +344,24 @@ describe("SCRUM-201 client navigation", () => {
                 }
             }
         );
+
+        expect(
+            await screen.findByText(
+                "You have no favorite tracks yet."
+            )
+        ).toBeInTheDocument();
+
+        expect(fetch).toHaveBeenCalledWith(
+            "/api/library/favorites",
+            expect.objectContaining({
+                method: "GET",
+                headers: {
+                    Authorization:
+                        "Bearer navigation-test-token"
+                }
+            })
+        );
+
     });
 
     test("successful login allows authenticated Profile navigation", async () => {
