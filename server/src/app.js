@@ -1,4 +1,3 @@
-
 import http from "node:http";
 import path from "node:path";
 import { realpath } from "node:fs/promises";
@@ -7,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { handleLogin } from "./auth/login.js";
 import { handleMe } from "./auth/me.js";
 import { handleLogout } from "./auth/logout.js";
+
 import {
   authorizeRevocableRequest
 } from "./auth/request-authorization.js";
@@ -107,50 +107,61 @@ export function createApp({
 
   return http.createServer(async (req, res) => {
 
-    // Enforce persistent revocation before protected handlers.
+    /*
+     * Existing protected endpoints.
+     *
+     * Media streaming authorization is handled separately
+     * inside its dynamic route below.
+     */
     const isProtectedRoute =
-      req.method === "GET" &&
-      (
-        req.url === "/auth/me" ||
-        req.url === "/account/profile" ||
-        req.url === "/api/library/recently-added" ||
-        req.url === "/api/library/favorites"
-      );
+    req.method === "GET" &&
+    (
+      req.url === "/auth/me" ||
+      req.url === "/account/profile" ||
+      req.url === "/api/library/recently-added" ||
+      req.url === "/api/library/favorites"
+    );
 
     if (isProtectedRoute) {
       const principal =
-        await authorizeRevocableRequest(
-          req,
-          res,
-          {
-            tokenService,
-            tokenRevocationRepository,
-            allowedRoles: ["user", "admin"]
-          }
-        );
+      await authorizeRevocableRequest(
+        req,
+        res,
+        {
+          tokenService,
+          tokenRevocationRepository,
+          allowedRoles: ["user", "admin"]
+        }
+      );
 
       if (!principal) {
         return;
       }
     }
 
+    /*
+     * Health endpoint.
+     */
     if (
       req.method === "GET" &&
       req.url === "/health"
     ) {
       res.writeHead(200, {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       });
 
       res.end(
         JSON.stringify({
-          status: "ok",
-        }),
+          status: "ok"
+        })
       );
 
       return;
     }
 
+    /*
+     * Login endpoint.
+     */
     if (
       req.method === "POST" &&
       req.url === "/auth/login"
@@ -158,23 +169,26 @@ export function createApp({
       try {
         await handleLogin(req, res, {
           findUserByUsername,
-          tokenService,
+          tokenService
         });
       } catch {
         res.writeHead(500, {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         });
 
         res.end(
           JSON.stringify({
-            error: "internal_error",
-          }),
+            error: "internal_error"
+          })
         );
       }
 
       return;
     }
 
+    /*
+     * Logout endpoint.
+     */
     if (
       req.method === "POST" &&
       req.url === "/auth/logout"
@@ -193,7 +207,7 @@ export function createApp({
         if (!res.headersSent) {
           res.writeHead(503, {
             "Content-Type":
-              "application/json; charset=utf-8",
+            "application/json; charset=utf-8",
             "Cache-Control": "no-store"
           });
 
@@ -210,6 +224,9 @@ export function createApp({
       return;
     }
 
+    /*
+     * Current user endpoint.
+     */
     if (
       req.method === "GET" &&
       req.url === "/auth/me"
@@ -222,19 +239,22 @@ export function createApp({
         );
       } catch {
         res.writeHead(500, {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         });
 
         res.end(
           JSON.stringify({
-            error: "internal_error",
-          }),
+            error: "internal_error"
+          })
         );
       }
 
       return;
     }
 
+    /*
+     * Account profile endpoint.
+     */
     if (
       req.method === "GET" &&
       req.url === "/account/profile"
@@ -250,14 +270,13 @@ export function createApp({
         );
       } catch {
         res.writeHead(500, {
-          "Content-Type":
-          "application/json",
+          "Content-Type": "application/json"
         });
 
         res.end(
           JSON.stringify({
-            error: "internal_error",
-          }),
+            error: "internal_error"
+          })
         );
       }
 
@@ -269,8 +288,11 @@ export function createApp({
      *
      * GET /api/tracks/3005/stream
      *
-     * Track IDs come from the catalog. Only the server
-     * resolves media_path to a file on disk.
+     * Track IDs come from the catalog.
+     * Only the server resolves media_path to a file.
+     *
+     * Authentication must succeed before track lookup,
+     * media path resolution, or sending audio bytes.
      */
     const url = new URL(
       req.url,
@@ -293,12 +315,12 @@ export function createApp({
         typeof findTrackById !== "function"
       ) {
         res.writeHead(500, {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         });
 
         res.end(
           JSON.stringify({
-            error: "internal_error",
+            error: "internal_error"
           })
         );
 
@@ -306,17 +328,54 @@ export function createApp({
       }
 
       try {
+
+        /*
+         * NEW: Streaming authorization.
+         *
+         * Reuse the existing revocation-aware
+         * authentication system.
+         *
+         * This checks the request before any track
+         * metadata or physical audio file is accessed.
+         */
+        const principal =
+        await authorizeRevocableRequest(
+          req,
+          res,
+          {
+            tokenService,
+            tokenRevocationRepository,
+            allowedRoles: ["user", "admin"]
+          }
+        );
+
+        /*
+         * When authorization fails, the shared helper
+         * is responsible for the denial response.
+         *
+         * Stop processing immediately so no audio
+         * bytes can be returned.
+         */
+        if (!principal) {
+          return;
+        }
+
+        /*
+         * Authentication succeeded.
+         *
+         * Continue with the existing streaming logic.
+         */
         const track =
         await findTrackById(trackId);
 
         if (!track) {
           res.writeHead(404, {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           });
 
           res.end(
             JSON.stringify({
-              error: "track_not_found",
+              error: "track_not_found"
             })
           );
 
@@ -325,26 +384,33 @@ export function createApp({
 
         if (!track.media_path) {
           res.writeHead(404, {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           });
 
           res.end(
             JSON.stringify({
-              error: "media_not_found",
+              error: "media_not_found"
             })
           );
 
           return;
         }
 
-        const filePath = await resolveMediaFile(
+        /*
+         * Resolve media_path securely.
+         *
+         * The resolved file must remain inside
+         * the configured media root.
+         */
+        const filePath =
+        await resolveMediaFile(
           resolvedMediaRoot,
           track.media_path
         );
 
         if (!filePath) {
           res.writeHead(404, {
-            "Content-Type": "text/plain",
+            "Content-Type": "text/plain"
           });
 
           res.end("Audio file not found");
@@ -352,26 +418,48 @@ export function createApp({
           return;
         }
 
+        /*
+         * Existing byte-range streaming implementation.
+         *
+         * Supports standard full and partial responses.
+         */
         streamTrackFile(
           req,
           res,
           filePath
         );
-      } catch {
-        res.writeHead(500, {
-          "Content-Type": "application/json",
-        });
 
-        res.end(
-          JSON.stringify({
-            error: "internal_error",
-          })
+      } catch (error) {
+        console.error(
+          "Media streaming request failed:",
+          error
         );
+
+        /*
+         * Avoid writing a second response if another
+         * handler has already sent the headers.
+         */
+        if (!res.headersSent) {
+          res.writeHead(500, {
+            "Content-Type": "application/json"
+          });
+
+          res.end(
+            JSON.stringify({
+              error: "internal_error"
+            })
+          );
+        } else {
+          res.destroy();
+        }
       }
 
       return;
     }
 
+    /*
+     * Search routes.
+     */
     if (
       typeof handleSearchRequest ===
       "function"
@@ -387,6 +475,9 @@ export function createApp({
       }
     }
 
+    /*
+     * Catalog routes.
+     */
     if (
       typeof handleCatalogRequest ===
       "function"
@@ -402,14 +493,17 @@ export function createApp({
       }
     }
 
+    /*
+     * Default 404.
+     */
     res.writeHead(404, {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json"
     });
 
     res.end(
       JSON.stringify({
-        error: "not_found",
-      }),
+        error: "not_found"
+      })
     );
   });
 }
