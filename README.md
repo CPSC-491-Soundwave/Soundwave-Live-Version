@@ -245,13 +245,14 @@ trackMediaPath.sql
 ```
 
 **Sprint 3 Favorites migration status (Allison Yu):**
-`20261011_ayu_003_user_favorites.sql` was authored on October 11 after
-the Favorites read API PR was merged. Its presence in this inventory
-indicates the intended migration file, **not** that the file was already
-merged into `main`, executed locally, or applied in CI. Confirm that the
-file exists under `database/migrations/` on the branch being tested,
-then run the migration against the intended database and inspect
-`schema_migrations` and `public.favorites` before claiming completion.
+`20261011_ayu_003_user_favorites.sql` was merged by peer-reviewed PR
+following the Favorites read-API PR. Allison ran `npm run db:migrate`
+and `npm run db:migrate:test`; both completed successfully and reported
+`skip 20261011_ayu_003_user_favorites.sql`, confirming the migration
+runner recognizes an applied filename in each migration history.
+These `skip` outputs alone do **not** independently prove the physical
+`public.favorites` table exists or demonstrate a live authenticated API
+read. Use the PostgreSQL and browser checks below to verify that path.
 
 The new `favorites` relation has `user_id BIGINT` and `track_id BIGINT`
 as a composite primary key, plus `created_at TIMESTAMPTZ NOT NULL`
@@ -1327,11 +1328,12 @@ creating a competing playback implementation.
 
 ## 23.1 Sprint 3 authenticated Favorites read path — Allison Yu
 
-**Implementation status:** Allison's Favorites read API pull request
-was reported merged. The separate `favorites` table migration was
-subsequently authored on October 11; its application and reviewed merge
-remain to be verified. A live authenticated read from local PostgreSQL
-is therefore **not yet confirmed**.
+**Implementation status:** Allison's Favorites read API and follow-up
+`favorites` table migration/README pull requests were merged. Development
+and test migration runs complete and skip the already-recorded migration.
+The React Favorites read UI has also been implemented and tested locally
+in a separate pending AY-S3-03 frontend PR. Verification against a live
+authenticated PostgreSQL Favorites response has not yet been reported.
 
 The API is:
 
@@ -1566,29 +1568,144 @@ principals, controlled error responses, and preservation of the public
 catalog. The HTTP tests use mocked data; they **do not** independently
 prove a live Favorites query against PostgreSQL.
 
-**Later merged authentication baseline (teammate-reported):** Christian
-reported 208 backend tests passed and 0 failed after the role-policy
-work. That total is **not** an Allison rerun of the latest merged
-checkout. Run `npm test` again locally after synchronizing with `main`;
-report the actual current test count instead of copying either baseline.
+**Later local regression verification (Allison):** After merging the
+shared role-authorization and Favorites migration changes, Allison
+reported running `npm test` in `server/`: **208 passed, 0 failed**.
+She also reported `npm run test:db` (**34 passed, 0 failed**) and
+`npm run test:integrity` (**2 passed, 0 failed**) from `database/`.
+The database test counts do not constitute a dedicated live Favorites
+schema/integration test; retain the separate SQL/API verification below.
 
 **Observed live HTTP checks from Allison's earlier local run:**
-`GET /health` returned `200`; an unauthenticated
-`GET /api/library/favorites` returned `401` and
-`WWW-Authenticate: Bearer`. A subsequent real SQL query in
+`GET /health` returned `200`; unauthenticated
+`GET /api/library/favorites` returned `401` with
+`WWW-Authenticate: Bearer`. The initial query against
 `soundwave_allison_dev` failed with `relation "favorites" does not
-exist`, revealing the missing migration. The October 11 migration file
-was then authored, but successful application and authenticated
-PostgreSQL retrieval have **not yet been evidenced**.
+exist`, motivating the now-merged October 11 migration. The migration
+runner later reported the migration filename as already applied in
+both development and test configurations. However, a subsequent
+`SELECT to_regclass('public.favorites')` result and an authenticated
+Favorites response matched to PostgreSQL rows have not been supplied.
 
-**Remaining AY-S3-01 / AY-S3-02 evidence:** confirm application of the
-migration in both the intended development and dedicated test DB;
-complete the deterministic fixture/seed task or document its agreed
-scope; perform a fresh login and match Favorites Track IDs to real
-PostgreSQL rows; verify revoked-token denial after logout; rerun the
-latest merged regression suite; and merge the migration/README change
-through peer review. Do not mark these steps passed before obtaining
-the actual logs.
+**Remaining live evidence:** confirm the table and constraints with
+PostgreSQL; verify deterministic Favorites fixture requirements or track
+them explicitly as unfinished; log in and compare API Track IDs with
+real database associations; optionally verify revoked-token denial;
+and perform browser/API smoke tests before marking end-to-end behavior
+verified. The migration/README PR itself has already been merged.
+
+## 23.6 Sprint 3 Favorites React client — Allison Yu (AY-S3-03)
+
+**Status:** React implementation and automated integration tests have
+been authored locally for a new peer-reviewed frontend PR; the PR has
+not yet been reported merged. The code reuses the existing shared
+Library route, in-memory `accessToken`, and `onSelectTrack(track.id)`
+callback. It does **not** add authentication storage, a second player,
+or a new Library route.
+
+Files introduced or modified for this frontend vertical slice:
+
+```text
+client/src/components/FavoritesSection.jsx
+client/src/components/FavoritesSection.css
+client/src/components/FavoritesSection.test.jsx
+client/src/pages/Library.jsx
+client/src/pages/Library.test.jsx
+client/src/pages/Library.favorites-integration.test.jsx
+client/src/App.navigation.test.jsx
+```
+
+After login, use the existing Sidebar **Library** link (do not hard
+refresh after logging in, since current session state is in memory).
+`Library.jsx` displays Recently Added and a separate Favorite Tracks
+section. Both read paths reuse the bearer token supplied by `App.jsx`:
+
+```text
+App (existing accessToken)
+  -> Library(accessToken, onSelectTrack)
+       -> GET /api/library/recently-added
+       -> FavoritesSection(accessToken, onSelectTrack)
+            -> GET /api/library/favorites
+                 -> render saved tracks
+                 -> onSelectTrack(track.id)
+                      -> App selectedTrackId -> shared PlaybackBar
+```
+
+`FavoritesSection` handles loading, no-session, empty-library, HTTP 401,
+HTTP 403, HTTP 503, other failures, and Retry states. Requests are
+aborted on cleanup and stale request results are not shown when the
+token or retry state changes. `401` displays a sign-in-again message;
+it does **not** change the shared session/logout implementation.
+Track selection passes the canonical `tracks.id`; successful selection
+alone does not prove that an MP3 is available for streaming.
+
+### User interface and design scope
+
+The component's dedicated CSS follows the CPSC 490 Soundwave roadmap's
+UX references (Figure UXA3 color palette, Figure UXAD song card, and
+Library/Songs page mockups). It uses a navy/slate surface with purple
+accent, Inter/sans-serif text, compact cards, a responsive two-column
+layout on wider screens, and a single-column layout on narrow screens.
+The track title, artist, album, and duration are drawn from the read
+API. The card selects the track; the heart graphic is currently only
+presentational and does not make a write request. Where artwork is not
+in the API payload, the component shows a placeholder rather than
+inventing a cover URL.
+
+**Decisions recorded for future implementation only (not implemented
+in this PR):**
+
+1. Some tracks will have album artwork; display it where a safe artwork
+   URL is actually returned, retaining a fallback for other tracks.
+2. Favorites will eventually be navigable under its own Library tab;
+   it currently remains a section inside Library.
+3. A favorited track should show a **filled heart**; the current
+   implementation has not yet made this state-indicator update.
+
+The Favorites read route is still read-only: there is no add/remove
+Favorites interaction and no user-editable heart in this sprint.
+The PDF's larger tabbed Library search and playlist UI is future work,
+not part of this focused Favorites integration.
+
+### React verification
+
+From `client/`:
+
+```powershell
+npx vitest run src/components/FavoritesSection.test.jsx src/pages/Library.test.jsx src/pages/Library.favorites-integration.test.jsx
+npx vitest run src/App.navigation.test.jsx
+npm test -- --run
+npm run lint
+npm run build
+```
+
+**Last fully pasted logs (before the final PDF-inspired styling pass):**
+
+| Check | Result |
+|---|---|
+| Favorites component | 5/5 passed |
+| Existing Library behavior | 8/8 passed |
+| Library/Favorites integration | 3/3 passed |
+| Focused Favorites + Library suites | 16/16 passed |
+| Shared navigation | 9/9 passed, including authenticated Favorites request |
+| Complete client regression suite | **63/63 passed across 15 test files** |
+| ESLint | Passed, no reported errors |
+| Vite production build | Passed |
+
+The navigation fixture was extended to respond to the new Favorites
+request and assert that it uses the existing Bearer token. The original
+Library unit tests isolate Recently Added by mocking the Favorites
+component, while the separate cross-component tests render the real
+Favorites component and verify both endpoints, track selection, and
+independent failures. This prevents one section's fixtures from
+accidentally satisfying another section's assertions.
+
+The final visual styling change was supplied after the above log.
+**Rerun the full test/lint/build commands and record the actual output
+from the working tree before committing**; do not assume the earlier
+63-test snapshot proves the final CSS/JSX version. A live browser
+Favorites HTTP 200, PostgreSQL row matching, and audible playback
+have not been confirmed here by automated mock-based tests.
 
 ---
 
@@ -1635,22 +1752,28 @@ npm run lint
 npm run build
 ```
 
-Current verified local Sprint 3 branch result:
+Last fully pasted local frontend regression result (before the
+subsequent PDF-inspired CSS/JSX styling change):
 
 ```text
-Test Files: 12 passed
-Tests:      45 passed
+Test Files: 15 passed
+Tests:      63 passed
 Failures:   0
 ESLint:     PASS
 Build:      PASS
 ```
+
+Rerun all three commands on the final working tree before its PR; the
+numbers above are a recorded checkpoint, not a promise of a newer run.
 
 Current client coverage includes:
 
 - Search;
 - Search Track selection;
 - Search → App → PlaybackBar integration;
-- Library;
+- Library and authenticated Favorites read states;
+- cross-component Library/Favorites loading and selection;
+- authenticated Favorites navigation token propagation;
 - Profile;
 - Artist browse/detail;
 - Album browse/detail;
@@ -1703,14 +1826,14 @@ The server suite covers areas including:
 - configurable media-root streaming and path rejection tests (Matthew
   Choi, Sprint 3).
 
-Earlier Sprint 3 baselines grew as work merged: Allison verified
-**163/163** server tests at the Favorites read-API checkpoint, while
-Christian subsequently reported **208/208** after shared role
-authorization. These are historical, differently timed checkpoints;
-**neither should be treated as proof of the latest local checkout**.
-Rerun `npm test` after synchronizing with `main` and record the actual
-result. The repository/service/HTTP Favorites test files are listed in
-Section 23.5.
+Earlier Sprint 3 baselines grew as work merged. Allison verified
+**163/163** server tests at the initial Favorites read-API checkpoint,
+and subsequently reported rerunning the backend suite at **208/208**
+after shared role authorization and the Favorites migration merge.
+This verifies the backend automated suite at that local checkout, not
+a browser-to-PostgreSQL Favorites happy path. Rerun on later shared
+changes and record actual counts. The focused Favorites test files are
+listed in Section 23.5.
 
 The durable requirement is:
 
@@ -1865,11 +1988,15 @@ omitted below.
 │       ├── App.css
 │       ├── App.jsx
 │       ├── App.search-playback.test.jsx
+│       ├── App.navigation.test.jsx
 │       ├── components
 │       │   ├── AlbumCard.jsx
 │       │   ├── AlbumCard.test.jsx
 │       │   ├── ArtistCard.jsx
 │       │   ├── ArtistCard.test.jsx
+│       │   ├── FavoritesSection.css
+│       │   ├── FavoritesSection.jsx
+│       │   ├── FavoritesSection.test.jsx
 │       │   ├── PlaybackBar.css
 │       │   ├── PlaybackBar.jsx
 │       │   ├── PlaybackBar.test.jsx
@@ -1889,6 +2016,7 @@ omitted below.
 │       │   ├── Home.jsx
 │       │   ├── Library.jsx
 │       │   ├── Library.test.jsx
+│       │   ├── Library.favorites-integration.test.jsx
 │       │   ├── Login.jsx
 │       │   ├── Profile.jsx
 │       │   ├── Profile.test.jsx
@@ -2531,32 +2659,34 @@ Current Sprint 3 work includes:
 - client session integration;
 - Search-to-Playback orchestration;
 - **Allison Yu's merged, authenticated Favorites read API**;
-- **Allison's October 11 Favorites table migration, authored but not yet
-  verified as applied or merged**;
+- **Allison's merged October 11 Favorites table migration**; development
+  and test migration runs now skip its recorded filename (physical table
+  and live Favorites API read remain separate verification);
 - cross-feature regression coverage;
 - midterm integration preparation.
 
-### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02)
+### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02 / AY-S3-03)
 
-Allison authored the Favorites database model and read vertical slice:
-parameterized per-user SQL, catalog repository wiring, catalog service
-mapping, and the protected `GET /api/library/favorites` HTTP route with
-unit and HTTP tests. Her API PR was reported merged; at that checkpoint
-**163 backend tests passed**. The endpoint reuses Christian's shared
-JWT/role/revocation enforcement, and media streaming remains Matthew's
-boundary. Allison subsequently discovered that her development database
-had no `favorites` table (`relation "favorites" does not exist`) and
-authored `20261011_ayu_003_user_favorites.sql` to supply the missing
-schema. The new migration still requires successful execution,
-consistent CI/test-database verification, and peer-reviewed merge before
-it can be marked complete.
+Allison authored a vertical slice across the Favorites schema,
+principal-scoped PostgreSQL repository query, catalog service mapping,
+authenticated read API, React Library UI, component/integration tests,
+and documentation. The read-API PR and later migration/README PR were
+merged. Development and test migration runs recognize the recorded
+migration; the deterministic Favorites seed requirement still needs
+explicit closure, and a live authenticated PostgreSQL read is not yet
+confirmed. The Favorites frontend work is local and pending its own
+peer-reviewed PR.
 
-The live authenticated PostgreSQL Favorites response remains pending;
-previous confirmed live responses were health `200` and unauthenticated
-Favorites `401`. The planned next vertical-slice step is the React
-Favorites read state (AY-S3-03) after the live backend contract is
-verified; no completed Favorites UI should be inferred here. See
-Sections 23.1–23.5 for schema, API, tests, and the PowerShell procedure.
+The client uses the existing in-memory access token and shared
+`onSelectTrack(track.id)` interface instead of reimplementing
+Christian's JWT authorization, Konner's navigation/session design, or
+Matthew/Emmanuel's playback pipeline. The last fully pasted client
+verification logs show **63/63 tests**, clean ESLint, and a successful
+Vite build. PDF-inspired card styling has been supplied since those
+logs, so rerun checks before committing the final working tree.
+Artwork when present, a dedicated Library Favorites tab, and filled
+saved-state hearts were explicitly deferred rather than implemented.
+Details and commands are in Sections 23.1–23.6.
 
 Emmanuel's current Sprint 3 Search-to-Playback happy path is implemented
 and verified through:
