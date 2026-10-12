@@ -1,0 +1,235 @@
+
+.favorites-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    font-family: Inter, system-ui, sans-serif;
+}
+
+.favorites-section > h2 {
+    margin: 0 0 20px;
+    color: #F8FAFC;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+/* Two-column Songs-style card grid */
+
+.favorites-section__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.favorites-section__list > li {
+    min-width: 0;
+}
+
+/* Entire card selects a track */
+
+.favorites-section__track {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 12px;
+
+    width: 100%;
+    min-height: 76px;
+    padding: 0 12px 0 0;
+
+    background: #1E293B;
+    color: #F8FAFC;
+
+    border: 1px solid transparent;
+    border-radius: 6px;
+
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+
+    overflow: hidden;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.favorites-section__track:hover:not(:disabled) {
+    background: color-mix(
+        in srgb,
+        #1E293B 88%,
+        #6366F1
+    );
+    border-color: #6366F1;
+}
+
+.favorites-section__track:focus-visible {
+    outline: 2px solid #6366F1;
+    outline-offset: 3px;
+}
+
+.favorites-section__track:disabled {
+    cursor: default;
+}
+
+/* Artwork placeholder until the API provides artwork */
+
+.favorites-section__artwork {
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+
+    min-height: 76px;
+    background: #6366F1;
+    color: #F8FAFC;
+
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+/* Song title, artist, album */
+
+.favorites-section__details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.favorites-section__details strong {
+    color: #F8FAFC;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.favorites-section__details p {
+    margin: 0;
+    color: #94A3B8;
+    font-size: 0.75rem;
+    line-height: 1.4;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Saved heart and duration on the right */
+
+.favorites-section__aside {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    align-self: stretch;
+    gap: 6px;
+    padding: 10px 0;
+}
+
+.favorites-section__heart {
+    display: flex;
+    color: #94A3B8;
+}
+
+.favorites-section__heart svg {
+    width: 22px;
+    height: 22px;
+}
+
+.favorites-section__duration {
+    color: #94A3B8;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Loading, empty, and login states */
+
+.favorites-section > p {
+    margin: 16px 0;
+    color: #94A3B8;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Authentication and access errors */
+
+.favorites-section > p[role="alert"] {
+    padding: 14px 16px;
+    background: #1E293B;
+    border-left: 3px solid #6366F1;
+    border-radius: 6px;
+    color: #F8FAFC;
+}
+
+/* Network errors and retry */
+
+.favorites-section > div[role="alert"] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+
+    background: #1E293B;
+    color: #F8FAFC;
+    border-radius: 6px;
+}
+
+.favorites-section > div[role="alert"] p {
+    margin: 0;
+}
+
+.favorites-section > div[role="alert"] button {
+    padding: 9px 16px;
+    background: #6366F1;
+    color: #F8FAFC;
+
+    border: 0;
+    border-radius: 6px;
+
+    font: inherit;
+    cursor: pointer;
+}
+
+.favorites-section > div[role="alert"] button:focus-visible {
+    outline: 2px solid #F8FAFC;
+    outline-offset: 3px;
+}
+
+/* Responsive layout */
+
+@media (max-width: 950px) {
+    .favorites-section__list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .favorites-section {
+        margin-top: 24px;
+        padding-top: 20px;
+    }
+
+    .favorites-section__track {
+        grid-template-columns: 64px minmax(0, 1fr) 34px;
+        gap: 10px;
+        min-height: 70px;
+        padding-right: 8px;
+    }
+
+    .favorites-section__artwork {
+        min-height: 70px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .favorites-section__track {
+        transition: none;
+    }
+}

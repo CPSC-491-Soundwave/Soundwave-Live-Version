@@ -3,6 +3,8 @@ import {
     useState
 } from "react";
 
+import FavoritesSection from "../components/FavoritesSection.jsx";
+
 import "./Library.css";
 
 function formatDuration(durationMs) {
@@ -189,6 +191,10 @@ export default function Library({
                         ))}
                     </div>
                 )}
+            <FavoritesSection
+                accessToken={accessToken}
+                onSelectTrack={onSelectTrack}
+            />
         </section>
     );
 }

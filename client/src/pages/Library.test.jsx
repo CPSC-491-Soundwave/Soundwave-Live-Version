@@ -14,12 +14,19 @@ import {
     vi
 } from "vitest";
 
+
 import Library from "./Library";
+
+vi.mock("../components/FavoritesSection.jsx", () => ({
+    default: () => null
+}));
 
 afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
 });
+
 
 describe("Library recently-added browse", () => {
     beforeEach(() => {
