@@ -62,6 +62,9 @@ export function loadTrack(
             `/api/tracks/${trackId}/stream`
         ],
 
+        // Explicitly identify the audio format.
+        format: ["mp3"],
+
         volume: 0.5,
 
         /*
