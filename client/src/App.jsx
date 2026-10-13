@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+import SessionStatus from "./components/SessionStatus";
 import PlaybackBar from "./components/PlaybackBar";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -15,7 +16,23 @@ import AlbumDetail from "./pages/AlbumDetail";
 import "./App.css";
 
 export default function App() {
-  const [accessToken, setAccessToken] = useState("");
+  const [{ accessToken, loginViewEpoch }, setSession] = useState({
+    accessToken: "",
+    loginViewEpoch: 0
+  });
+
+  const setAccessToken = useCallback((token) => {
+    setSession((current) => ({ ...current, accessToken: token }));
+  }, []);
+
+  // An older session cannot invalidate a newer login.
+  const handleSessionInvalidated = useCallback((token) => {
+    setSession((current) =>
+      current.accessToken === token
+        ? { accessToken: "", loginViewEpoch: current.loginViewEpoch + 1 }
+        : current
+    );
+  }, []);
   const [selectedTrackId, setSelectedTrackId] =
     useState(null);
 
@@ -24,6 +41,10 @@ export default function App() {
       <Sidebar />
 
       <main className="page-content">
+        <SessionStatus
+          accessToken={accessToken}
+          onSessionInvalidated={handleSessionInvalidated}
+        />
         <Routes>
           <Route
             path="/"
@@ -52,7 +73,7 @@ export default function App() {
           <Route
             path="/login"
             element={
-              <Login
+              <Login key={loginViewEpoch}
                 setAccessToken={setAccessToken}
               />
             }
