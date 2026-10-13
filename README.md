@@ -73,7 +73,11 @@ PostgreSQL
 Catalog/Search Data       Internal media_path
                                |
                                v
-                        HTTP media streaming
+                        Protected HTTP media streaming
+
+Native browser audio obtains a short-lived, track-scoped media cookie
+from an authenticated POST request before requesting the stream. CLI
+clients can continue to use the existing Bearer JWT for streaming.
 ```
 
 The browser communicates with the backend through HTTP APIs only.
@@ -270,6 +274,21 @@ tracks.media_path
 
 with a nonblank constraint for non-null values.
 
+The `20261008_cmg_001_revoked_access_tokens.sql` migration is a
+**prerequisite for protected media** as well as logout. Every authorized
+Range request checks the originating session's JWT identifier (`jti`).
+Without `revoked_access_tokens`, the server fails closed with HTTP `503`
+(for example, PostgreSQL error `42P01`). Apply the already-tracked
+migration against the **same development database used by `server/.env`**.
+Check without changing data:
+
+```sql
+SELECT current_database(), to_regclass('public.revoked_access_tokens');
+```
+
+The table should resolve to `revoked_access_tokens`; `NULL` means the
+relation is missing from that schema. Do not hand-create a replacement.
+
 Running the migration command again should safely skip previously
 recorded migrations.
 
@@ -368,7 +387,9 @@ The shared development seed should include:
 
 # 8. Server Environment
 
-The backend requires PostgreSQL configuration and a JWT signing secret.
+The backend requires PostgreSQL configuration, the login-JWT signing
+secret, and a **different media-ticket signing secret**. The two keys
+are independent and must not be committed.
 
 Local server configuration uses:
 
@@ -386,17 +407,26 @@ PGPORT=5432
 PGUSER=soundwave_app
 PGPASSWORD=<your-local-postgres-password>
 PGDATABASE=<your-development-database>
-JWT_SECRET=<generated-development-only-secret>
+JWT_SECRET=<existing-login-jwt-secret>
+MEDIA_TICKET_SECRET=<independently-generated-media-secret-at-least-32-bytes>
+# NODE_ENV=production enables Secure media cookies for HTTPS deployment
+NODE_ENV=development
 # Optional: an absolute directory containing the paths in tracks.media_path
 # MEDIA_ROOT=/srv/soundwave/storage
 ```
 
 Use the same PostgreSQL connection settings in `database/.env` and
-`server/.env` when both are used on one machine. `JWT_SECRET` belongs on
-the backend only. If omitted, `MEDIA_ROOT` defaults to the repository
-root derived from the location of `server/src/app.js`, not the process's
-current working directory. `MEDIA_ROOT`, if configured, must be an
-absolute path.
+`server/.env` when both are used on one machine. Both signing secrets
+belong on the backend only. `MEDIA_TICKET_SECRET` must contain at least
+32 UTF-8 bytes and must **not** equal `JWT_SECRET`; otherwise startup
+intentionally fails. The default media-ticket lifetime is 300 seconds
+(five minutes), capped by the issuing login JWT's remaining lifetime.
+`NODE_ENV=production` enables the `Secure` attribute; local HTTP testing
+uses `NODE_ENV=development`. Production must use HTTPS.
+
+If omitted, `MEDIA_ROOT` defaults to the repository root derived from
+the location of `server/src/app.js`, not the process's current working
+directory. `MEDIA_ROOT`, if configured, must be an absolute path.
 
 Alternatively, from `server/`, the backend can load its own file directly:
 
@@ -433,24 +463,40 @@ Leave the backend terminal running.
 
 ---
 
-# 9. JWT Startup Requirement
+# 9. JWT and Media-Ticket Startup Requirements
 
-The backend initializes the token service at startup.
+The backend initializes both the login JWT service and the independent
+media-ticket service at startup. `JWT_SECRET` must remain the team's
+existing login signing key. Do **not** replace it just to fix startup:
+that invalidates previously issued login tokens.
 
-If `JWT_SECRET` is missing, startup intentionally fails with an error
-similar to:
+If `JWT_SECRET` is missing, startup fails with an error similar to:
 
 ```text
 A valid secretKey string is required to initialize the token service.
 ```
 
-A temporary local development secret may be generated with:
+If `MEDIA_TICKET_SECRET` is missing, too short, or the same as the login
+key, startup also fails. For local testing, generate a new *independent*
+media signing key and store it in the ignored `server/.env`:
 
 ```bash
-export JWT_SECRET="$(openssl rand -hex 32)"
+node -e 'console.log(require("node:crypto").randomBytes(48).toString("hex"))'
 ```
 
-Do not print, commit, or reuse real production secrets.
+Do not share the generated value in logs, chats, screenshots or PRs.
+From `server/`, start with the file explicitly loaded:
+
+```bash
+node --env-file=.env src/server.js
+```
+
+A plain `node src/server.js` does not read `.env` by itself. The alternate
+`set -a; source ...; set +a` startup in Section 8 works when the files
+have valid shell-compatible assignments. Exported variables affect only
+their shell and its child processes. If port `8080` is already in use,
+stop the previously running Soundwave process rather than starting
+a second instance (see Section 30.6).
 
 ---
 
@@ -701,73 +747,76 @@ server/src/search/search.handler.js
 
 ---
 
-# 15. Media Streaming
+# 15. Protected Media Streaming
 
-Current media endpoint:
+Current streaming endpoint:
 
 ```text
 GET /api/tracks/:id/stream
 ```
 
-The route resolves the stable Track ID through the catalog repository and
-uses the internal `media_path` to locate the audio resource.
+**This endpoint is protected.** It accepts either (1) the existing
+non-revoked login JWT supplied in an `Authorization: Bearer` header, or
+(2) a valid, short-lived `sw_media` cookie issued specifically for the
+requested Track. All valid requests check session revocation **before**
+catalog and filesystem access. Requests without authorization return
+`401`, not audio bytes. An unavailable revocation database returns
+`503`, not a public-stream fallback.
 
-Example:
+The route resolves stable `tracks.id` through the catalog repository,
+then uses the internal `media_path` to locate and stream audio. The
+media file path is never returned to the client.
+
+Authorized stream responses preserve:
+
+| Request / condition | Result |
+|---|---|
+| Full authorized stream | `200 OK` |
+| Valid byte range | `206 Partial Content` |
+| Invalid or unsatisfiable Range | `416 Range Not Satisfiable` |
+| Missing or invalid login/media credential, or revoked session | `401 Unauthorized` |
+| Revocation infrastructure unavailable | `503 Service Unavailable` |
+| Unknown Track or missing/unusable media | `404 Not Found` |
+
+Responses include `Cache-Control: private, no-store` and
+`Vary: Authorization, Cookie` on the streaming route, preventing shared
+cache reuse of credential-scoped audio. No ordinary login JWT may be
+placed in a URL. The `403` status is reserved for an actual role or
+permission policy that denies an otherwise authenticated principal;
+the current streaming policy allows `user` and `admin`.
+
+## 15.1 Authenticated HTTP Range Verification
+
+Obtain a **fresh** login token and keep it in the `SW_TOKEN` shell
+variable using Section 15.5. Do not paste the token into your command
+history or into this README. The following request keeps the token out
+of the displayed command-line arguments:
 
 ```bash
-curl -s \
-  -o /tmp/soundwave-test.mp3 \
-  -w "status=%{http_code} bytes=%{size_download}\n" \
-  "http://localhost:8080/api/tracks/3005/stream"
-```
-
-Expected:
-
-```text
-status=200
-```
-
-with a non-zero downloaded byte count.
-
----
-
-## 15.1 HTTP Range Verification
-
-```bash
-curl -s \
-  -H "Range: bytes=0-999" \
-  -D - \
-  -o /tmp/soundwave-range.bin \
-  "http://localhost:8080/api/tracks/3005/stream"
-
+printf 'header = "Authorization: Bearer %s"\n' "$SW_TOKEN" | \
+  curl -sS --config - \
+    -H 'Range: bytes=0-999' \
+    -o /tmp/soundwave-range.bin \
+    -w 'HTTP %{http_code}, bytes %{size_download}\n' \
+    http://localhost:8080/api/tracks/3005/stream
 wc -c /tmp/soundwave-range.bin
 ```
 
-Expected response headers include:
+Expected with a valid, non-revoked login token and seeded Track 3005:
 
 ```text
-HTTP/1.1 206 Partial Content
-Content-Type: audio/mpeg
-Accept-Ranges: bytes
-Content-Length: 1000
-Content-Range: bytes 0-999/<file-size>
+HTTP 206, bytes 1000
+1000 /tmp/soundwave-range.bin
 ```
 
-Expected downloaded Range size:
+The HTTP response includes `Content-Type: audio/mpeg`,
+`Accept-Ranges: bytes`, `Content-Length: 1000`, and
+`Content-Range: bytes 0-999/<file-size>`. The exact total file size may
+vary with the rights-cleared fixture. Without a token or media cookie,
+the same request must return HTTP `401`.
 
-```text
-1000
-```
-
-Automated coverage also verifies:
-
-```text
-full-file request       -> 200
-valid byte range        -> 206
-invalid byte range      -> 416
-unknown Track           -> 404
-missing media resource  -> 404
-```
+Automated regression tests additionally cover full `200`, invalid
+Range `416`, unknown Track `404`, and missing/unsafe media-path `404`.
 
 ## 15.2 Sprint 3 configurable media root — Matthew Choi (SCRUM-169)
 
@@ -810,15 +859,17 @@ The new resolver rejects empty, absolute, or escaping database paths;
 uses real filesystem paths to detect symlinks pointing outside the root;
 and returns HTTP `404` rather than serving a rejected or missing file.
 The existing plain-text missing-file response (`Audio file not found`)
-is intentionally preserved for API compatibility. These checks are a
-path-validation boundary, not a substitute for the still-pending media
-authorization policy. Deployments should keep the media directory and
-its parent directories protected against untrusted filesystem writes.
+is intentionally preserved for API compatibility. These filesystem
+checks complement, rather than replace, the protected media
+authorization boundary described in Sections 15 and 15.5. Deployments
+should protect the media directory and its parent directories against
+untrusted filesystem writes.
 
 ## 15.3 Sprint 3 media-root regression tests — Matthew Choi
 
-`server/test/media-streaming.test.js` retains the original five HTTP
-streaming tests and adds five focused cases:
+`server/test/media-streaming.test.js` retains the original HTTP
+streaming cases, adds five media-root cases, and now also tests
+revocation-aware Bearer authorization (15 focused cases total):
 
 | Test | Expected behavior |
 |---|---|
@@ -829,10 +880,12 @@ streaming tests and adds five focused cases:
 | Relative `mediaRoot` supplied to `createApp()` | `TypeError` |
 
 The new cases use temporary synthetic fixtures, not unlicensed music.
-The developer reported the focused streaming and complete backend tests
-passing after these additions. Re-run against the current checkout
-before committing, because total counts may change when teammate
-changes merge:
+Further negative cases verify no token, invalid and expired JWTs,
+revoked sessions, and revocation-store failures. The developer
+reported all **15 media-streaming tests passing** and all **222 backend
+tests passing** after adding the separate nine-test media-access
+application suite. Re-run against the current checkout before
+committing, because counts may change when teammate changes merge:
 
 ```bash
 cd server
@@ -853,22 +906,20 @@ Node.js + React/Vite setup after the media-root change:
 | `GET /api/tracks/3005/stream` with `Range: bytes=0-999` | `206 Partial Content` |
 | Open `/albums/2003` and select Track 3005 | Real audio played in the shared PlaybackBar |
 
-Reproduce the API checks:
+The table above is a **historical pre-protection checkpoint**, not
+proof that the currently protected Howler player can stream without
+a credential. To reproduce current backend behavior, obtain a fresh
+JWT and use the authenticated Range command in Section 15.1, or use
+a scoped media cookie as documented in Section 15.5. An anonymous
+stream request now correctly returns `401`.
 
-```bash
-curl -i http://localhost:8080/api/catalog/tracks/3005
-curl -sS -o /dev/null \
-  -w 'HTTP %{http_code}, bytes %{size_download}\n' \
-  -H 'Range: bytes=0-999' \
-  http://localhost:8080/api/tracks/3005/stream
-```
-
-The second command should report `HTTP 206, bytes 1000` for the seeded
-fixture. Open `http://localhost:5173/albums/2003` (or the Vite port
-shown in the console) to select and play the track. Inspect the browser
-Network panel for metadata `200` and media `200`/`206` requests. Verify
-Play, Pause, and Volume separately before claiming those controls
-passed a new manual run.
+After Emmanuel's frontend credential handoff is integrated, open
+`http://localhost:5173/albums/2003` (or the Vite port shown), select
+Track 3005, and confirm audible playback, seek/Range (`206`), Play,
+Pause and Volume. Browser Network errors `401`, `403` or `503` need
+separate inspection; Howler's generic media load error does not expose
+the precise HTTP status. **Current protected browser playback has not
+been verified by the backend test run.**
 
 Track `3005` must use audio covered by `mediaFiles/license.txt` or
 another documented public-domain, Creative Commons, or owned fixture.
@@ -876,26 +927,179 @@ The current seed/API displays `durationMs: 12345`; confirm that the seed
 value matches the actual audio metadata before making duration-accuracy
 claims in a graded demo.
 
-These checks prove **direct local playback**, not media accessibility
-inside Docker Compose. Container audio remains a separate verification.
+These historical checks documented **direct local playback before the
+new credential requirement**; they do not verify protected browser
+playback or media accessibility inside Docker Compose. Container audio
+remains a separate verification.
+
+## 15.5 Sprint 3 track-scoped media tickets — Matthew Choi
+
+The backend now includes these Matthew-owned modules:
+
+```text
+server/src/media/media-ticket.js
+server/src/media/media-access.handler.js
+server/test/media-access.app.test.js
+```
+
+`server/src/server.js` creates a dedicated media-ticket service using
+`MEDIA_TICKET_SECRET`; `server/src/app.js` wires its issuance endpoint
+and streaming authorization. Christian's shared JWT and revocation
+modules remain unchanged. The ticket is a **two-part HMAC-SHA256
+media-only credential, not a login JWT**. It is signed with a different
+key, bound to one Track ID, a user, and the source login-session `jti`,
+and is valid for **at most 300 seconds** (and never longer than the
+remaining login JWT lifetime). Requests check source-session revocation
+on every stream and Range request.
+
+| Step | API contract |
+|---|---|
+| Issue or renew ticket | `POST /api/tracks/:id/media-access` with a current `Authorization: Bearer <login JWT>` |
+| Issuance success | `204 No Content`, `Set-Cookie: sw_media=...` |
+| Cookie properties | `HttpOnly`, `SameSite=Lax`, `Path=/api/tracks/:id/stream`, `Max-Age` up to 300 seconds; `Secure` in production HTTPS |
+| Native playback/seek | `GET /api/tracks/:id/stream`; browser sends the path-matching cookie automatically |
+| Existing API clients | Bearer-authenticated `GET /stream` continues working without a media cookie |
+| Error classification | Invalid, expired or revoked: `401`; revocation database unavailable: `503`; `403` only for an actual permission denial |
+
+A present but invalid `Authorization` header cannot bypass Bearer checks
+by falling back to a valid cookie. Media cookies are not accepted on
+ordinary authenticated API routes such as `/auth/me`. Issuance and
+streaming requests do **not** expose `media_path`. Credential issuance
+requires an existing Track with a media-path mapping; a missing Track
+or path returns `404`.
+
+### Live HTTP smoke test (Linux/macOS terminal)
+
+Run these in a second shell while PostgreSQL and the backend are
+running with both signing secrets loaded. Use a real development
+Soundwave account. **Do not print or share the login JWT, cookie jar,
+credentials or complete response headers containing `Set-Cookie`.**
+
+First, request a login token without putting the password in history:
+
+```bash
+read -r -p 'Soundwave username: ' SW_USER
+read -r -s -p 'Soundwave password: ' SW_PASS; printf '\n'
+LOGIN_RESPONSE="$(
+  SW_USER="$SW_USER" SW_PASS="$SW_PASS" node -e '
+    process.stdout.write(JSON.stringify({
+      username: process.env.SW_USER,
+      password: process.env.SW_PASS
+    }));
+  ' | curl -fsS -H 'Content-Type: application/json' \
+    --data-binary @- http://localhost:8080/auth/login
+)"
+unset SW_PASS
+SW_TOKEN="$(printf '%s' "$LOGIN_RESPONSE" | node -e '
+  let input = "";
+  process.stdin.on("data", x => input += x);
+  process.stdin.on("end", () => {
+    const reply = JSON.parse(input);
+    process.stdout.write(reply.accessToken ?? reply.token ?? "");
+  });
+')"
+unset LOGIN_RESPONSE
+test -n "$SW_TOKEN" && echo 'Login token captured'
+```
+
+If login fails or no token was captured, stop; verify `/auth/login`
+and the test account instead of sending an empty Bearer header.
+Create a private cookie jar, issue the media credential, and verify
+only the response status:
+
+```bash
+umask 077
+COOKIE_JAR="$(mktemp)"
+printf 'header = "Authorization: Bearer %s"\n' "$SW_TOKEN" | \
+  curl -sS --config - -X POST -c "$COOKIE_JAR" \
+    -o /dev/null -w 'Media access HTTP %{http_code}\n' \
+    http://localhost:8080/api/tracks/3005/media-access
+grep -q 'sw_media' "$COOKIE_JAR" && echo 'Media cookie saved'
+```
+
+Expected: `Media access HTTP 204` and `Media cookie saved`. The
+server response is `401` without a current login token. Next, exercise
+the **cookie-only** native-audio path with a Range request:
+
+```bash
+curl -sS -b "$COOKIE_JAR" \
+  -H 'Range: bytes=0-999' -o /dev/null \
+  -w 'Stream HTTP %{http_code}\nDownloaded bytes: %{size_download}\n' \
+  http://localhost:8080/api/tracks/3005/stream
+```
+
+Expected with the seeded rights-cleared media fixture:
+
+```text
+Stream HTTP 206
+Downloaded bytes: 1000
+```
+
+The cookie expires within five minutes, so perform the stream request
+promptly. To renew, repeat the same authenticated `POST`; it replaces
+the path-scoped media cookie. A later seek or new Range request after
+expiry will need renewal. Logging out the issuing session invalidates
+the corresponding media ticket even before its expiry. Clean up:
+
+```bash
+rm -f "$COOKIE_JAR"
+unset COOKIE_JAR SW_TOKEN SW_USER
+```
+
+These commands confirm the **live HTTP backend only**. They are not
+evidence of Firefox storing cookies via Vite or Howler actually playing
+audio; Emmanuel owns the client-side issuance, renewal, error UX and
+Search-to-Play tests. A native HTML5 `<audio>` element does not expose
+HTTP `401`/`503` directly to Howler, so client auth-specific error UX
+must use the observable issuance/renewal HTTP responses.
+
+## 15.6 Sprint 3 media-ticket automated evidence
+
+From `server/`:
+
+```bash
+node --test test/media-access.app.test.js
+node --test test/media-streaming.test.js
+npm test
+```
+
+**Matthew's reported local checkout (October 13, 2026):**
+
+| Verification | Observed outcome |
+|---|---|
+| `media-access.app.test.js` | **9 passed, 0 failed** |
+| `media-streaming.test.js` | **15 passed, 0 failed** |
+| Complete server `npm test` | **222 passed, 0 failed** |
+
+The nine media-access application tests verify issuance, cookie-based
+`206`, existing Bearer `206`, unauthenticated issuance `401`, wrong-track
+`401`, source-session revocation `401`, database outage `503`, ticket
+renewal, Bearer precedence, and exclusion of media cookies from
+`/auth/me`. They use a temporary synthetic audio fixture, not a live
+PostgreSQL database or real browser. A successful suite is **not**
+proof of deployed secrets, actual `204`/`206` live responses, browser
+seeking, or CI/Docker readiness. Record those separately before merge.
 
 ---
 
 # 16. Important Sprint 3 Media/Auth Boundary
 
-The current Search-to-Playback happy path is operational.
+The protected streaming **backend** is implemented: Matthew's route
+checks Christian's revocation-aware Bearer authentication or a valid
+track-scoped media cookie before accessing the catalog and filesystem.
+Automated streaming and media-ticket tests passed (Section 15.6).
 
-However, the current media route should not yet be treated as the final
-Sprint 3 protected-media authorization boundary.
+The **browser-to-media integration is not yet complete**: Howler with
+`html5: true` does not attach the login Bearer header automatically.
+Emmanuel owns acquiring or renewing the media cookie via the new POST
+endpoint before playback, and implementing observable `401`/`403`/`503`
+UX. Matthew owns ticket issuance/verification and protected Range
+behavior; Christian reviews JWT/session-revocation requirements.
 
-Sprint 3 backend logout and JWT revocation are implemented for the four
-protected routes documented in Section 20. Remaining integration work:
-
-- protected media authorization;
-- authenticated client failure handling;
-- client consumer behavior for `401` and `403`.
-
-Do not duplicate those implementations in unrelated feature work.
+The authenticated Range backend tests must not be presented as proof
+of protected audible playback. Verify real browser playback and seeking
+before the October 22 midterm. Do not disable authorization to make
+the player appear to work. See Sections 15.5 and 15.6.
 
 ---
 
@@ -1113,11 +1317,14 @@ adds only its revocation guard and associated regression coverage.
 An already-revoked token receives `401`; a failed revocation lookup
 fails closed with `503` rather than bypassing authentication.
 
-Public catalog discovery, Search, and `/health` are unchanged. The
-media stream (`GET /api/tracks/:id/stream`) is NOT protected by this
-revocation guard: Matthew Choi's storage-path hardening is separate from
-future protected-media authorization. Client handling of expired
-sessions and `401`/`403` remains separate integration work.
+Public catalog discovery, Search, and `/health` are unchanged.
+**Historical scope note:** Christian's original Block 2 protected the
+four routes above, not media streaming. Subsequently, Matthew added
+revocation-aware protection to `GET /api/tracks/:id/stream`, plus an
+independent media-cookie path (Sections 15 and 15.5). Both paths now
+check original-session revocation on authorized streaming requests.
+Client handling of expired sessions and auth-specific media errors is
+still owned by Emmanuel's frontend integration.
 
 This milestone does not query the database to refresh a user's role on
 every request; role-change enforcement is tracked independently.
@@ -1237,12 +1444,14 @@ and the `database/.env.test` configuration. Block 3 changes remain
 subject to a new pull request, hosted CI, and teammate approval.
 
 Ownership and limitations: Emmanuel De Guzman retains the login/JWT
-contract; Allison Yu retains catalog, Library and Favorites handlers;
-Matthew Choi retains streaming and future media authorization; Konner
-Rigby retains shared client/CI ownership. This Block 3 change does not
-add media-stream authorization, revalidate a user's changed role
-against PostgreSQL on every request, implement token refresh, or
-implement client-side handling for expired sessions and `401`/`403`.
+client contract; Allison Yu retains catalog, Library and Favorites
+handlers; Matthew Choi owns the Sprint 3 streaming/media-ticket work;
+Konner Rigby retains shared client/CI ownership. **At the time of
+Christian's Block 3**, that change did not add media-stream
+authorization. Matthew's subsequent media changes are documented in
+Section 15; they do not revalidate a user's changed role against
+PostgreSQL on every request, implement login-token refresh, or finish
+client-side handling for expired sessions and `401`/`403`.
 
 ---
 
@@ -1824,7 +2033,9 @@ The server suite covers areas including:
 - metadata;
 - Track persistence;
 - configurable media-root streaming and path rejection tests (Matthew
-  Choi, Sprint 3).
+  Choi, Sprint 3);
+- protected Bearer streaming, ticket issuance, cookie-authenticated
+  Range behavior, expiration, renewal and session revocation.
 
 Earlier Sprint 3 baselines grew as work merged. Allison verified
 **163/163** server tests at the initial Favorites read-API checkpoint,
@@ -1834,6 +2045,12 @@ This verifies the backend automated suite at that local checkout, not
 a browser-to-PostgreSQL Favorites happy path. Rerun on later shared
 changes and record actual counts. The focused Favorites test files are
 listed in Section 23.5.
+
+Matthew's most recent reported local server run (October 13, 2026)
+finished at **222/222 passing, zero failures**, including nine new
+`media-access.app.test.js` cases. That evidence is local and does not
+prove the live PostgreSQL/browser/deployment paths. Earlier checkpoint
+counts are retained above as historical team evidence.
 
 The durable requirement is:
 
@@ -1926,12 +2143,15 @@ With the backend running against a migrated and seeded database:
 ```bash
 curl -i http://localhost:8080/api/catalog/tracks/3005
 curl -sS -o /dev/null \
-  -w 'HTTP %{http_code}, bytes %{size_download}\n' \
+  -w 'Anonymous stream HTTP %{http_code}\n' \
   -H 'Range: bytes=0-999' \
   http://localhost:8080/api/tracks/3005/stream
 ```
 
-Expected results: catalog `200`, media `206` with 1,000 bytes.
+Expected: catalog `200`; **anonymous media `401`**. To verify
+authorized `206` and exactly 1,000 bytes, use the authenticated Bearer
+or cookie-based smoke test in Sections 15.1 and 15.5. Unauthenticated
+`206` is now a security regression, not a successful media check.
 A `catalog_unavailable` response indicates that the catalog database
 lookup failed; check the server log and PostgreSQL configuration before
 investigating audio playback.
@@ -1951,10 +2171,13 @@ Verify:
 /profile
 ```
 
-Album-to-playback proof (SCRUM-170, locally verified): select Track
-`3005` in `/albums/2003`, check that the shared PlaybackBar shows
-`Kontekst` / `Buddha` / `No Copyright`, and confirm actual audio plays.
-Check the Network panel for metadata `200` and streaming `200` or `206`.
+Historical album-to-playback proof (SCRUM-170, verified **before**
+streaming protection): selecting Track `3005` in `/albums/2003` showed
+`Kontekst` / `Buddha` / `No Copyright` and played the audio. With the
+protected stream, **repeat this test after Emmanuel's cookie handoff**:
+confirm the media-access POST succeeds `204`, native media returns
+`200` or `206`, playback is audible, seeking succeeds, and subsequent
+requests work after ticket renewal. This newer browser check is pending.
 
 Search-to-playback proof:
 
@@ -2064,10 +2287,14 @@ omitted below.
 │   │   ├── catalog
 │   │   ├── data
 │   │   ├── media
+│   │   │   ├── media-access.handler.js
+│   │   │   └── media-ticket.js
 │   │   ├── search
 │   │   ├── app.js
 │   │   └── server.js
 │   └── test
+│       ├── media-access.app.test.js
+│       └── media-streaming.test.js
 │
 ├── compose.yml
 ├── CONTRIBUTING.md
@@ -2341,6 +2568,80 @@ Section 23.3 shows how to add one local-only Favorites association.
   failure. Compare the backend's active `PGDATABASE` with the database
   migrated and inspected in `psql`.
 
+## 30.10 Media-access `503`: missing `revoked_access_tokens` migration
+
+The observed local development error was:
+
+```text
+relation "revoked_access_tokens" does not exist
+PostgreSQL code 42P01
+```
+
+The media-ticket issuance handler calls Christian's existing
+`authorizeRevocableRequest` before issuing anything; every stream
+request also checks the source login session's revocation status. A
+missing table therefore correctly results in HTTP `503`, not a token
+or audio response.
+
+Confirm that `server/.env` and `database/.env` point to the same
+**development** database. In that database, verify:
+
+```sql
+SELECT current_database(), to_regclass('public.revoked_access_tokens');
+```
+
+If the result is `NULL`, use the **already-merged** migration
+`database/migrations/20261008_cmg_001_revoked_access_tokens.sql`.
+Prefer the tracked migration runner, from `database/`:
+
+```bash
+npm run db:migrate
+```
+
+Inspect the table **and** migration history afterward:
+
+```sql
+SELECT to_regclass('public.revoked_access_tokens');
+SELECT * FROM schema_migrations ORDER BY 1;
+```
+
+If the runner says `skip` but the physical table is missing, the
+recorded migration history and actual schema disagree: **stop** and
+coordinate with Christian/database owners before changing history.
+Conversely, applying the SQL manually with `psql -f` may create the
+table without updating `schema_migrations`, so a later runner could
+try to create it again. Do not hand-create replacement tables, reset
+migration history, or run schema changes against production or the test
+database by accident. After resolving the mismatch, retry `/auth/me`
+and the authenticated media-access POST.
+
+## 30.11 Media-ticket startup or playback problems
+
+- `MEDIA_TICKET_SECRET` missing/too short/equal to `JWT_SECRET`:
+  the backend fails to start. Generate a separate development key
+  (Section 9), keep it in the ignored `server/.env`, and run
+  `node --env-file=.env src/server.js`.
+- `JWT_SECRET` missing: restore the existing login secret, not a new
+  one (Section 9). A shell-level `node -e` check without `--env-file`
+  may show both secrets unset even when a separate Node process is
+  correctly reading the file.
+- `401` on native HTML5 audio: Howler's native request does not add
+  the login Bearer header. Verify the frontend first obtained the
+  `sw_media` cookie with the authenticated POST, and that the cookie
+  matches the track URL, origin and expiry. Do not disable auth.
+- `401` after a pause or seek: the media ticket may have expired;
+  renew via the authenticated POST before retrying.
+- `503` after a token request: inspect backend revocation logs,
+  PostgreSQL connectivity and the migration in Section 30.10.
+- `403` applies only to an actual role/permission denial. Do not
+  infer this status from Howler's generic media error.
+- Local development requires cookies usable over local HTTP;
+  `NODE_ENV=production` enables `Secure` cookies, which require
+  a properly configured HTTPS deployment. Test the browser's
+  cookie storage and Vite proxy explicitly.
+
+---
+
 # 31. Git Workflow
 
 Course implementation must reach `main` through peer-reviewed pull
@@ -2431,8 +2732,16 @@ Before opening a backend-related PR:
 ```bash
 cd ~/Soundwave-Live-Version/server
 
+node --test test/media-access.app.test.js
+node --test test/media-streaming.test.js
 npm test
 ```
+
+For media-ticket changes, additionally verify live cookie issuance
+(`204`) and cookie-only Range streaming (`206`) against PostgreSQL,
+and obtain Emmanuel's browser playback/renewal evidence. Do not commit
+real `MEDIA_TICKET_SECRET` or include response headers containing the
+media cookie in review logs.
 
 Before opening a database-related PR:
 
@@ -2482,7 +2791,16 @@ Docker Packaging
 Compose Runtime Smoke Test
 ```
 
-CI requirements may expand during later sprints.
+CI requirements may expand during later sprints. **Media-ticket
+integration needs an additional environment prerequisite:** the server
+startup now requires `MEDIA_TICKET_SECRET`, independently signed from
+`JWT_SECRET`. Ensure CI jobs or smoke-test services that actually start
+`server/src/server.js` receive a securely provided test/deployment
+value; unit tests that instantiate `createApp()` without the media
+service retain their original Bearer-only behavior. This additional
+configuration is a **pending CI verification**, not a claimed passing
+CI change. Never print these values in GitHub Actions logs or embed
+them in committed workflow files.
 
 Christian McGowan extended the existing Database Tests job to
 install server dependencies and execute the PostgreSQL-backed
@@ -2516,9 +2834,14 @@ availability, and Compose cleanup checks all passed. The initial
 `buildx` missing-plugin warning did not prevent building with the
 classic builder.
 
-**Important media limitation:** the passing Compose smoke check does
-**not** verify `GET /api/tracks/3005/stream` inside the server
-container. `server/Dockerfile` was observed building with `WORKDIR /app`
+**Important media limitation:** the earlier passing Compose smoke check
+does **not** verify protected `GET /api/tracks/3005/stream` inside the
+server container or its new media-ticket cookie path. Ensure the
+backend service receives an independent `MEDIA_TICKET_SECRET` (using
+Compose's established local ignored environment settings or an
+approved deployment secret mechanism) before running it. No updated
+Compose check with this secret has been reported.
+`server/Dockerfile` was observed building with `WORKDIR /app`
 and `COPY . .` from the server context. For an app module located at
 `/app/src/app.js`, the source-relative default media root resolves to
 `/`, not the repository's host-side `mediaFiles/` directory. Container
@@ -2597,6 +2920,7 @@ Never commit:
 - `.env` files containing real values;
 - database passwords;
 - JWT signing secrets;
+- media-ticket signing secrets and media cookies;
 - access tokens;
 - private keys;
 - API keys;
@@ -2654,8 +2978,10 @@ Current Sprint 3 work includes:
 
 - JWT revocation persistence foundation;
 - session/auth hardening integration;
-- protected-media integration (the authorization credential boundary
-  remains separately owned/unverified, not a completed protected stream);
+- protected Bearer streaming merged into `main` (per Christian's
+  October 13 verification); Matthew's short-lived media-cookie issuance
+  and verification implemented and tested locally, with browser and
+  deployment integration still pending;
 - client session integration;
 - Search-to-Playback orchestration;
 - **Allison Yu's merged, authenticated Favorites read API**;
@@ -2707,22 +3033,31 @@ Howler
 HTTP media stream
 ```
 
-Authenticated failure handling and final protected-media behavior remain
-separate Sprint 3 integration work.
+Protected media-cookie delivery to native Howler, renewal and
+auth-specific player errors remain Emmanuel's separate Sprint 3
+frontend integration work. Matthew's backend ticket tests do not yet
+prove these browser behaviors.
 
 ### Matthew Choi — Sprint 3 media-storage and playback verification
 
 Matthew's SCRUM-168 inspection confirmed that the shared
 Track-ID-to-Howler playback path already existed from Sprint 2, avoiding
-duplicate implementation. SCRUM-169 adds the configurable `MEDIA_ROOT`,
-source-relative default, validated path containment, and dedicated
-regression tests. The existing backend tests and new cases passed
-locally. SCRUM-170 confirmed PostgreSQL Track 3005 metadata `200`, media
-Range `206`, and audible playback in the React application. SCRUM-169
-remains pending container-media verification, peer-reviewed PR, and
-passing integration checks before merge; SCRUM-170's local acceptance
-checks have been demonstrated. Media authentication is a separate
-Sprint 3 integration boundary, not solved by filesystem path checks.
+duplicate implementation. SCRUM-169 adds configurable `MEDIA_ROOT`,
+source-relative defaults, validated path containment and regression
+tests. SCRUM-170 recorded Track 3005 metadata `200`, Range `206` and
+audible playback **before** media authorization was enforced. Christian
+subsequently confirmed the protected Bearer stream is merged into
+`main`. Matthew's October 13 local media-ticket addition implements a
+track-scoped HttpOnly cookie, independent HMAC signing, issuance,
+revocation checks and renewal; the **nine new application tests and
+all 222 backend tests passed**.
+
+The remaining acceptance work is a live `204` issuance and cookie-only
+`206` against the running PostgreSQL-backed server, Emmanuel's
+Howler client handoff and audible protected playback including seeks
+and renewal, and peer-reviewed PR/CI/Compose verification. Do not
+claim those steps completed from automated tests alone. Actual
+container-media access remains unverified.
 
 The CPSC 490 roadmap assumed a longer streaming timeline, but the CPSC
 491 syllabus governs the six-sprint calendar. Its midterm demonstration

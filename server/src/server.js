@@ -4,6 +4,10 @@ import { createApp } from "./app.js";
 import { createTokenService } from "./auth/token.js";
 
 import {
+  createMediaTicketService
+} from "./media/media-ticket.js";
+
+import {
   createAuthUserRepository
 } from "./data/auth-user.repository.js";
 
@@ -51,6 +55,13 @@ const tokenService =
 createTokenService(
   process.env.JWT_SECRET
 );
+
+const mediaTicketService = createMediaTicketService({
+  mediaSecret: process.env.MEDIA_TICKET_SECRET,
+  loginSecret: process.env.JWT_SECRET,
+  lifetimeSeconds: 300,
+  secureCookies: process.env.NODE_ENV === "production"
+});
 
 const authUserRepository =
 createAuthUserRepository(
@@ -114,6 +125,8 @@ createApp({
   tokenService,
 
   tokenRevocationRepository,
+
+  mediaTicketService,
 
   findUserByUsername:
   authUserRepository.findUserByUsername,

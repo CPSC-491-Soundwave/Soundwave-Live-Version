@@ -139,23 +139,41 @@ jobs:
         working-directory: server
         run: npm run test:auth
 
+
       - name: Verify missing JWT secret is rejected
         working-directory: server
         run: |
-          if env -u JWT_SECRET node src/server.js > /tmp/missing-jwt.log 2>&1; then
+          MEDIA_TICKET_SECRET="$(openssl rand -hex 48)"
+          echo "::add-mask::$MEDIA_TICKET_SECRET"
+
+          if env -u JWT_SECRET \
+            MEDIA_TICKET_SECRET="$MEDIA_TICKET_SECRET" \
+            node src/server.js > /tmp/missing-jwt.log 2>&1; then
             echo "Server unexpectedly started without JWT_SECRET."
+            exit 1
+          fi
+
+          if ! grep -q "A valid secretKey string is required" /tmp/missing-jwt.log; then
+            echo "Server failed, but not for the expected missing JWT secret."
             exit 1
           fi
 
           echo "Server correctly rejected missing JWT_SECRET."
 
+
+
       - name: Verify server starts with CI-only JWT secret
         working-directory: server
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
-          echo "::add-mask::$JWT_SECRET"
+          MEDIA_TICKET_SECRET="$(openssl rand -hex 48)"
 
-          PORT=0 JWT_SECRET="$JWT_SECRET" \
+          echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$MEDIA_TICKET_SECRET"
+
+          PORT=0 \
+          JWT_SECRET="$JWT_SECRET" \
+          MEDIA_TICKET_SECRET="$MEDIA_TICKET_SECRET" \
             node src/server.js > /tmp/auth-startup.log 2>&1 &
 
           SERVER_PID=$!
@@ -189,7 +207,8 @@ jobs:
             exit 1
           fi
 
-          echo "Server started successfully with a generated CI-only JWT secret."
+          echo "Server started successfully with independent CI-only signing secrets."
+
 
   dependency-security:
     name: Dependency Security Audit
@@ -400,10 +419,14 @@ jobs:
           echo "SOUNDWAVE_IMAGE_TAG=$SOUNDWAVE_IMAGE_TAG" >> "$GITHUB_ENV"
           echo "Using Docker image tag: $SOUNDWAVE_IMAGE_TAG"
 
+
       - name: Create CI-only Compose environment
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
+          MEDIA_TICKET_SECRET="$(openssl rand -hex 48)"
+
           echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$MEDIA_TICKET_SECRET"
 
           cat > database/.env <<'EOF'
           PGHOST=host.docker.internal
@@ -415,7 +438,9 @@ jobs:
 
           cat > server/.env <<EOF
           JWT_SECRET=$JWT_SECRET
+          MEDIA_TICKET_SECRET=$MEDIA_TICKET_SECRET
           EOF
+
 
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
@@ -467,10 +492,14 @@ jobs:
         with:
           node-version: '20'
 
+
       - name: Create CI-only Compose environment
         run: |
           JWT_SECRET="$(openssl rand -hex 32)"
+          MEDIA_TICKET_SECRET="$(openssl rand -hex 48)"
+
           echo "::add-mask::$JWT_SECRET"
+          echo "::add-mask::$MEDIA_TICKET_SECRET"
 
           cat > database/.env <<'EOF'
           PGHOST=database
@@ -482,7 +511,9 @@ jobs:
 
           cat > server/.env <<EOF
           JWT_SECRET=$JWT_SECRET
+          MEDIA_TICKET_SECRET=$MEDIA_TICKET_SECRET
           EOF
+
 
       - name: Validate CI Compose configuration
         run: docker compose -f compose.yml -f compose.ci.yml config --quiet

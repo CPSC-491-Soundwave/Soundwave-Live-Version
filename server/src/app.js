@@ -19,6 +19,11 @@ import {
   streamTrackFile
 } from "./media/streaming.js";
 
+import {
+  createMediaAccessHandler,
+  authorizeMediaStreamRequest
+} from "./media/media-access.handler.js";
+
 /*
  * Default to the repository root, where mediaFiles/ lives.
  * Deriving it from this module avoids dependence on process.cwd().
@@ -87,6 +92,7 @@ async function resolveMediaFile(mediaRoot, mediaPath) {
 export function createApp({
   tokenService,
   tokenRevocationRepository,
+  mediaTicketService,
   findUserByUsername,
   findProfileByUserId,
   findTrackById,
@@ -104,6 +110,16 @@ export function createApp({
   }
 
   const resolvedMediaRoot = path.resolve(mediaRoot);
+
+  const handleMediaAccessRequest = mediaTicketService
+  ? createMediaAccessHandler({
+    mediaTicketService,
+    tokenService,
+    tokenRevocationRepository,
+    authorizeRevocableRequest,
+    findTrackById
+  })
+  : null;
 
   return http.createServer(async (req, res) => {
 
@@ -299,6 +315,13 @@ export function createApp({
       "http://localhost"
     );
 
+    if (
+      handleMediaAccessRequest &&
+      await handleMediaAccessRequest(req, res)
+    ) {
+      return;
+    }
+
     const trackStreamRoute =
     /^\/api\/tracks\/(\d+)\/stream$/.exec(
       url.pathname
@@ -327,6 +350,10 @@ export function createApp({
         return;
       }
 
+      // Prevent protected media responses from being cached.
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("Vary", "Authorization, Cookie");
+
       try {
 
         /*
@@ -338,14 +365,15 @@ export function createApp({
          * This checks the request before any track
          * metadata or physical audio file is accessed.
          */
-        const principal =
-        await authorizeRevocableRequest(
+        const principal = await authorizeMediaStreamRequest(
           req,
           res,
           {
+            trackId,
+            mediaTicketService,
             tokenService,
             tokenRevocationRepository,
-            allowedRoles: ["user", "admin"]
+            authorizeRevocableRequest
           }
         );
 
