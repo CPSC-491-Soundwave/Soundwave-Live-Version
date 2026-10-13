@@ -1,0 +1,44 @@
+.session-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
+  color: inherit;
+}
+
+.session-status button,
+.session-status a {
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.session-status button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* SCRUM-206 fixed status layout */
+.page-content > .session-status {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  z-index: 20;
+  min-height: 32px;
+  padding: 0.2rem 0.8rem;
+  background: var(--color-background);
+}
+
+/* SCRUM-206: full-height authentication pages manage their own padding. */
+.page-content:has(> .login-page),
+.page-content:has(> .profile-page) {
+  padding: 0;
+}
