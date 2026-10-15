@@ -35,6 +35,39 @@ vi.mock(
     })
 );
 
+const ACCESS_TOKEN =
+    "test-access-token";
+
+const TRACK_METADATA = {
+    id: 3005,
+    title: "Kontekst",
+    durationMs: 12345,
+
+    album: {
+        id: 2003,
+        title: "No Copyright"
+    },
+
+    artist: {
+        id: 1003,
+        name: "Buddha"
+    }
+};
+
+function queueSuccessfulPlaybackPreparation() {
+    globalThis.fetch
+        .mockResolvedValueOnce({
+            ok: true,
+
+            json: async () =>
+                TRACK_METADATA
+        })
+        .mockResolvedValueOnce({
+            ok: true,
+            status: 204
+        });
+}
+
 describe("PlaybackBar", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -51,7 +84,11 @@ describe("PlaybackBar", () => {
         "renders the empty playback state",
         () => {
             render(
-                <PlaybackBar />
+                <PlaybackBar
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                />
             );
 
             expect(
@@ -65,51 +102,98 @@ describe("PlaybackBar", () => {
                     "Select a track"
                 )
             ).toBeInTheDocument();
+
+            expect(
+                globalThis.fetch
+            ).not.toHaveBeenCalled();
         }
     );
 
     it(
-        "fetches and displays Track metadata",
+        "requires a login before preparing protected playback",
         async () => {
-            fetch.mockResolvedValue({
-                ok: true,
-
-                json: async () => ({
-                    id: 3005,
-                    title: "Kontekst",
-                    durationMs: 209136,
-
-                    album: {
-                        id: 2003,
-                        title:
-                            "No Copyright"
-                    },
-
-                    artist: {
-                        id: 1003,
-                        name: "Buddha"
-                    }
-                })
-            });
+            const onSessionInvalidated =
+                vi.fn();
 
             render(
                 <PlaybackBar
                     trackId={3005}
+                    accessToken=""
+                    onSessionInvalidated={
+                        onSessionInvalidated
+                    }
                 />
             );
 
-            await waitFor(() => {
-                expect(
-                    screen.getByText(
-                        "Kontekst"
-                    )
-                ).toBeInTheDocument();
-            });
+            expect(
+                await screen.findByText(
+                    "Playback unavailable"
+                )
+            ).toBeInTheDocument();
 
             expect(
-                fetch
-            ).toHaveBeenCalledWith(
+                screen.getByText(
+                    "Please log in to play this track."
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                globalThis.fetch
+            ).not.toHaveBeenCalled();
+
+            expect(
+                loadTrack
+            ).not.toHaveBeenCalled();
+
+            expect(
+                onSessionInvalidated
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+    it(
+        "loads Track metadata and starts playback preparation after media access is granted",
+        async () => {
+            queueSuccessfulPlaybackPreparation();
+
+            render(
+                <PlaybackBar
+                    trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                />
+            );
+
+            expect(
+                await screen.findByText(
+                    "Kontekst"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                globalThis.fetch
+            ).toHaveBeenNthCalledWith(
+                1,
                 "/api/catalog/tracks/3005"
+            );
+
+            expect(
+                globalThis.fetch
+            ).toHaveBeenNthCalledWith(
+                2,
+                "/api/tracks/3005/media-access",
+                {
+                    method: "POST",
+
+                    headers: {
+                        Authorization:
+                            `Bearer ${ACCESS_TOKEN}`
+                    },
+
+                    credentials:
+                        "same-origin"
+                }
             );
 
             expect(
@@ -139,32 +223,16 @@ describe("PlaybackBar", () => {
     );
 
     it(
-        "plays and pauses the selected Track",
+        "plays and pauses a Track after protected media access is granted",
         async () => {
-            fetch.mockResolvedValue({
-                ok: true,
-
-                json: async () => ({
-                    id: 3005,
-                    title: "Kontekst",
-                    durationMs: 209136,
-
-                    album: {
-                        id: 2003,
-                        title:
-                            "No Copyright"
-                    },
-
-                    artist: {
-                        id: 1003,
-                        name: "Buddha"
-                    }
-                })
-            });
+            queueSuccessfulPlaybackPreparation();
 
             render(
                 <PlaybackBar
                     trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
                 />
             );
 
@@ -209,30 +277,14 @@ describe("PlaybackBar", () => {
     it(
         "updates playback volume",
         async () => {
-            fetch.mockResolvedValue({
-                ok: true,
-
-                json: async () => ({
-                    id: 3005,
-                    title: "Kontekst",
-                    durationMs: 209136,
-
-                    album: {
-                        id: 2003,
-                        title:
-                            "No Copyright"
-                    },
-
-                    artist: {
-                        id: 1003,
-                        name: "Buddha"
-                    }
-                })
-            });
+            queueSuccessfulPlaybackPreparation();
 
             render(
                 <PlaybackBar
                     trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
                 />
             );
 
@@ -264,14 +316,18 @@ describe("PlaybackBar", () => {
     it(
         "shows a controlled error when metadata retrieval fails",
         async () => {
-            fetch.mockResolvedValue({
-                ok: false,
-                status: 404
-            });
+            globalThis.fetch
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404
+                });
 
             render(
                 <PlaybackBar
                     trackId={999999}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
                 />
             );
 
@@ -288,38 +344,238 @@ describe("PlaybackBar", () => {
             ).toBeInTheDocument();
 
             expect(
+                globalThis.fetch
+            ).toHaveBeenCalledTimes(
+                1
+            );
+
+            expect(
                 loadTrack
             ).not.toHaveBeenCalled();
         }
     );
 
     it(
-        "shows a controlled error when media playback fails",
+        "invalidates the current session when media access returns 401",
         async () => {
-            fetch.mockResolvedValue({
-                ok: true,
+            const onSessionInvalidated =
+                vi.fn();
 
-                json: async () => ({
-                    id: 3005,
-                    title: "Kontekst",
-                    durationMs: 12345,
+            globalThis.fetch
+                .mockResolvedValueOnce({
+                    ok: true,
 
-                    album: {
-                        id: 2003,
-                        title:
-                            "No Copyright"
-                    },
-
-                    artist: {
-                        id: 1003,
-                        name: "Buddha"
-                    }
+                    json: async () =>
+                        TRACK_METADATA
                 })
-            });
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401
+                });
 
             render(
                 <PlaybackBar
                     trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                    onSessionInvalidated={
+                        onSessionInvalidated
+                    }
+                />
+            );
+
+            expect(
+                await screen.findByText(
+                    "Playback unavailable"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "Please log in to play this track."
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                onSessionInvalidated
+            ).toHaveBeenCalledWith(
+                ACCESS_TOKEN
+            );
+
+            expect(
+                loadTrack
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+    it(
+        "preserves the session when media access returns 403",
+        async () => {
+            const onSessionInvalidated =
+                vi.fn();
+
+            globalThis.fetch
+                .mockResolvedValueOnce({
+                    ok: true,
+
+                    json: async () =>
+                        TRACK_METADATA
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 403
+                });
+
+            render(
+                <PlaybackBar
+                    trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                    onSessionInvalidated={
+                        onSessionInvalidated
+                    }
+                />
+            );
+
+            expect(
+                await screen.findByText(
+                    "Playback unavailable"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "You do not have access to play this track."
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                onSessionInvalidated
+            ).not.toHaveBeenCalled();
+
+            expect(
+                loadTrack
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+    it(
+        "preserves the session when playback authentication is temporarily unavailable",
+        async () => {
+            const onSessionInvalidated =
+                vi.fn();
+
+            globalThis.fetch
+                .mockResolvedValueOnce({
+                    ok: true,
+
+                    json: async () =>
+                        TRACK_METADATA
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 503
+                });
+
+            render(
+                <PlaybackBar
+                    trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                    onSessionInvalidated={
+                        onSessionInvalidated
+                    }
+                />
+            );
+
+            expect(
+                await screen.findByText(
+                    "Playback unavailable"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "Playback authentication is temporarily unavailable."
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                onSessionInvalidated
+            ).not.toHaveBeenCalled();
+
+            expect(
+                loadTrack
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+    it(
+        "shows a controlled error for an unexpected media-access response",
+        async () => {
+            const onSessionInvalidated =
+                vi.fn();
+
+            globalThis.fetch
+                .mockResolvedValueOnce({
+                    ok: true,
+
+                    json: async () =>
+                        TRACK_METADATA
+                })
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500
+                });
+
+            render(
+                <PlaybackBar
+                    trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
+                    onSessionInvalidated={
+                        onSessionInvalidated
+                    }
+                />
+            );
+
+            expect(
+                await screen.findByText(
+                    "Playback unavailable"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "Unable to prepare playback."
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                onSessionInvalidated
+            ).not.toHaveBeenCalled();
+
+            expect(
+                loadTrack
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+    it(
+        "shows a controlled error when media playback fails after access is granted",
+        async () => {
+            queueSuccessfulPlaybackPreparation();
+
+            render(
+                <PlaybackBar
+                    trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
                 />
             );
 
@@ -371,32 +627,16 @@ describe("PlaybackBar", () => {
     it(
         "unloads playback when the selected Track changes or the component unmounts",
         async () => {
-            fetch.mockResolvedValue({
-                ok: true,
-
-                json: async () => ({
-                    id: 3005,
-                    title: "Kontekst",
-                    durationMs: 209136,
-
-                    album: {
-                        id: 2003,
-                        title:
-                            "No Copyright"
-                    },
-
-                    artist: {
-                        id: 1003,
-                        name: "Buddha"
-                    }
-                })
-            });
+            queueSuccessfulPlaybackPreparation();
 
             const {
                 unmount
             } = render(
                 <PlaybackBar
                     trackId={3005}
+                    accessToken={
+                        ACCESS_TOKEN
+                    }
                 />
             );
 
