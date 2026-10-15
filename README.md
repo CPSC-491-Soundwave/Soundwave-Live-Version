@@ -108,6 +108,12 @@ Vite client
 Docker Compose is available for packaging and runtime smoke verification,
 but it is not required for the normal direct local-development workflow.
 
+**Local path note:** Commands below sometimes use `~/Soundwave-Live-Version`
+(the clone example). Matthew's verified workstation checkout is
+`~/Documents/Projects/Soundwave-Live-Version`. Run commands from **your
+actual repository checkout**, not blindly from the example directory.
+Section 28.1 provides the verified three-terminal Sprint 3 demo sequence.
+
 ## 3.1 Clone
 
 ```bash
@@ -902,41 +908,35 @@ A successful run must report `fail 0`.
 
 ## 15.4 Sprint 3 local playback verification — Matthew Choi (SCRUM-170)
 
-The following was verified on the developer's local PostgreSQL +
-Node.js + React/Vite setup after the media-root change:
+**October 15, 2026 update:** The earlier pre-protection album playback
+checkpoint is retained for history, but authenticated browser playback
+has now also been verified on Matthew's local PostgreSQL + Node.js +
+React/Vite stack. The results below are **actual local observations**,
+not merely expectations from mocked tests.
 
 | Verification | Observed result |
 |---|---|
-| `GET /api/catalog/tracks/3005` | `200`, `Kontekst` / `Buddha` / `No Copyright` |
-| `GET /api/tracks/3005/stream` with `Range: bytes=0-999` | `206 Partial Content` |
-| Open `/albums/2003` and select Track 3005 | Real audio played in the shared PlaybackBar |
+| `GET /api/catalog/tracks/3005` | HTTP `200` (`Kontekst`, `Buddha`, `No Copyright`) |
+| `POST /api/tracks/3005/media-access` after login | HTTP `204` in Firefox Network |
+| `GET /api/tracks/3005/stream` through native Howler audio | HTTP `206` in Firefox Network (two successful Range requests observed) |
+| Track 3005 playback | Audible in the shared React PlaybackBar |
+| Playback status transitions | **Playing** and **Paused** confirmed in the browser; **Finished** covered by a mocked component test, not separately verified live |
+| Stream request without credentials, with Range header | HTTP `401 Unauthorized` from `curl` |
+| New playback request after logout | Rejected in the browser (user-confirmed) |
 
-The table above is a **historical pre-protection checkpoint**, not
-proof that the currently protected Howler player can stream without
-a credential. To reproduce current backend behavior, obtain a fresh
-JWT and use the authenticated Range command in Section 15.1, or use
-a scoped media cookie as documented in Section 15.5. An anonymous
-stream request now correctly returns `401`.
+The authenticated browser flow uses the short-lived `sw_media` cookie
+issued by the media-access POST; direct anonymous streaming must remain
+`401`. Browser `206` responses prove Range transfer, but the recorded
+session does **not** separately prove seeking behavior after cookie
+expiration or automatic renewal. See Sections 15.5 and 15.7.
 
-After Emmanuel's frontend credential handoff is integrated, open
-`http://localhost:5173/albums/2003` (or the Vite port shown), select
-Track 3005, and confirm audible playback, seek/Range (`206`), Play,
-Pause and Volume. Browser Network errors `401`, `403` or `503` need
-separate inspection; Howler's generic media load error does not expose
-the precise HTTP status. **Current protected browser playback has not
-been verified by the backend test run.**
-
-Track `3005` must use audio covered by `mediaFiles/license.txt` or
-another documented public-domain, Creative Commons, or owned fixture.
-The current seed/API displays `durationMs: 12345`; confirm that the seed
-value matches the actual audio metadata before making duration-accuracy
-claims in a graded demo.
-
-These historical checks documented **direct local playback before the
-new credential requirement**; they do not verify protected browser
-playback or media accessibility inside Docker Compose. Container audio
-remains a separate verification.
-
+The fixture is `mediaFiles/test.mp3` mapped to Track `3005`. Before a
+graded demo, verify its permitted use is documented by
+`mediaFiles/license.txt` (public domain, appropriately licensed Creative
+Commons, or a recording the team owns). The current catalog seed reports
+`durationMs: 12345`; do not claim duration accuracy until it has been
+reconciled with the real media metadata. Playback inside Docker Compose
+is not yet verified.
 ## 15.5 Sprint 3 track-scoped media tickets — Matthew Choi
 
 The backend now includes these Matthew-owned modules:
@@ -1051,12 +1051,16 @@ rm -f "$COOKIE_JAR"
 unset COOKIE_JAR SW_TOKEN SW_USER
 ```
 
-These commands confirm the **live HTTP backend only**. They are not
-evidence of Firefox storing cookies via Vite or Howler actually playing
-audio; Emmanuel owns the client-side issuance, renewal, error UX and
-Search-to-Play tests. A native HTML5 `<audio>` element does not expose
-HTTP `401`/`503` directly to Howler, so client auth-specific error UX
-must use the observable issuance/renewal HTTP responses.
+These commands confirm the **live HTTP backend only**. Independent
+Firefox/Vite/Howler observations on October 15 also confirmed a `204`
+POST, native-audio `206` Range requests, audible playback, and Play/Pause
+feedback (Section 15.7). Do not conflate those browser observations with
+proof of automatic cookie renewal after expiry. Emmanuel owns the
+shared client playback interface and its initial credential handoff;
+Matthew contributed focused event-state and negative-path regression
+work without creating a second player. A native HTML5 `<audio>` element
+does not expose HTTP `401`/`503` directly to Howler, so client
+auth-specific error UX relies on the observable issuance response.
 
 ## 15.6 Sprint 3 media-ticket automated evidence
 
@@ -1068,7 +1072,7 @@ node --test test/media-streaming.test.js
 npm test
 ```
 
-**Matthew's reported local checkout (October 13, 2026):**
+**Matthew's reported local checkout (reconfirmed October 15, 2026):**
 
 | Verification | Observed outcome |
 |---|---|
@@ -1081,30 +1085,82 @@ The nine media-access application tests verify issuance, cookie-based
 `401`, source-session revocation `401`, database outage `503`, ticket
 renewal, Bearer precedence, and exclusion of media cookies from
 `/auth/me`. They use a temporary synthetic audio fixture, not a live
-PostgreSQL database or real browser. A successful suite is **not**
-proof of deployed secrets, actual `204`/`206` live responses, browser
-seeking, or CI/Docker readiness. Record those separately before merge.
+PostgreSQL database or real browser. A successful suite by itself is **not** proof of a deployed stack.
+Live browser `204`/`206` evidence was subsequently collected on October
+15 (Section 15.7); automatic renewal after expiration, long-running
+seeking, and container audio remain separately unverified.
+
+## 15.7 October 15 protected-playback and HTTP regression evidence — Matthew Choi
+
+This table captures reproducible **local** verification across the
+existing backend, shared client, and browser. It is not a hosted CI
+report and does not establish that the current PR was merged.
+
+| Check | Actual October 15 result | Evidence method |
+|---|---|---|
+| `node --test test/media-access.app.test.js` | **9/9 passed** | Node test runner |
+| `npm test` from `server/` | **222/222 passed**, 0 failed | Node test runner |
+| `npx vitest run src/components/PlaybackBar.test.jsx` | **13/13 passed** | Vitest |
+| `npx vitest run src/App.search-playback.test.jsx` | **6/6 passed** | Vitest |
+| `npm run test:run` from `client/` | **97/97 passed** in 19 files | Vitest |
+| `npm run lint` and `npm run build` | **Both passed** | ESLint / Vite |
+| Anonymous `GET /api/tracks/3005/stream` with Range | **401** | Live `curl` |
+| Catalog `GET /api/catalog/tracks/999999` | **404**, `{"error":"track_not_found"}` | Live `curl` |
+| Catalog `GET /api/catalog/tracks/3005` | **200** | Firefox Network |
+| Login-authenticated `POST /api/tracks/3005/media-access` | **204** | Firefox Network |
+| Browser `GET /api/tracks/3005/stream` | **206**, repeated Range requests | Firefox Network |
+| Actual Track 3005 audio; Play/Pause states | **Confirmed** | User's local browser check |
+| New playback after logout | **Rejected** | User's local browser check |
+| Invalid Range and missing media file | **416** and **404** respectively | Automated `media-streaming.test.js`, not direct browser checks |
+
+The status codes `401`, `404`, `416`, and `503` in negative-path tests
+represent *expected rejection*, not unresolved defects. An unavailable
+media-access `404` produces a visible `Playback unavailable` error in
+`PlaybackBar.test.jsx`; a separate live-browser missing-media fixture
+was not documented. Test fixtures for media must be rights-cleared.
+
+Minimal negative check with the backend running:
+
+```bash
+curl -i -H 'Range: bytes=0-99' \
+  http://localhost:8080/api/tracks/3005/stream
+curl -i http://localhost:8080/api/catalog/tracks/999999
+```
+
+Expect `401` and `404` respectively. Do **not** print signed cookies,
+JWTs or private credentials in Jira, terminal captures, or PRs. For the
+full browser demonstration follow Section 28.1.
 
 ---
 
 # 16. Important Sprint 3 Media/Auth Boundary
 
-The protected streaming **backend** is implemented: Matthew's route
-checks Christian's revocation-aware Bearer authentication or a valid
-track-scoped media cookie before accessing the catalog and filesystem.
-Automated streaming and media-ticket tests passed (Section 15.6).
+**Current local status (October 15): the initial protected browser
+playback path is working.** Howler `html5: true` does not attach a login
+Bearer token to native audio requests; the shared PlaybackBar therefore
+uses the authenticated `POST /api/tracks/:id/media-access` before
+loading the Track. The short-lived, path-scoped HttpOnly cookie is then
+sent by the browser to `GET /api/tracks/:id/stream`, including Range
+requests. Firefox showed a `204` POST, `206` GET requests, and audible
+playback with Playing/Paused feedback.
 
-The **browser-to-media integration is not yet complete**: Howler with
-`html5: true` does not attach the login Bearer header automatically.
-Emmanuel owns acquiring or renewing the media cookie via the new POST
-endpoint before playback, and implementing observable `401`/`403`/`503`
-UX. Matthew owns ticket issuance/verification and protected Range
-behavior; Christian reviews JWT/session-revocation requirements.
+**Ownership boundaries:** Christian's existing JWT, role and revocation
+services supply the login-security contract. Matthew authored media
+storage confinement, media-ticket issuance/verification, protected
+stream tests, and the bounded event/error regression changes described
+in Section 36.1. Emmanuel's existing Search/App/PlaybackBar interface
+remains the shared frontend; no standalone HTML test page or second
+player is shipped. Review changes to that shared interface with
+Emmanuel. Backend stream authorization is **not** proof of copyright
+ownership or individual song-purchase entitlements.
 
-The authenticated Range backend tests must not be presented as proof
-of protected audible playback. Verify real browser playback and seeking
-before the October 22 midterm. Do not disable authorization to make
-the player appear to work. See Sections 15.5 and 15.6.
+**Limitations:** This local happy path has not established native audio
+seeking after ticket expiration, unattended media-cookie renewal, an
+accurate seeded duration, production HTTPS deployment, or media mounts
+inside Docker Compose. The independent media-ticket secret and
+revocation table remain mandatory. Do not disable authorization to
+make playback work. The course's October 22 midterm demo can use the
+verified initial playback path, with rights-cleared audio only.
 
 ---
 
@@ -1129,33 +1185,36 @@ Current client routes include:
 
 # 18. Shared Playback Architecture
 
-The application has one shared playback state in `App.jsx`.
-
-Conceptually:
+The application has one shared selected Track in `App.jsx` and one
+shared `PlaybackBar` (rather than a second standalone HTML player).
+The protected browser handoff is:
 
 ```text
-Feature page
-    |
-    | onSelectTrack(track.id)
-    v
-App.jsx selectedTrackId
-    |
-    v
-PlaybackBar
-    |
-    +--> GET /api/catalog/tracks/:id
-    |
-    v
-loadTrack(track.id)
-    |
-    v
-Howler
-    |
-    v
-GET /api/tracks/:id/stream
+Search / Album Detail / Library
+    -> onSelectTrack(track.id)
+    -> App.jsx selectedTrackId
+    -> PlaybackBar.jsx
+       -> GET /api/catalog/tracks/:id  (metadata)
+       -> POST /api/tracks/:id/media-access
+          Authorization: Bearer <login JWT>  -> 204 + HttpOnly sw_media
+       -> client/src/playback/playback.js loadTrack(id)
+          -> Howler (html5: true)
+          -> GET /api/tracks/:id/stream + browser cookie
+             -> 200 full stream / 206 Range response
+       <- Howler onplay / onpause / onend / onloaderror / onplayerror
+       -> Ready to play / Playing / Paused / Finished / visible error
 ```
 
-Feature pages should reuse this seam rather than create separate players.
+Howler events drive the visible state; clicking Play alone does **not**
+claim sound has started. A `401` from media-access triggers sign-in
+handling, `403` preserves the session with an access-denied message,
+and `503` preserves the session with a temporary-auth-unavailable
+message. Other preparation and load failures produce controlled UI
+errors. The streaming response is not permitted to expose physical
+media paths or bypass session revocation.
+
+Feature pages should reuse this seam rather than create separate
+players; the client uses the canonical `tracks.id` across features.
 
 ---
 
@@ -1240,8 +1299,13 @@ PlaybackBar
     ↓
 GET /api/catalog/tracks/3005
     ↓
-loadTrack(3005)
+POST /api/tracks/3005/media-access (204)
+    ↓
+loadTrack(3005) and native GET /stream (206)
 ```
+
+The current integration suite also covers permission responses,
+visible playback failures, and the Howler `onPlay` state handoff.
 
 ---
 
@@ -1261,7 +1325,12 @@ With PostgreSQL, backend, and frontend running:
 7. click the PlaybackBar Play control;
 8. verify audio plays.
 
-This happy-path integration has been manually verified.
+**October 15 update:** The protected happy path was manually verified:
+`GET` metadata `200`, media-access `POST` `204`, native-audio Range
+`GET` `206`, audible audio, and Playing/Paused UI feedback. The user
+also confirmed that new playback is rejected after logout. These
+observations are separate from the mocked integration tests and do not
+establish automated ticket renewal after expiration.
 
 ---
 
@@ -2198,60 +2267,39 @@ playback seam.
 
 # 25. Client Verification
 
-From:
+From your repository's `client/` directory run:
 
 ```bash
-cd ~/Soundwave-Live-Version/client
-```
-
-run:
-
-```bash
-npm test -- --run
+npx vitest run src/components/PlaybackBar.test.jsx
+npx vitest run src/App.search-playback.test.jsx
+npm run test:run
 npm run lint
 npm run build
 ```
 
-Final corrected Favorites frontend regression, recorded before the
-frontend PR was approved and merged:
+**Matthew's actual October 15 Sprint 3 regression output:**
 
-```text
-Test Files: 15 passed
-Tests:      63 passed
-Failures:   0
-ESLint:     PASS
-Build:      PASS
-```
+| Verification | Observed result |
+|---|---|
+| PlaybackBar component tests | **13/13 passed** |
+| Search-to-playback App integration | **6/6 passed** |
+| Full frontend suite | **97/97 passed across 19 files**, 0 failed |
+| ESLint | Passed |
+| Vite production build | Passed |
 
-The recorded 63-test, lint, and build checks passed after fixing the
-final Favorites JSX regression. This is historical merged-front-end
-evidence, not a substitute for rerunning checks after later changes.
+The focused test groups are **included** in the full 97-test total;
+do not add their counts. Earlier Favorites-only documentation records
+historical 63-test milestones before the newer playback integration;
+those records are not the current complete-client baseline.
 
-Current client coverage includes:
-
-- Search;
-- Search Track selection;
-- Search → App → PlaybackBar integration;
-- Library and authenticated Favorites read states;
-- cross-component Library/Favorites loading and selection;
-- authenticated Favorites navigation token propagation;
-- Profile;
-- Artist browse/detail;
-- Album browse/detail;
-- ArtistCard;
-- AlbumCard;
-- Sidebar;
-- PlaybackBar.
-
-Playback coverage includes:
-
-- empty state;
-- metadata retrieval;
-- metadata display;
-- Play/Pause;
-- volume;
-- controlled metadata failure;
-- unloading/cleanup.
+Current client coverage includes Search, Library/Favorites, navigation,
+authenticated Search-to-App playback, profile, artist and album pages,
+and shared player. Playback-specific verification covers loading,
+metadata, the protected media-access POST, empty/error states, volume,
+cleanup, Howler callback-driven Playing/Paused/Finished states, missing
+media, and denial handling (`401`, `403`, `503`). A mocked audio test
+proves UI logic, while Section 15.7 documents separate real-browser
+proof. Future test totals can change as teammate branches merge.
 
 ---
 
@@ -2425,27 +2473,104 @@ Verify:
 /profile
 ```
 
-Historical album-to-playback proof (SCRUM-170, verified **before**
-streaming protection): selecting Track `3005` in `/albums/2003` showed
-`Kontekst` / `Buddha` / `No Copyright` and played the audio. With the
-protected stream, **repeat this test after Emmanuel's cookie handoff**:
-confirm the media-access POST succeeds `204`, native media returns
-`200` or `206`, playback is audible, seeking succeeds, and subsequent
-requests work after ticket renewal. This newer browser check is pending.
+Historical album-to-playback proof (SCRUM-170) preceded media
+protection. The **protected** browser path was reverified October 15:
+Track `3005`, media-access `204`, native-audio Range `206`, audible
+playback, and visible Playing/Paused state. Live seeking after the
+five-minute credential expires and automatic renewal remain unverified,
+not part of that completed check.
 
 Search-to-playback proof:
 
 ```text
 Search "Kontekst"
     ↓
-Play
+Select track 3005
     ↓
-PlaybackBar displays Kontekst
+PlaybackBar displays Kontekst / Buddha / No Copyright
     ↓
-PlaybackBar displays Buddha • No Copyright
+Media-access 204 -> native stream 206
     ↓
-Play audio
+Audible playback, Playing / Paused UI state
 ```
+
+## 28.1 October 15 midterm-ready demo runbook — Matthew Choi (SCRUM-194)
+
+Use **three terminals** on Matthew's local Linux workstation. If your
+clone lives elsewhere, substitute its actual repository root.
+
+**Prerequisites (one-time or after schema changes):** PostgreSQL must
+be running; `database/.env` and `server/.env` must refer to the same
+migrated/seeded development database; `server/.env` must contain
+independent `JWT_SECRET` and `MEDIA_TICKET_SECRET` values. Apply
+`npm run db:migrate` and `npm run db:seed` from `database/` as described
+in Sections 5-6. Confirm `mediaFiles/test.mp3` is present and its use
+rights are recorded in `mediaFiles/license.txt`.
+
+Terminal A — PostgreSQL (when not already running):
+
+```bash
+sudo systemctl start postgresql
+```
+
+Terminal B — backend:
+
+```bash
+cd ~/Documents/Projects/Soundwave-Live-Version/server
+node --env-file=.env src/server.js
+```
+
+Expected listen address: `http://localhost:8080`. If database settings
+are not stored in `server/.env`, use Section 8's explicit export of the
+local database and server environment files before `npm start`.
+
+Terminal C — frontend:
+
+```bash
+cd ~/Documents/Projects/Soundwave-Live-Version/client
+npm run dev
+```
+
+Open `http://localhost:5173/` (or the URL printed by Vite). Before
+presenting, confirm `http://localhost:8080/health` returns `200`.
+
+**Authenticated playback demo:**
+
+1. Log in with a development account; do not reveal credentials.
+2. Open Search and search for `Kontekst`; select **Track 3005**, or
+   visit Album 2003 and select the same track.
+3. Observe **Ready to play** in the shared React PlaybackBar; click
+   Play and confirm actual audio and **Playing**. Pause and confirm
+   **Paused**. The **Finished** label exists, but was verified by
+   a component-event test rather than a separately recorded browser run.
+4. Firefox DevTools -> Network: verify catalog `200`, media-access
+   `POST 204`, and native audio `GET 206`. Multiple `206` requests are
+   normal for browser Range loading. Do not capture cookies or JWTs.
+5. Log out and verify a fresh playback request is rejected. The
+   browser may temporarily retain previously buffered audio; assess
+   *new* protected requests, not only whether already-buffered sound
+   stops instantly.
+
+**Negative check from a separate shell:**
+
+```bash
+curl -i -H 'Range: bytes=0-99' \
+  http://localhost:8080/api/tracks/3005/stream
+curl -i http://localhost:8080/api/catalog/tracks/999999
+```
+
+Expected: `401 Unauthorized` for anonymous audio and `404` with
+`{"error":"track_not_found"}` for the nonexistent catalog Track.
+Invalid `Range` -> `416`, unavailable file -> `404`, wrong-track ticket
+-> `401`, and revocation outage -> `503` are evidenced by backend
+regression tests, not all directly repeated in the browser.
+
+**Known limitations for the October 22 demo:** Token/cookie renewal
+after the 300-second ticket lifetime, post-expiration seeking, Docker
+container media mounts, exact seeded duration accuracy, and full
+hosted-service behavior are **not** established by this runbook. Keep
+the demo within the validated path; do not remove the access guard or
+use music without documented usage rights.
 
 ---
 
@@ -2902,6 +3027,21 @@ and the authenticated media-access POST.
   `NODE_ENV=production` enables `Secure` cookies, which require
   a properly configured HTTPS deployment. Test the browser's
   cookie storage and Vite proxy explicitly.
+- If Firefox shows a native audio `401`, use the Network panel to
+  look for the **preceding** `POST /api/tracks/:id/media-access`.
+  Missing POST means the frontend credential handoff did not run;
+  `401` on the POST means the login session must be checked; `503`
+  points to revocation infrastructure, not a missing audio file.
+- If a Vitest integration test expects **Pause** immediately after
+  clicking **Play**, update the mock to trigger `loadTrack`'s
+  `onPlay()` callback first. The UI intentionally waits for Howler's
+  actual playback-start event. In whole-App tests, multiple
+  `role="status"` elements may exist (backend status and playback
+  status); scope the query or assert the visible `Playing` text.
+- If `ReferenceError: it is not defined` originates in
+  `PlaybackBar.jsx`, test code was likely pasted into the component.
+  Keep `it()` blocks in `PlaybackBar.test.jsx`; do not replace the
+  production component with a test snippet.
 
 ---
 
@@ -2980,15 +3120,21 @@ PRs should:
 
 # 32. Pull Request Verification Checklist
 
-Before opening a client-related PR:
+Before opening a client-related PR (run from your clone's
+`client/` directory):
 
 ```bash
-cd ~/Soundwave-Live-Version/client
-
-npm test -- --run
+npx vitest run src/components/PlaybackBar.test.jsx
+npx vitest run src/App.search-playback.test.jsx
+npm run test:run
 npm run lint
 npm run build
 ```
+
+Matthew's October 15 local baseline: **13/13**, **6/6**, **97/97**
+(full suite), clean ESLint, and successful Vite build. Report the
+actual output from the branch being reviewed; do not claim that local
+passes guarantee hosted CI passes.
 
 Before opening a backend-related PR:
 
@@ -3002,9 +3148,11 @@ npm test
 
 For media-ticket changes, additionally verify live cookie issuance
 (`204`) and cookie-only Range streaming (`206`) against PostgreSQL,
-and obtain Emmanuel's browser playback/renewal evidence. Do not commit
-real `MEDIA_TICKET_SECRET` or include response headers containing the
-media cookie in review logs.
+and include the documented October 15 initial protected-browser
+playback evidence (`204`, `206`, audible audio, visible states) when
+relevant. **Do not claim renewal after expiration was verified.** Do
+not commit real `MEDIA_TICKET_SECRET` or include response headers
+containing the media cookie in review logs.
 
 Before opening a database-related PR:
 
@@ -3074,10 +3222,14 @@ startup now requires `MEDIA_TICKET_SECRET`, independently signed from
 `JWT_SECRET`. Ensure CI jobs or smoke-test services that actually start
 `server/src/server.js` receive a securely provided test/deployment
 value; unit tests that instantiate `createApp()` without the media
-service retain their original Bearer-only behavior. This additional
-configuration is a **pending CI verification**, not a claimed passing
-CI change. Never print these values in GitHub Actions logs or embed
-them in committed workflow files.
+service retain their original Bearer-only behavior. Matthew
+previously reported that the media-ticket PR's CI checks were green
+after updating the workflow's test-only independent media signing
+secret. That observation is **not** proof that this documentation PR,
+new frontend PR, or a subsequent `main` revision passed hosted CI.
+Verify the actual relevant PR checks before requesting merge. Never
+print secret values in GitHub Actions logs or embed real secrets in
+committed workflow files.
 
 Christian McGowan extended the existing Database Tests job to
 install server dependencies and execute the PostgreSQL-backed
@@ -3265,9 +3417,11 @@ Current Sprint 3 work includes:
 - JWT revocation persistence foundation;
 - session/auth hardening integration;
 - protected Bearer streaming merged into `main` (per Christian's
-  October 13 verification); Matthew's short-lived media-cookie issuance
-  and verification implemented and tested locally, with browser and
-  deployment integration still pending;
+  October 13 verification); Matthew's short-lived media-cookie
+  issuance and verification passed local backend tests, **and the
+  initial protected browser flow was verified October 15** (`204`,
+  `206`, audible audio, Playing/Paused); production/container
+  integration and unattended renewal remain unverified;
 - client session integration;
 - Search-to-Playback orchestration;
 - **Allison Yu's merged, authenticated Favorites read API**;
@@ -3331,38 +3485,88 @@ Howler
 HTTP media stream
 ```
 
-Protected media-cookie delivery to native Howler, renewal and
-auth-specific player errors remain Emmanuel's separate Sprint 3
-frontend integration work. Matthew's backend ticket tests do not yet
-prove these browser behaviors.
+The shared React PlaybackBar now performs an authenticated media-access
+POST before Howler's native stream, and local browser verification
+confirmed the initial protected playback path. Emmanuel owns the
+frontend integration contract; Matthew contributed bounded playback
+state and negative-path verification without building a second player.
+Automatic renewal after media-cookie expiration has **not** been
+separately verified. Backend tests alone still do not prove browser
+behavior; see the independent network evidence in Section 15.7.
 
 ### Matthew Choi — Sprint 3 media-storage and playback verification
 
-Matthew's SCRUM-168 inspection confirmed that the shared
-Track-ID-to-Howler playback path already existed from Sprint 2, avoiding
-duplicate implementation. SCRUM-169 adds configurable `MEDIA_ROOT`,
-source-relative defaults, validated path containment and regression
-tests. SCRUM-170 recorded Track 3005 metadata `200`, Range `206` and
-audible playback **before** media authorization was enforced. Christian
-subsequently confirmed the protected Bearer stream is merged into
-`main`. Matthew's October 13 local media-ticket addition implements a
-track-scoped HttpOnly cookie, independent HMAC signing, issuance,
-revocation checks and renewal; the **nine new application tests and
-all 222 backend tests passed**.
+Matthew's SCRUM-168 investigation reused the existing shared Track-ID
+playback seam rather than creating a second player. SCRUM-169 added a
+configurable `MEDIA_ROOT`, source-relative defaults and path
+confinement; SCRUM-170 verified licensed Track 3005 playback. After
+Christian's revocation-aware security foundation, Matthew implemented
+track-scoped `sw_media` credentials and protected HTTP Range behavior,
+plus application and negative-boundary tests. The October 15 local
+backend results were **9/9 focused media-access** and **222/222 full
+server** tests; direct anonymous media returned `401`.
 
-The remaining acceptance work is a live `204` issuance and cookie-only
-`206` against the running PostgreSQL-backed server, Emmanuel's
-Howler client handoff and audible protected playback including seeks
-and renewal, and peer-reviewed PR/CI/Compose verification. Do not
-claim those steps completed from automated tests alone. Actual
-container-media access remains unverified.
+Matthew also authored bounded integration/regression changes in the
+existing shared frontend player: Howler-driven Playing/Paused/Finished
+UI state, visible error handling and focused tests. Emmanuel retains
+the core Search/App/PlaybackBar ownership and should review shared
+interface changes. On October 15, Matthew's client verification passed
+**13/13 PlaybackBar**, **6/6 Search-to-Playback integration**, and
+**97/97 complete client** tests, plus lint and build. Independently,
+Firefox showed `200` metadata, `204` media-access, two `206` native
+audio Range responses, audible playback, and Playing/Paused states;
+the user verified new playback requests fail after logout.
 
-The CPSC 490 roadmap assumed a longer streaming timeline, but the CPSC
-491 syllabus governs the six-sprint calendar. Its midterm demonstration
-is October 22, immediately after Sprint 3 (October 8-15), so an actual
-playback path must remain demonstrable by October 15 rather than being
-deferred to the dedicated streaming sprint. Use only rights-cleared
-audio in the midterm and final demonstrations.
+The remaining engineering risks are unattended media ticket renewal,
+seek-after-expiry behavior, Docker/Compose media mounts, precise seeded
+track duration and production deployment. Those were not proven by
+the successful initial local browser demonstration. The latest
+frontend/documentation PR approval, merge and GitHub Actions status
+must be checked on the actual PR rather than inferred from local tests.
+
+## 36.1 Matthew Choi — Sprint 3 setup, demo and contribution record
+
+**Jira:** SCRUM-194 (startup and seeded-track instructions), SCRUM-195
+(known limitations, test commands, Jira/PR traceability), SCRUM-196
+(named-account and reviewed-PR submission). See Section 28.1 for the
+runnable Linux three-terminal demo and Section 15.7 for observed test
+results. Section 30.11 documents the common media-cookie, session,
+player-state, and Vitest integration failures.
+
+| Area of Matthew's Sprint 3 contribution | Evidence / source |
+|---|---|
+| Streaming and backend/security | `server/src/media/media-ticket.js`, `media-access.handler.js`, protected routes, 9 focused media tests |
+| Storage safety and automated verification | Configurable media root, traversal/symlink tests, 222 server tests |
+| Shared frontend event/error regression | `client/src/playback/playback.js`, `client/src/components/PlaybackBar.jsx`, `PlaybackBar.test.jsx`, `App.search-playback.test.jsx` (bounded integration; review with Emmanuel) |
+| Integration and user-visible verification | Network `200/204/206`, audible Track 3005, Playing/Paused, post-logout denial |
+| Docs and project tracking | This README, Jira SCRUM-168–172, SCRUM-175–177, SCRUM-182–184, SCRUM-190–192, SCRUM-194–196 |
+
+**Links and review status:** Existing backend media-ticket work was
+tracked in the team's GitHub repository under
+[PR #116](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/116)
+(check its current status before describing it as merged). Add the
+**actual frontend/docs PR URL** and the Jira issue URLs once created;
+none is provided here, so no review approval or merge is claimed.
+
+For SCRUM-196, verify `git config user.name`,
+`git config user.email`, the GitHub commit identity, the named account
+used for all course document edits, PR review approval and successful
+CI. **Do not mark reviewed/merged based only on a local commit or test
+run.** Review `git diff --check` and the staged diff, push the
+feature branch, request a teammate review (including Emmanuel for the
+shared player), and merge only after approval. Never expose raw JWTs,
+media cookies, signing keys or database passwords in evidence.
+
+**Course scheduling:** The CPSC 490 roadmap describes a sixteen-week
+sequence and places streaming close to its implied midterm. The CPSC
+491 syllabus overrides that calendar: six course sprints, Sprint 3
+ending October 15 and the graded midterm October 22. Working
+rights-cleared playback was therefore brought forward and verified
+on October 15 rather than waiting until the dedicated Sprint 4 media
+phase. As Sprint 1's media spike author, Matthew should **not** be
+primary owner of Sprint 4's largest streaming slice; his later work
+must continue spanning the eight contribution areas through separate
+vertical slices.
 
 ---
 
