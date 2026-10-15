@@ -1,4 +1,3 @@
-
 import { execSync } from "node:child_process";
 
 const composeCommand = process.env.CI
@@ -32,9 +31,15 @@ async function checkUrl(
         attempt <= attempts;
         attempt += 1
     ) {
+        const controller = new AbortController();
+
+        const timeout = setTimeout(() => {
+            controller.abort();
+        }, 5000);
+
         try {
             const response = await fetch(url, {
-                signal: AbortSignal.timeout(5000),
+                signal: controller.signal,
             });
 
             if (
@@ -52,8 +57,7 @@ async function checkUrl(
                     );
 
                 if (
-                    actualValue !==
-                    expectedHeader.value
+                    actualValue !== expectedHeader.value
                 ) {
                     throw new Error(
                         `${url} returned unexpected ${expectedHeader.name} header: ${actualValue}`
@@ -64,7 +68,7 @@ async function checkUrl(
             const body = await response.text();
 
             if (
-                expectedText &&
+                expectedText !== null &&
                 body.trim() !== expectedText
             ) {
                 throw new Error(
@@ -83,6 +87,8 @@ async function checkUrl(
             if (attempt < attempts) {
                 await wait(1000);
             }
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -151,7 +157,9 @@ try {
         "Soundwave Compose smoke test failed."
     );
 
-    console.error(error.message);
+    console.error(
+        error.message
+    );
 
     console.error(
         "Collecting Compose diagnostics..."
