@@ -1,8 +1,17 @@
-import { useCallback, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import {
+  useCallback,
+  useState
+} from "react";
+
+import {
+  Routes,
+  Route
+} from "react-router-dom";
+
 import Sidebar from "./components/Sidebar";
 import SessionStatus from "./components/SessionStatus";
 import PlaybackBar from "./components/PlaybackBar";
+
 import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
@@ -13,28 +22,47 @@ import Artists from "./pages/Artists";
 import ArtistDetail from "./pages/ArtistDetail";
 import Albums from "./pages/Albums";
 import AlbumDetail from "./pages/AlbumDetail";
+
 import "./App.css";
 
 export default function App() {
-  const [{ accessToken, loginViewEpoch }, setSession] = useState({
+  const [
+    {
+      accessToken,
+      loginViewEpoch
+    },
+    setSession
+  ] = useState({
     accessToken: "",
     loginViewEpoch: 0
   });
 
-  const setAccessToken = useCallback((token) => {
-    setSession((current) => ({ ...current, accessToken: token }));
-  }, []);
+  const setAccessToken =
+    useCallback((token) => {
+      setSession((current) => ({
+        ...current,
+        accessToken: token
+      }));
+    }, []);
 
   // An older session cannot invalidate a newer login.
-  const handleSessionInvalidated = useCallback((token) => {
-    setSession((current) =>
-      current.accessToken === token
-        ? { accessToken: "", loginViewEpoch: current.loginViewEpoch + 1 }
-        : current
-    );
-  }, []);
-  const [selectedTrackId, setSelectedTrackId] =
-    useState(null);
+  const handleSessionInvalidated =
+    useCallback((token) => {
+      setSession((current) =>
+        current.accessToken === token
+          ? {
+              accessToken: "",
+              loginViewEpoch:
+                current.loginViewEpoch + 1
+            }
+          : current
+      );
+    }, []);
+
+  const [
+    selectedTrackId,
+    setSelectedTrackId
+  ] = useState(null);
 
   return (
     <div className="app-shell">
@@ -43,8 +71,11 @@ export default function App() {
       <main className="page-content">
         <SessionStatus
           accessToken={accessToken}
-          onSessionInvalidated={handleSessionInvalidated}
+          onSessionInvalidated={
+            handleSessionInvalidated
+          }
         />
+
         <Routes>
           <Route
             path="/"
@@ -55,7 +86,9 @@ export default function App() {
             path="/search"
             element={
               <Search
-                onSelectTrack={setSelectedTrackId}
+                onSelectTrack={
+                  setSelectedTrackId
+                }
               />
             }
           />
@@ -64,8 +97,12 @@ export default function App() {
             path="/library"
             element={
               <Library
-                accessToken={accessToken}
-                onSelectTrack={setSelectedTrackId}
+                accessToken={
+                  accessToken
+                }
+                onSelectTrack={
+                  setSelectedTrackId
+                }
               />
             }
           />
@@ -73,8 +110,13 @@ export default function App() {
           <Route
             path="/login"
             element={
-              <Login key={loginViewEpoch}
-                setAccessToken={setAccessToken}
+              <Login
+                key={
+                  loginViewEpoch
+                }
+                setAccessToken={
+                  setAccessToken
+                }
               />
             }
           />
@@ -83,44 +125,64 @@ export default function App() {
             path="/profile"
             element={
               <Profile
-                accessToken={accessToken}
+                accessToken={
+                  accessToken
+                }
               />
             }
           />
 
           <Route
             path="/artists"
-            element={<Artists />}
+            element={
+              <Artists />
+            }
           />
 
           <Route
             path="/artists/:id"
-            element={<ArtistDetail />}
+            element={
+              <ArtistDetail />
+            }
           />
 
           <Route
             path="/albums"
-            element={<Albums />}
+            element={
+              <Albums />
+            }
           />
 
           <Route
             path="/albums/:id"
             element={
               <AlbumDetail
-                onSelectTrack={setSelectedTrackId}
+                onSelectTrack={
+                  setSelectedTrackId
+                }
               />
             }
           />
 
           <Route
             path="/catalog-debug"
-            element={<CatalogDebug />}
+            element={
+              <CatalogDebug />
+            }
           />
         </Routes>
       </main>
 
       <PlaybackBar
-        trackId={selectedTrackId}
+        trackId={
+          selectedTrackId
+        }
+        accessToken={
+          accessToken
+        }
+        onSessionInvalidated={
+          handleSessionInvalidated
+        }
       />
     </div>
   );
