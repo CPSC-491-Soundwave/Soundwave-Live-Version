@@ -1,3 +1,4 @@
+
 import {
     useEffect,
     useState
@@ -27,8 +28,11 @@ export default function PlaybackBar({
     const [error, setError] =
     useState(null);
 
-    const [isPlaying, setIsPlaying] =
-    useState(false);
+    const [playbackStatus, setPlaybackStatus] =
+    useState("ready");
+
+    const isPlaying =
+    playbackStatus === "playing";
 
     const [volume, setVolume] =
     useState(0.5);
@@ -49,8 +53,8 @@ export default function PlaybackBar({
                 null
             );
 
-            setIsPlaying(
-                false
+            setPlaybackStatus(
+                "ready"
             );
 
             if (!accessToken) {
@@ -100,15 +104,15 @@ export default function PlaybackBar({
                         `/api/tracks/${metadata.id}/media-access`,
                         {
                             method:
-                                "POST",
+                            "POST",
 
                             headers: {
                                 Authorization:
-                                    `Bearer ${accessToken}`
+                                `Bearer ${accessToken}`
                             },
 
                             credentials:
-                                "same-origin"
+                            "same-origin"
                         }
                     );
                 } catch {
@@ -145,8 +149,8 @@ export default function PlaybackBar({
                         null
                     );
 
-                    setIsPlaying(
-                        false
+                    setPlaybackStatus(
+                        "ready"
                     );
 
                     if (
@@ -175,8 +179,8 @@ export default function PlaybackBar({
                         null
                     );
 
-                    setIsPlaying(
-                        false
+                    setPlaybackStatus(
+                        "ready"
                     );
 
                     setError(
@@ -196,8 +200,8 @@ export default function PlaybackBar({
                         null
                     );
 
-                    setIsPlaying(
-                        false
+                    setPlaybackStatus(
+                        "ready"
                     );
 
                     setError(
@@ -217,8 +221,8 @@ export default function PlaybackBar({
                         null
                     );
 
-                    setIsPlaying(
-                        false
+                    setPlaybackStatus(
+                        "ready"
                     );
 
                     setError(
@@ -235,6 +239,30 @@ export default function PlaybackBar({
                 loadTrack(
                     metadata.id,
                     {
+                        onPlay: () => {
+                            if (cancelled) {
+                                return;
+                            }
+
+                            setPlaybackStatus("playing");
+                        },
+
+                        onPause: () => {
+                            if (cancelled) {
+                                return;
+                            }
+
+                            setPlaybackStatus("paused");
+                        },
+
+                        onEnd: () => {
+                            if (cancelled) {
+                                return;
+                            }
+
+                            setPlaybackStatus("finished");
+                        },
+
                         onError: () => {
                             if (
                                 cancelled
@@ -244,8 +272,8 @@ export default function PlaybackBar({
 
                             unloadMusic();
 
-                            setIsPlaying(
-                                false
+                            setPlaybackStatus(
+                                "ready"
                             );
 
                             setError(
@@ -267,8 +295,8 @@ export default function PlaybackBar({
                     null
                 );
 
-                setIsPlaying(
-                    false
+                setPlaybackStatus(
+                    "ready"
                 );
 
                 setError(
@@ -305,20 +333,18 @@ export default function PlaybackBar({
 
         if (isPlaying) {
             pauseMusic();
-
-            setIsPlaying(
-                false
-            );
-
             return;
         }
 
+        // Wait for Howler's onplay event before
+        // changing the button to Pause.
         const started =
-            playMusic();
+        playMusic();
 
-        if (started) {
-            setIsPlaying(
-                true
+        if (!started) {
+            setPlaybackStatus("ready");
+            setError(
+                "Unable to play this track."
             );
         }
     }
@@ -327,9 +353,9 @@ export default function PlaybackBar({
         event
     ) {
         const nextVolume =
-            Number(
-                event.target.value
-            );
+        Number(
+            event.target.value
+        );
 
         setVolume(
             nextVolume
@@ -343,48 +369,48 @@ export default function PlaybackBar({
     if (!trackId) {
         return (
             <footer className="playback-bar">
-                <div className="track-info">
-                    <div
-                        className="track-placeholder"
-                    />
+            <div className="track-info">
+            <div
+            className="track-placeholder"
+            />
 
-                    <div>
-                        <strong>
-                            Nothing Playing
-                        </strong>
+            <div>
+            <strong>
+            Nothing Playing
+            </strong>
 
-                        <p>
-                            Select a track
-                        </p>
-                    </div>
-                </div>
+            <p>
+            Select a track
+            </p>
+            </div>
+            </div>
 
-                <div className="playback-controls">
-                    <button
-                        disabled
-                        aria-label="Previous track"
-                    >
-                        ⏮
-                    </button>
+            <div className="playback-controls">
+            <button
+            disabled
+            aria-label="Previous track"
+            >
+            ⏮
+            </button>
 
-                    <button
-                        disabled
-                        aria-label="Play"
-                    >
-                        ▶
-                    </button>
+            <button
+            disabled
+            aria-label="Play"
+            >
+            ▶
+            </button>
 
-                    <button
-                        disabled
-                        aria-label="Next track"
-                    >
-                        ⏭
-                    </button>
-                </div>
+            <button
+            disabled
+            aria-label="Next track"
+            >
+            ⏭
+            </button>
+            </div>
 
-                <div className="volume-placeholder">
-                    Volume
-                </div>
+            <div className="volume-placeholder">
+            Volume
+            </div>
             </footer>
         );
     }
@@ -392,11 +418,11 @@ export default function PlaybackBar({
     if (loading) {
         return (
             <footer className="playback-bar">
-                <div className="track-info">
-                    <strong>
-                        Loading track...
-                    </strong>
-                </div>
+            <div className="track-info">
+            <strong>
+            Loading track...
+            </strong>
+            </div>
             </footer>
         );
     }
@@ -404,15 +430,15 @@ export default function PlaybackBar({
     if (error) {
         return (
             <footer className="playback-bar">
-                <div className="track-info">
-                    <strong>
-                        Playback unavailable
-                    </strong>
+            <div className="track-info">
+            <strong>
+            Playback unavailable
+            </strong>
 
-                    <p>
-                        {error}
-                    </p>
-                </div>
+            <p role="alert">
+            {error}
+            </p>
+            </div>
             </footer>
         );
     }
@@ -423,70 +449,83 @@ export default function PlaybackBar({
 
     return (
         <footer className="playback-bar">
-            <div className="track-info">
-                <div
-                    className="track-placeholder"
-                />
+        <div className="track-info">
+        <div
+        className="track-placeholder"
+        />
 
-                <div>
-                    <strong>
-                        {track.title}
-                    </strong>
+        <div>
+        <strong>
+        {track.title}
+        </strong>
 
-                    <p>
-                        {track.artist.name}
-                        {" • "}
-                        {track.album.title}
-                    </p>
-                </div>
+        <p>
+        {track.artist.name}
+        {" • "}
+        {track.album.title}
+        </p>
+
+        <p
+        role="status"
+        aria-live="polite"
+        >
+        {playbackStatus === "playing"
+            ? "Playing"
+            : playbackStatus === "paused"
+            ? "Paused"
+            : playbackStatus === "finished"
+            ? "Finished"
+            : "Ready to play"}
+            </p>
+            </div>
             </div>
 
             <div className="playback-controls">
-                <button
-                    disabled
-                    aria-label="Previous track"
-                >
-                    ⏮
+            <button
+            disabled
+            aria-label="Previous track"
+            >
+            ⏮
+            </button>
+
+            <button
+            onClick={
+                handlePlayPause
+            }
+            aria-label={
+                isPlaying
+                ? "Pause"
+                : "Play"
+            }
+            >
+            {isPlaying
+                ? "⏸"
+                : "▶"}
                 </button>
 
                 <button
-                    onClick={
-                        handlePlayPause
-                    }
-                    aria-label={
-                        isPlaying
-                            ? "Pause"
-                            : "Play"
-                    }
+                disabled
+                aria-label="Next track"
                 >
-                    {isPlaying
-                        ? "⏸"
-                        : "▶"}
+                ⏭
                 </button>
+                </div>
 
-                <button
-                    disabled
-                    aria-label="Next track"
-                >
-                    ⏭
-                </button>
-            </div>
-
-            <label className="volume-placeholder">
+                <label className="volume-placeholder">
                 Volume
 
                 <input
-                    aria-label="Volume"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={volume}
-                    onChange={
-                        handleVolumeChange
-                    }
+                aria-label="Volume"
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={
+                    handleVolumeChange
+                }
                 />
-            </label>
-        </footer>
+                </label>
+                </footer>
     );
 }

@@ -228,8 +228,9 @@ describe("PlaybackBar", () => {
         }
     );
 
+
     it(
-        "plays and pauses a Track after protected media access is granted",
+        "updates playing and paused states from Howler events",
         async () => {
             queueSuccessfulPlaybackPreparation();
 
@@ -240,25 +241,94 @@ describe("PlaybackBar", () => {
                 />
             );
 
-            const playButton = await screen.findByRole(
+            const playButton =
+            await screen.findByRole(
                 "button",
-                { name: "Play" }
+                {
+                    name: "Play"
+                }
             );
 
-            fireEvent.click(playButton);
+            const callbacks =
+            loadTrack.mock.calls[0][1];
 
-            expect(playMusic).toHaveBeenCalledTimes(1);
-
-            const pauseButton = screen.getByRole(
-                "button",
-                { name: "Pause" }
+            fireEvent.click(
+                playButton
             );
 
-            fireEvent.click(pauseButton);
+            expect(
+                playMusic
+            ).toHaveBeenCalledTimes(1);
 
-            expect(pauseMusic).toHaveBeenCalledTimes(1);
+            // Clicking Play must not immediately
+            // claim that audio has started.
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Play"
+                    }
+                )
+            ).toBeInTheDocument();
+
+            act(() => {
+                callbacks.onPlay();
+            });
+
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Pause"
+                    }
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByRole("status")
+            ).toHaveTextContent("Playing");
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Pause"
+                    }
+                )
+            );
+
+            expect(
+                pauseMusic
+            ).toHaveBeenCalledTimes(1);
+
+            act(() => {
+                callbacks.onPause();
+            });
+
+            expect(
+                screen.getByRole("status")
+            ).toHaveTextContent("Paused");
+
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Play"
+                    }
+                )
+            ).toBeInTheDocument();
+
+            act(() => {
+                callbacks.onPlay();
+                callbacks.onEnd();
+            });
+
+            expect(
+                screen.getByRole("status")
+            ).toHaveTextContent("Finished");
         }
     );
+
 
     it("updates playback volume", async () => {
         queueSuccessfulPlaybackPreparation();
