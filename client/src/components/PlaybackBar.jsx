@@ -14,7 +14,9 @@ import {
 import "./PlaybackBar.css";
 
 export default function PlaybackBar({
-    trackId = null
+    trackId = null,
+    accessToken = "",
+    onSessionInvalidated
 }) {
     const [track, setTrack] =
     useState(null);
@@ -33,38 +35,202 @@ export default function PlaybackBar({
 
     useEffect(() => {
         if (!trackId) {
-            unloadMusic();
-
             return;
         }
 
         let cancelled = false;
 
         async function loadSelectedTrack() {
-            setLoading(true);
-            setError(null);
-            setIsPlaying(false);
+            setLoading(
+                true
+            );
+
+            setError(
+                null
+            );
+
+            setIsPlaying(
+                false
+            );
+
+            if (!accessToken) {
+                unloadMusic();
+
+                setTrack(
+                    null
+                );
+
+                setError(
+                    "Please log in to play this track."
+                );
+
+                setLoading(
+                    false
+                );
+
+                return;
+            }
 
             try {
-                const response =
+                const metadataResponse =
                 await fetch(
                     `/api/catalog/tracks/${trackId}`
                 );
 
-                if (!response.ok) {
+                if (
+                    !metadataResponse.ok
+                ) {
                     throw new Error(
-                        `Track metadata request failed with ${response.status}`
+                        "metadata_request_failed"
                     );
                 }
 
                 const metadata =
-                await response.json();
+                await metadataResponse.json();
 
                 if (cancelled) {
                     return;
                 }
 
-                setTrack(metadata);
+                let mediaAccessResponse;
+
+                try {
+                    mediaAccessResponse =
+                    await fetch(
+                        `/api/tracks/${metadata.id}/media-access`,
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                Authorization:
+                                    `Bearer ${accessToken}`
+                            },
+
+                            credentials:
+                                "same-origin"
+                        }
+                    );
+                } catch {
+                    if (
+                        cancelled
+                    ) {
+                        return;
+                    }
+
+                    unloadMusic();
+
+                    setTrack(
+                        null
+                    );
+
+                    setError(
+                        "Unable to prepare playback."
+                    );
+
+                    return;
+                }
+
+                if (cancelled) {
+                    return;
+                }
+
+                if (
+                    mediaAccessResponse.status ===
+                    401
+                ) {
+                    unloadMusic();
+
+                    setTrack(
+                        null
+                    );
+
+                    setIsPlaying(
+                        false
+                    );
+
+                    if (
+                        typeof onSessionInvalidated ===
+                        "function"
+                    ) {
+                        onSessionInvalidated(
+                            accessToken
+                        );
+                    }
+
+                    setError(
+                        "Please log in to play this track."
+                    );
+
+                    return;
+                }
+
+                if (
+                    mediaAccessResponse.status ===
+                    403
+                ) {
+                    unloadMusic();
+
+                    setTrack(
+                        null
+                    );
+
+                    setIsPlaying(
+                        false
+                    );
+
+                    setError(
+                        "You do not have access to play this track."
+                    );
+
+                    return;
+                }
+
+                if (
+                    mediaAccessResponse.status ===
+                    503
+                ) {
+                    unloadMusic();
+
+                    setTrack(
+                        null
+                    );
+
+                    setIsPlaying(
+                        false
+                    );
+
+                    setError(
+                        "Playback authentication is temporarily unavailable."
+                    );
+
+                    return;
+                }
+
+                if (
+                    mediaAccessResponse.status !==
+                    204
+                ) {
+                    unloadMusic();
+
+                    setTrack(
+                        null
+                    );
+
+                    setIsPlaying(
+                        false
+                    );
+
+                    setError(
+                        "Unable to prepare playback."
+                    );
+
+                    return;
+                }
+
+                setTrack(
+                    metadata
+                );
 
                 loadTrack(
                     metadata.id,
@@ -89,18 +255,32 @@ export default function PlaybackBar({
                     }
                 );
             } catch {
-                if (cancelled) {
+                if (
+                    cancelled
+                ) {
                     return;
                 }
 
-                setTrack(null);
+                unloadMusic();
+
+                setTrack(
+                    null
+                );
+
+                setIsPlaying(
+                    false
+                );
 
                 setError(
                     "Unable to load track."
                 );
             } finally {
-                if (!cancelled) {
-                    setLoading(false);
+                if (
+                    !cancelled
+                ) {
+                    setLoading(
+                        false
+                    );
                 }
             }
         }
@@ -109,9 +289,14 @@ export default function PlaybackBar({
 
         return () => {
             cancelled = true;
+
             unloadMusic();
         };
-    }, [trackId]);
+    }, [
+        trackId,
+        accessToken,
+        onSessionInvalidated
+    ]);
 
     function handlePlayPause() {
         if (!track) {
