@@ -1453,6 +1453,53 @@ Section 15; they do not revalidate a user's changed role against
 PostgreSQL on every request, implement login-token refresh, or finish
 client-side handling for expired sessions and `401`/`403`.
 
+## 20.6 Dedicated Security Regression Gate (SCRUM-207 / SCRUM-208)
+
+The existing GitHub Actions **Authentication Security** job invokes
+`npm run test:auth` from `server/`. SCRUM-207 extends this dedicated command
+from six foundational test files to fourteen security regression test files.
+All these files were already exercised by the full `npm test` suite; this
+change makes their coverage explicit in the dedicated security check.
+
+| Security test group | Files | Verified regression areas |
+|---|---:|---|
+| Authentication foundation | 6 | Login, password hashing, JWT issuance/verification, `/auth/me` |
+| Logout and revocation storage | 3 | Token-specific logout, independent sessions, revocation repository errors |
+| Authorization | 3 | Explicit roles, 401/403, forged role headers, policy failure |
+| Revocation enforcement | 2 | Protected routes, revoked/invalid JWTs, fail-closed errors |
+
+The fourteen files are defined explicitly in `server/package.json` under
+`test:auth`. From the repository root, run:
+
+```bash
+cd server
+npm run test:auth
+npm test
+```
+
+**Local verification on October 14, 2026:** the expanded dedicated security
+command passed **95/95 tests**; the full backend suite passed **222/222**.
+The suites overlap; these totals must not be added together. CI verification
+for this Block 5 change is pending its own pull request and review.
+
+The documented authentication/authorization response distinctions remain:
+
+- `401 Unauthorized`: missing, invalid, expired, or revoked access token.
+- `403 Forbidden`: authenticated principal lacking an explicitly permitted role.
+- `503 Service Unavailable`: fail-closed revocation lookup failure; existing
+  configuration failures may also map to `503` as explained in Section 20.5.
+
+The current production routes in Section 20.5 permit both `user` and `admin`.
+The administrator-only and `403` role cases are verified by test-only policy
+fixtures, not by introducing a new production administrator endpoint.
+
+**Scope and limitations:** this dedicated Node test command does not replace
+PostgreSQL-backed logout integration, Database Tests, frontend/browser session
+checks, or Matthew Choi's media-access regression tests. Broader cross-feature
+authorization scenarios and contract-change verification are reserved for
+SCRUM-210 and SCRUM-213. No secrets, raw JWTs, or user credentials should be
+included in test logs or CI artifacts.
+
 ---
 
 # 21. Authentication Foundation
