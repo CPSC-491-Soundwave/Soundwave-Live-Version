@@ -1,3 +1,4 @@
+
 import {
     act,
     fireEvent,
@@ -24,30 +25,24 @@ import {
     unloadMusic
 } from "../playback/playback.js";
 
-vi.mock(
-    "../playback/playback.js",
-    () => ({
-        loadTrack: vi.fn(),
-        playMusic: vi.fn(),
-        pauseMusic: vi.fn(),
-        setMusicVolume: vi.fn(),
-        unloadMusic: vi.fn()
-    })
-);
+vi.mock("../playback/playback.js", () => ({
+    loadTrack: vi.fn(),
+                                          playMusic: vi.fn(),
+                                          pauseMusic: vi.fn(),
+                                          setMusicVolume: vi.fn(),
+                                          unloadMusic: vi.fn()
+}));
 
-const ACCESS_TOKEN =
-    "test-access-token";
+const ACCESS_TOKEN = "test-access-token";
 
 const TRACK_METADATA = {
     id: 3005,
     title: "Kontekst",
     durationMs: 12345,
-
     album: {
         id: 2003,
         title: "No Copyright"
     },
-
     artist: {
         id: 1003,
         name: "Buddha"
@@ -56,98 +51,126 @@ const TRACK_METADATA = {
 
 function queueSuccessfulPlaybackPreparation() {
     globalThis.fetch
-        .mockResolvedValueOnce({
-            ok: true,
-
-            json: async () =>
-                TRACK_METADATA
-        })
-        .mockResolvedValueOnce({
-            ok: true,
-            status: 204
-        });
+    .mockResolvedValueOnce({
+        ok: true,
+        json: async () => TRACK_METADATA
+    })
+    .mockResolvedValueOnce({
+        ok: true,
+        status: 204
+    });
 }
 
 describe("PlaybackBar", () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
-        globalThis.fetch =
-            vi.fn();
+        globalThis.fetch = vi.fn();
 
-        playMusic.mockReturnValue(
-            true
-        );
+        playMusic.mockReturnValue(true);
     });
 
+    it("renders the empty playback state", () => {
+        render(
+            <PlaybackBar accessToken={ACCESS_TOKEN} />
+        );
+
+        expect(
+            screen.getByText("Nothing Playing")
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText("Select a track")
+        ).toBeInTheDocument();
+
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    // SCRUM-171: Unavailable media produces a visible error.
     it(
-        "renders the empty playback state",
-        () => {
-            render(
-                <PlaybackBar
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                />
-            );
+        "shows a visible error when a catalog track has no playable media",
+       async () => {
+           const onSessionInvalidated = vi.fn();
 
-            expect(
-                screen.getByText(
-                    "Nothing Playing"
-                )
-            ).toBeInTheDocument();
+           globalThis.fetch
+           .mockResolvedValueOnce({
+               ok: true,
+               json: async () => ({
+                   ...TRACK_METADATA,
+                   id: 3001,
+                   title: "Fixture Track One"
+               })
+           })
+           .mockResolvedValueOnce({
+               ok: false,
+               status: 404
+           });
 
-            expect(
-                screen.getByText(
-                    "Select a track"
-                )
-            ).toBeInTheDocument();
+           render(
+               <PlaybackBar
+               trackId={3001}
+               accessToken={ACCESS_TOKEN}
+               onSessionInvalidated={onSessionInvalidated}
+               />
+           );
 
-            expect(
-                globalThis.fetch
-            ).not.toHaveBeenCalled();
-        }
+           expect(
+               await screen.findByText("Playback unavailable")
+           ).toBeInTheDocument();
+
+           expect(
+               screen.getByText("Unable to prepare playback.")
+           ).toBeInTheDocument();
+
+           expect(
+               globalThis.fetch
+           ).toHaveBeenNthCalledWith(
+               1,
+               "/api/catalog/tracks/3001"
+           );
+
+           expect(
+               globalThis.fetch
+           ).toHaveBeenNthCalledWith(
+               2,
+               "/api/tracks/3001/media-access",
+               expect.objectContaining({
+                   method: "POST"
+               })
+           );
+
+           expect(loadTrack).not.toHaveBeenCalled();
+
+           expect(
+               onSessionInvalidated
+           ).not.toHaveBeenCalled();
+       }
     );
 
     it(
         "requires a login before preparing protected playback",
         async () => {
-            const onSessionInvalidated =
-                vi.fn();
+            const onSessionInvalidated = vi.fn();
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken=""
-                    onSessionInvalidated={
-                        onSessionInvalidated
-                    }
+                trackId={3005}
+                accessToken=""
+                onSessionInvalidated={onSessionInvalidated}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    "Please log in to play this track."
-                )
+                screen.getByText("Please log in to play this track.")
             ).toBeInTheDocument();
 
-            expect(
-                globalThis.fetch
-            ).not.toHaveBeenCalled();
-
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
-
-            expect(
-                onSessionInvalidated
-            ).not.toHaveBeenCalled();
+            expect(globalThis.fetch).not.toHaveBeenCalled();
+            expect(loadTrack).not.toHaveBeenCalled();
+            expect(onSessionInvalidated).not.toHaveBeenCalled();
         }
     );
 
@@ -158,17 +181,13 @@ describe("PlaybackBar", () => {
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Kontekst"
-                )
+                await screen.findByText("Kontekst")
             ).toBeInTheDocument();
 
             expect(
@@ -185,64 +204,53 @@ describe("PlaybackBar", () => {
                 "/api/tracks/3005/media-access",
                 {
                     method: "POST",
-
                     headers: {
-                        Authorization:
-                            `Bearer ${ACCESS_TOKEN}`
+                        Authorization: `Bearer ${ACCESS_TOKEN}`
                     },
-
-                    credentials:
-                        "same-origin"
+                    credentials: "same-origin"
                 }
             );
 
             expect(
-                screen.getByText(
-                    /Buddha/
-                )
+                screen.getByText(/Buddha/)
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    /No Copyright/
-                )
+                screen.getByText(/No Copyright/)
             ).toBeInTheDocument();
 
-            expect(
-                loadTrack
-            ).toHaveBeenCalledWith(
+            expect(loadTrack).toHaveBeenCalledWith(
                 3005,
                 expect.objectContaining({
-                    onError:
-                        expect.any(
-                            Function
-                        )
+                    onError: expect.any(Function)
                 })
             );
         }
     );
 
+
     it(
-        "plays and pauses a Track after protected media access is granted",
+        "updates playing and paused states from Howler events",
         async () => {
             queueSuccessfulPlaybackPreparation();
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
                 />
             );
 
             const playButton =
-                await screen.findByRole(
-                    "button",
-                    {
-                        name: "Play"
-                    }
-                );
+            await screen.findByRole(
+                "button",
+                {
+                    name: "Play"
+                }
+            );
+
+            const callbacks =
+            loadTrack.mock.calls[0][1];
 
             fireEvent.click(
                 playButton
@@ -250,199 +258,194 @@ describe("PlaybackBar", () => {
 
             expect(
                 playMusic
-            ).toHaveBeenCalledTimes(
-                1
-            );
+            ).toHaveBeenCalledTimes(1);
 
-            const pauseButton =
+            // Clicking Play must not immediately
+            // claim that audio has started.
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Play"
+                    }
+                )
+            ).toBeInTheDocument();
+
+            act(() => {
+                callbacks.onPlay();
+            });
+
+            expect(
                 screen.getByRole(
                     "button",
                     {
                         name: "Pause"
                     }
-                );
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByRole("status")
+            ).toHaveTextContent("Playing");
 
             fireEvent.click(
-                pauseButton
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Pause"
+                    }
+                )
             );
 
             expect(
                 pauseMusic
-            ).toHaveBeenCalledTimes(
-                1
-            );
-        }
-    );
+            ).toHaveBeenCalledTimes(1);
 
-    it(
-        "updates playback volume",
-        async () => {
-            queueSuccessfulPlaybackPreparation();
-
-            render(
-                <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                />
-            );
-
-            const volume =
-                await screen.findByRole(
-                    "slider",
-                    {
-                        name: "Volume"
-                    }
-                );
-
-            fireEvent.change(
-                volume,
-                {
-                    target: {
-                        value: "0.8"
-                    }
-                }
-            );
+            act(() => {
+                callbacks.onPause();
+            });
 
             expect(
-                setMusicVolume
-            ).toHaveBeenCalledWith(
-                0.8
-            );
+                screen.getByRole("status")
+            ).toHaveTextContent("Paused");
+
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name: "Play"
+                    }
+                )
+            ).toBeInTheDocument();
+
+            act(() => {
+                callbacks.onPlay();
+                callbacks.onEnd();
+            });
+
+            expect(
+                screen.getByRole("status")
+            ).toHaveTextContent("Finished");
         }
     );
+
+
+    it("updates playback volume", async () => {
+        queueSuccessfulPlaybackPreparation();
+
+        render(
+            <PlaybackBar
+            trackId={3005}
+            accessToken={ACCESS_TOKEN}
+            />
+        );
+
+        const volume = await screen.findByRole(
+            "slider",
+            { name: "Volume" }
+        );
+
+        fireEvent.change(volume, {
+            target: {
+                value: "0.8"
+            }
+        });
+
+        expect(setMusicVolume).toHaveBeenCalledWith(0.8);
+    });
 
     it(
         "shows a controlled error when metadata retrieval fails",
         async () => {
-            globalThis.fetch
-                .mockResolvedValueOnce({
-                    ok: false,
-                    status: 404
-                });
+            globalThis.fetch.mockResolvedValueOnce({
+                ok: false,
+                status: 404
+            });
 
             render(
                 <PlaybackBar
-                    trackId={999999}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
+                trackId={999999}
+                accessToken={ACCESS_TOKEN}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    "Unable to load track."
-                )
+                screen.getByText("Unable to load track.")
             ).toBeInTheDocument();
 
-            expect(
-                globalThis.fetch
-            ).toHaveBeenCalledTimes(
-                1
-            );
-
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
+            expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+            expect(loadTrack).not.toHaveBeenCalled();
         }
     );
 
     it(
         "invalidates the current session when media access returns 401",
         async () => {
-            const onSessionInvalidated =
-                vi.fn();
+            const onSessionInvalidated = vi.fn();
 
             globalThis.fetch
-                .mockResolvedValueOnce({
-                    ok: true,
-
-                    json: async () =>
-                        TRACK_METADATA
-                })
-                .mockResolvedValueOnce({
-                    ok: false,
-                    status: 401
-                });
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => TRACK_METADATA
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 401
+            });
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                    onSessionInvalidated={
-                        onSessionInvalidated
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+                onSessionInvalidated={onSessionInvalidated}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    "Please log in to play this track."
-                )
+                screen.getByText("Please log in to play this track.")
             ).toBeInTheDocument();
 
             expect(
                 onSessionInvalidated
-            ).toHaveBeenCalledWith(
-                ACCESS_TOKEN
-            );
+            ).toHaveBeenCalledWith(ACCESS_TOKEN);
 
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
+            expect(loadTrack).not.toHaveBeenCalled();
         }
     );
 
     it(
         "preserves the session when media access returns 403",
         async () => {
-            const onSessionInvalidated =
-                vi.fn();
+            const onSessionInvalidated = vi.fn();
 
             globalThis.fetch
-                .mockResolvedValueOnce({
-                    ok: true,
-
-                    json: async () =>
-                        TRACK_METADATA
-                })
-                .mockResolvedValueOnce({
-                    ok: false,
-                    status: 403
-                });
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => TRACK_METADATA
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 403
+            });
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                    onSessionInvalidated={
-                        onSessionInvalidated
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+                onSessionInvalidated={onSessionInvalidated}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
@@ -455,46 +458,35 @@ describe("PlaybackBar", () => {
                 onSessionInvalidated
             ).not.toHaveBeenCalled();
 
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
+            expect(loadTrack).not.toHaveBeenCalled();
         }
     );
 
     it(
         "preserves the session when playback authentication is temporarily unavailable",
         async () => {
-            const onSessionInvalidated =
-                vi.fn();
+            const onSessionInvalidated = vi.fn();
 
             globalThis.fetch
-                .mockResolvedValueOnce({
-                    ok: true,
-
-                    json: async () =>
-                        TRACK_METADATA
-                })
-                .mockResolvedValueOnce({
-                    ok: false,
-                    status: 503
-                });
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => TRACK_METADATA
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 503
+            });
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                    onSessionInvalidated={
-                        onSessionInvalidated
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+                onSessionInvalidated={onSessionInvalidated}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
@@ -507,61 +499,46 @@ describe("PlaybackBar", () => {
                 onSessionInvalidated
             ).not.toHaveBeenCalled();
 
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
+            expect(loadTrack).not.toHaveBeenCalled();
         }
     );
 
     it(
         "shows a controlled error for an unexpected media-access response",
         async () => {
-            const onSessionInvalidated =
-                vi.fn();
+            const onSessionInvalidated = vi.fn();
 
             globalThis.fetch
-                .mockResolvedValueOnce({
-                    ok: true,
-
-                    json: async () =>
-                        TRACK_METADATA
-                })
-                .mockResolvedValueOnce({
-                    ok: false,
-                    status: 500
-                });
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => TRACK_METADATA
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 500
+            });
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
-                    onSessionInvalidated={
-                        onSessionInvalidated
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+                onSessionInvalidated={onSessionInvalidated}
                 />
             );
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    "Unable to prepare playback."
-                )
+                screen.getByText("Unable to prepare playback.")
             ).toBeInTheDocument();
 
             expect(
                 onSessionInvalidated
             ).not.toHaveBeenCalled();
 
-            expect(
-                loadTrack
-            ).not.toHaveBeenCalled();
+            expect(loadTrack).not.toHaveBeenCalled();
         }
     );
 
@@ -572,55 +549,40 @@ describe("PlaybackBar", () => {
 
             render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
                 />
             );
 
             await waitFor(() => {
-                expect(
-                    loadTrack
-                ).toHaveBeenCalledWith(
+                expect(loadTrack).toHaveBeenCalledWith(
                     3005,
                     expect.objectContaining({
-                        onError:
-                            expect.any(
-                                Function
-                            )
+                        onError: expect.any(Function)
                     })
                 );
             });
 
-            const playbackOptions =
-                loadTrack.mock.calls[0][1];
+            const playbackOptions = loadTrack.mock.calls[0][1];
 
             act(() => {
                 playbackOptions.onError({
                     type: "load",
                     trackId: 3005,
                     soundId: null,
-                    error:
-                        "MEDIA_ERR_SRC_NOT_SUPPORTED"
+                    error: "MEDIA_ERR_SRC_NOT_SUPPORTED"
                 });
             });
 
             expect(
-                await screen.findByText(
-                    "Playback unavailable"
-                )
+                await screen.findByText("Playback unavailable")
             ).toBeInTheDocument();
 
             expect(
-                screen.getByText(
-                    "Unable to play this track."
-                )
+                screen.getByText("Unable to play this track.")
             ).toBeInTheDocument();
 
-            expect(
-                unloadMusic
-            ).toHaveBeenCalled();
+            expect(unloadMusic).toHaveBeenCalled();
         }
     );
 
@@ -629,36 +591,25 @@ describe("PlaybackBar", () => {
         async () => {
             queueSuccessfulPlaybackPreparation();
 
-            const {
-                unmount
-            } = render(
+            const { unmount } = render(
                 <PlaybackBar
-                    trackId={3005}
-                    accessToken={
-                        ACCESS_TOKEN
-                    }
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
                 />
             );
 
             await waitFor(() => {
-                expect(
-                    loadTrack
-                ).toHaveBeenCalledWith(
+                expect(loadTrack).toHaveBeenCalledWith(
                     3005,
                     expect.objectContaining({
-                        onError:
-                            expect.any(
-                                Function
-                            )
+                        onError: expect.any(Function)
                     })
                 );
             });
 
             unmount();
 
-            expect(
-                unloadMusic
-            ).toHaveBeenCalled();
+            expect(unloadMusic).toHaveBeenCalled();
         }
     );
 });
