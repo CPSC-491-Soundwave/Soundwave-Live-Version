@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
-    "test:auth": "node --test test/auth-routes.test.js test/auth.test.js test/hasher.test.js test/login.test.js test/me.test.js test/token.test.js"
+    "test:auth": "node --test test/auth-routes.test.js test/auth.test.js test/hasher.test.js test/login.test.js test/me.test.js test/token.test.js test/logout.test.js test/logout-routes.test.js test/authorization.test.js test/authorization-http.test.js test/request-authorization.test.js test/revocation-auth.test.js test/protected-revocation-routes.test.js test/token-revocation.repository.test.js"
   },
   "dependencies": {
     "argon2": "^0.45.1",
