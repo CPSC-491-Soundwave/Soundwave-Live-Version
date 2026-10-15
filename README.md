@@ -339,13 +339,18 @@ Track `3005` is the current shared media-backed development fixture.
 
 Production feature logic must not assume a fixture ID always exists.
 
-**Favorites seed note (Allison Yu, Sprint 3):** the shared catalog seed
-above does **not** itself prove that `devuser` has Favorites rows. The
-new Favorites migration creates the table only; it does not populate
-`favorites`. The deterministic Favorites fixture was part of the
-Sprint 3 task plan, but its inclusion in the merged repository has not
-been confirmed. For a local development-only manual association, use
-the documented SQL in Section 23.3, not an untracked table creation.
+**Favorites data note (Allison Yu, Sprint 3):** the shared catalog seed
+above seeds catalog metadata, not a development account's Favorites.
+The Favorites migration creates the relation without populating it.
+For a browser demonstration, Allison verified `devuser` (ID 7) had
+Track 3001 saved, and locally inserted Track 3005 without duplicating
+associations; see Section 23.7. This development-only row is distinct
+from the deterministic **test-only** fixture under
+`database/test/fixtures/`, which creates users 9900101 and 9900102 and
+four associations in `soundwave_allison_test` (Section 23.8). Those
+new fixture/test files are locally verified but **pending the current
+SCRUM-228/SCRUM-230 review and merge**, not part of the shared catalog
+seed.
 
 ---
 
@@ -1584,12 +1589,15 @@ creating a competing playback implementation.
 
 ## 23.1 Sprint 3 authenticated Favorites read path — Allison Yu
 
-**Implementation status:** Allison's Favorites read API and follow-up
-`favorites` table migration/README pull requests were merged. Development
-and test migration runs complete and skip the already-recorded migration.
-The React Favorites read UI has also been implemented and tested locally
-in a separate pending AY-S3-03 frontend PR. Verification against a live
-authenticated PostgreSQL Favorites response has not yet been reported.
+**Implementation status (October 15, 2026):** The Favorites read API,
+`favorites` migration, and React Favorites Library integration were
+approved and merged through peer-reviewed PRs. SCRUM-229 is **Done**.
+Allison also merged the Favorites Read Interface Contract v1 under
+SCRUM-231. The physical table, authenticated HTTP `200`, and matching
+React Library cards were verified against the local development database
+(Section 23.7). Separate fixture and HTTP user-isolation verification
+for SCRUM-227/228/230 now passes locally but is **not yet merged** or
+verified in hosted CI (Section 23.8).
 
 The API is:
 
@@ -1712,21 +1720,23 @@ WHERE u.username = 'devuser'
 ORDER BY f.track_id;
 ```
 
-Zero rows are valid when no favorites have been saved. For a controlled
-local demonstration only, this statement inserts **one association**
-using an existing development user and existing track, if available:
+Zero rows are valid when no favorites have been saved. Allison's
+October 15 read-path demonstration used Track `3005` (`Kontekst`). To
+reproduce **only in your local development database**, insert an
+association for an existing development user and that seeded track:
 
 ```sql
 INSERT INTO favorites (user_id, track_id)
 SELECT u.id, t.id
 FROM users AS u
-CROSS JOIN (
-    SELECT id FROM tracks ORDER BY id LIMIT 1
-) AS t
+JOIN tracks AS t ON t.id = 3005
 WHERE u.username = 'devuser'
 ON CONFLICT (user_id, track_id) DO NOTHING
 RETURNING user_id, track_id;
 ```
+
+If Track 3005 is not present, first verify the existing catalog seed
+instead of creating an arbitrary media or Favorites row.
 
 Do not run this fixture SQL against production or shared hosted data.
 The migration itself intentionally has **no automatic Favorites seed**.
@@ -1824,40 +1834,34 @@ principals, controlled error responses, and preservation of the public
 catalog. The HTTP tests use mocked data; they **do not** independently
 prove a live Favorites query against PostgreSQL.
 
-**Later local regression verification (Allison):** After merging the
-shared role-authorization and Favorites migration changes, Allison
-reported running `npm test` in `server/`: **208 passed, 0 failed**.
-She also reported `npm run test:db` (**34 passed, 0 failed**) and
-`npm run test:integrity` (**2 passed, 0 failed**) from `database/`.
-The database test counts do not constitute a dedicated live Favorites
-schema/integration test; retain the separate SQL/API verification below.
+**October 15 regression checkpoint (Allison):** After the latest shared
+changes, `npm run test:auth` passed **95/95** and `npm test` passed
+**222/222** in `server/`. The expanded `database/` suite passed
+**36/36** integration tests plus **2/2** catalog integrity tests.
+The authentication suite overlaps the full backend suite; do not add
+them as independent totals. The extra database and HTTP isolation
+checks currently reside in local work awaiting a reviewed PR.
 
-**Observed live HTTP checks from Allison's earlier local run:**
-`GET /health` returned `200`; unauthenticated
-`GET /api/library/favorites` returned `401` with
-`WWW-Authenticate: Bearer`. The initial query against
-`soundwave_allison_dev` failed with `relation "favorites" does not
-exist`, motivating the now-merged October 11 migration. The migration
-runner later reported the migration filename as already applied in
-both development and test configurations. However, a subsequent
-`SELECT to_regclass('public.favorites')` result and an authenticated
-Favorites response matched to PostgreSQL rows have not been supplied.
-
-**Remaining live evidence:** confirm the table and constraints with
-PostgreSQL; verify deterministic Favorites fixture requirements or track
-them explicitly as unfinished; log in and compare API Track IDs with
-real database associations; optionally verify revoked-token denial;
-and perform browser/API smoke tests before marking end-to-end behavior
-verified. The migration/README PR itself has already been merged.
+**Live PostgreSQL-to-browser evidence:** Allison confirmed that
+`to_regclass('public.favorites')` returned `favorites` and inspected
+the physical primary key, foreign keys and index. She observed a saved
+association for `devuser` (ID 7) / Track 3001, inserted a second
+association for Track 3005, observed authenticated
+`GET /api/library/favorites` return HTTP `200`, and saw `Kontekst`
+and `Fixture Track One` rendered in the React Library. This confirms
+the live read path for the demonstrated development account; see
+Section 23.7. A separate real-PostgreSQL two-principal HTTP isolation
+test now passes **5/5** locally (Section 23.8). Revocation persistence
+is covered by the shared authentication tests; the new isolation test
+stubs revocation so that it isolates principal-scoped Favorites reads.
 
 ## 23.6 Sprint 3 Favorites React client — Allison Yu (AY-S3-03)
 
-**Status:** React implementation and automated integration tests have
-been authored locally for a new peer-reviewed frontend PR; the PR has
-not yet been reported merged. The code reuses the existing shared
-Library route, in-memory `accessToken`, and `onSelectTrack(track.id)`
-callback. It does **not** add authentication storage, a second player,
-or a new Library route.
+**Status:** The Favorites frontend PR was approved and **merged**;
+SCRUM-229 is **Done**. The code reuses the shared Library route,
+in-memory `accessToken`, and `onSelectTrack(track.id)` callback. It does
+**not** add authentication storage, a second player, or a new Library
+route.
 
 Files introduced or modified for this frontend vertical slice:
 
@@ -1935,7 +1939,7 @@ npm run lint
 npm run build
 ```
 
-**Last fully pasted logs (before the final PDF-inspired styling pass):**
+**Verified results after correcting the final Favorites JSX/styling regression:**
 
 | Check | Result |
 |---|---|
@@ -1956,12 +1960,212 @@ Favorites component and verify both endpoints, track selection, and
 independent failures. This prevents one section's fixtures from
 accidentally satisfying another section's assertions.
 
-The final visual styling change was supplied after the above log.
-**Rerun the full test/lint/build commands and record the actual output
-from the working tree before committing**; do not assume the earlier
-63-test snapshot proves the final CSS/JSX version. A live browser
-Favorites HTTP 200, PostgreSQL row matching, and audible playback
-have not been confirmed here by automated mock-based tests.
+The final styling iteration initially duplicated the ready-state
+track list and omitted the empty-state branch. Allison corrected those
+conditions and reran the focused checks (**17/17**) plus the full
+frontend suite (**63/63 across 15 files**), ESLint and Vite build;
+all passed, and the frontend PR was subsequently merged. Live SQL,
+HTTP `200`, and React card evidence was also captured separately
+(Section 23.7). Track selection uses the shared PlaybackBar contract,
+but this does **not** establish reliable authenticated audible playback.
+
+## 23.7 Verified live Favorites read — Allison Yu (SCRUM-228 / SCRUM-229)
+
+**Local development verification (October 12-15, 2026):** This was a
+live check, separate from mocked route/component tests. In
+`soundwave_allison_dev` the `favorites` relation exists with the
+`(user_id, track_id)` composite primary key, foreign keys to `users`
+and `tracks`, and an index on `track_id`. The recorded development
+account was `devuser`, ID `7`.
+
+| Layer | Observed evidence |
+|---|---|
+| PostgreSQL | `devuser` owns saved Track `3001`; a conflict-safe development-only insert added Track `3005` (`Kontekst`, Buddha, No Copyright) |
+| Authorization | Unauthenticated Favorites request returned `401`; a logged-in development session accessed the protected endpoint |
+| HTTP | Browser Network showed `GET /api/library/favorites` returning `200 OK` through Vite's `/api` proxy |
+| React | Library displayed cards for `Fixture Track One` and `Kontekst`, matching the saved database associations |
+| Selection | Favorites forwards the canonical Track ID via the existing `onSelectTrack` callback; audible playback is a separate media-system check |
+
+To inspect the current development state **without changing data**, use
+the host/port and database from the intended local `.env`:
+
+```sql
+SELECT to_regclass('public.favorites');
+SELECT u.id AS user_id, u.username, f.track_id, t.title,
+       a.title AS album_title, ar.name AS artist_name
+FROM favorites AS f
+JOIN users AS u ON u.id = f.user_id
+JOIN tracks AS t ON t.id = f.track_id
+JOIN albums AS a ON a.id = t.album_id
+JOIN artists AS ar ON ar.id = a.artist_id
+WHERE u.username = 'devuser'
+ORDER BY f.track_id;
+```
+
+Do not present these local records as a global application seed or
+repeat the development insertion in shared, staging, or production
+databases. The isolated, version-controlled test fixture is documented
+below.
+
+## 23.8 Deterministic Favorites fixtures and authenticated user isolation — Allison Yu
+
+**Jira:** SCRUM-227 (fixture dependency), SCRUM-228 (protected user
+isolation), SCRUM-230 (fixture and CI verification).
+
+**Integration status (October 15, 2026):** The following files have
+been authored and exercised locally for an upcoming peer-reviewed PR;
+they are **not yet merged or verified on hosted GitHub Actions**:
+
+```text
+database/test/fixtures/20261008_ayu_favorites_test_fixture.sql
+database/test/fixtures/verify_ayu_favorites_fixture.sql
+database/test/favorites-fixture.integration.test.js
+database/package.json                         (test:db registration)
+server/integration/postgres-favorites-isolation.check.mjs
+.github/workflows/ci.yml                      (Database Tests step)
+```
+
+The fixture is **test-only**. It refuses database names not marked
+`test` or `ci`, assumes the catalog seed already established tracks
+3001-3003, and uses conflict-safe inserts. It does **not** seed the
+development `devuser` account and must never be run on production.
+
+| Test principal | User ID | Saved Track IDs |
+|---|---:|---|
+| `ayu_s3_fixture_a` | 9900101 | 3001, 3002 |
+| `ayu_s3_fixture_b` | 9900102 | 3002, 3003 |
+
+The SQL verifier checks the exact two fixture users, four associations,
+correct role/identity expectations, physical Favorites table, and
+joins to tracks, albums, and artists. The JavaScript fixture tests
+run setup twice, assert the same four pairs, deliberately remove one
+association inside a transaction, confirm that the SQL verifier
+rejects missing data, and roll back the transaction.
+
+### Test-only setup and fixture commands (PowerShell)
+
+The commands below use Allison's **local isolated** database as an
+example. Confirm the actual `.env.test` values before executing:
+
+```powershell
+cd database
+node --env-file=.env.test -e "console.log({ database: process.env.PGDATABASE, host: process.env.PGHOST, port: process.env.PGPORT })"
+```
+
+Expected on Allison's workstation:
+
+```text
+{ database: 'soundwave_allison_test', host: 'localhost', port: '5432' }
+```
+
+**Stop** if the connection instead points to a development, shared, or
+production database. Never print the password. With an isolated test
+DB confirmed, and from `database/`:
+
+```powershell
+npm run db:migrate:test
+npm run db:migrate:test
+npm run db:seed:test
+node --env-file=.env.test --test test/favorites-fixture.integration.test.js
+npm run test:integrity
+npm run test:db
+```
+
+The updated `test:db` script registers
+`test/favorites-fixture.integration.test.js` alongside the original
+catalog and revocation database tests. The fixture test reads both SQL
+files from `test/fixtures/` and connects using `PG*` values from
+`.env.test`; no manual `psql` step or interactive password is needed
+for automated CI execution.
+
+For a manual one-time SQL check from the **repository root** (optional),
+using the isolated fixture database only:
+
+```powershell
+psql -h localhost -p 5432 -U soundwave_app `
+  -d soundwave_allison_test -v ON_ERROR_STOP=1 `
+  -f database/test/fixtures/20261008_ayu_favorites_test_fixture.sql
+
+psql -h localhost -p 5432 -U soundwave_app `
+  -d soundwave_allison_test -v ON_ERROR_STOP=1 `
+  -f database/test/fixtures/verify_ayu_favorites_fixture.sql
+```
+
+The fixture was executed twice locally: first run inserted **2 users
+and 4 Favorites**; second run inserted **0 users and 0 Favorites**.
+The verifier reported **PASS: 2 users, 4 exact associations, 4 valid
+catalog joins**. These are local observations, not hosted CI results.
+
+### Authenticated HTTP isolation test
+
+After fixture setup, from `server/`:
+
+```powershell
+node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+npm run test:auth
+npm test
+```
+
+The isolation check uses the real PostgreSQL-backed Favorites repository,
+application HTTP route, and Christian's existing JWT token service. It
+signs test-only tokens for the two fixture principals, starts an
+isolated HTTP server on an ephemeral port, and confirms:
+
+- User A's HTTP `200` contains tracks 3001 and 3002, not 3003.
+- User B's HTTP `200` contains tracks 3002 and 3003, not 3001.
+- Forged `X-User-Id` and `X-Role` headers cannot replace the signed
+  JWT principal.
+- Requests without a token or with malformed tokens return `401`.
+- The returned track objects contain expected metadata and do not
+  expose filesystem media locations.
+
+The isolation test stubs the **revocation repository** so the test can
+focus on user filtering. It does **not** replace Christian's revocation
+implementation or independently test actual PostgreSQL-backed token
+revocation. Existing security tests cover that separate boundary.
+
+### Local verification results (October 15, 2026)
+
+| Command / check | Observed result |
+|---|---|
+| Double migration run | All seven migrations recognized and safely skipped on rerun |
+| `npm run db:seed:test` | Catalog test seed succeeded |
+| Manual Favorites fixture, run twice | 2 users/4 associations; rerun inserted 0 additional rows |
+| SQL Favorites verifier | PASS: 2 users, 4 associations, 4 valid joins |
+| `node --env-file=.env.test --test test/favorites-fixture.integration.test.js` | **2/2 passed** |
+| `npm run test:db` | **36/36 passed** |
+| `npm run test:integrity` | **2/2 passed** |
+| PostgreSQL-backed HTTP Favorites isolation | **5/5 passed** (includes parent test) |
+| `npm run test:auth` | **95/95 passed** |
+| `npm test` (server) | **222/222 passed** |
+| Last merged React frontend regression | **63/63 passed**, ESLint/build passed |
+
+These command totals include overlapping test groups. Do not add the
+authentication and full server counts together or claim that an
+unexecuted hosted job passed.
+
+### CI and PR completion boundary
+
+The existing PostgreSQL 16 **Database Tests** GitHub Actions job already
+runs migrations, seeds the catalog, invokes `npm run test:db`, installs
+server dependencies, and runs the PostgreSQL-backed logout check.
+The new pending change relies on the expanded `test:db` script to
+create/verify Favorites fixtures, then adds this step **after** the
+fixture setup and server dependency installation:
+
+```yaml
+- name: Verify PostgreSQL-backed Favorites user isolation
+  working-directory: server
+  run: node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+```
+
+No new CI workflow or production behavior is required. A **fresh hosted
+Database Tests run** must demonstrate that fixtures exist from a clean
+PostgreSQL service, followed by the user-isolation check. The pending
+verification changes require peer review and merge; Konner should
+review shared workflow changes, while Christian can review auth-test
+boundaries. Until then SCRUM-227/228/230 verification is **locally
+complete, pending hosted CI and reviewed merge**, not Done.
 
 ---
 
@@ -2008,8 +2212,8 @@ npm run lint
 npm run build
 ```
 
-Last fully pasted local frontend regression result (before the
-subsequent PDF-inspired CSS/JSX styling change):
+Final corrected Favorites frontend regression, recorded before the
+frontend PR was approved and merged:
 
 ```text
 Test Files: 15 passed
@@ -2019,8 +2223,9 @@ ESLint:     PASS
 Build:      PASS
 ```
 
-Rerun all three commands on the final working tree before its PR; the
-numbers above are a recorded checkpoint, not a promise of a newer run.
+The recorded 63-test, lint, and build checks passed after fixing the
+final Favorites JSX regression. This is historical merged-front-end
+evidence, not a substitute for rerunning checks after later changes.
 
 Current client coverage includes:
 
@@ -2084,20 +2289,16 @@ The server suite covers areas including:
 - protected Bearer streaming, ticket issuance, cookie-authenticated
   Range behavior, expiration, renewal and session revocation.
 
-Earlier Sprint 3 baselines grew as work merged. Allison verified
-**163/163** server tests at the initial Favorites read-API checkpoint,
-and subsequently reported rerunning the backend suite at **208/208**
-after shared role authorization and the Favorites migration merge.
-This verifies the backend automated suite at that local checkout, not
-a browser-to-PostgreSQL Favorites happy path. Rerun on later shared
-changes and record actual counts. The focused Favorites test files are
-listed in Section 23.5.
-
-Matthew's most recent reported local server run (October 13, 2026)
-finished at **222/222 passing, zero failures**, including nine new
-`media-access.app.test.js` cases. That evidence is local and does not
-prove the live PostgreSQL/browser/deployment paths. Earlier checkpoint
-counts are retained above as historical team evidence.
+Earlier Sprint 3 baselines grew from **163/163** at Allison's initial
+Favorites API milestone to **208/208** after shared authorization.
+On October 15, Allison reran `npm test` locally and observed
+**222/222 passed, 0 failed**, following teammate media changes; she
+also ran the dedicated security suite at **95/95 passed**. These two
+server suites overlap and do not include the separate PostgreSQL HTTP
+Favorites isolation script. That script passed **5/5** locally, and a
+previously verified live development DB/API/React read is documented
+in Sections 23.7-23.8. Hosted CI evidence for the new integration
+work remains pending.
 
 The durable requirement is:
 
@@ -2128,9 +2329,15 @@ npm run test:db
 ```
 
 The repeated migration run verifies that already-applied migrations are
-safely skipped.
+safely skipped. On October 15, Allison's expanded `test:db` reported
+**36/36 passing** and `test:integrity` reported **2/2 passing**. The
+new two-test Favorites fixture suite is registered in the local
+`database/package.json`; see Section 23.8 for fixture setup, isolated
+PostgreSQL safety checks, and the separate signed-JWT HTTP test.
 
 The test database must be separate from the development database.
+The new fixture verification and CI additions have **not** yet been
+merged or verified on hosted GitHub Actions.
 
 ---
 
@@ -2314,6 +2521,13 @@ omitted below.
 │   ├── seeds
 │   │   └── 20260915_ayu_catalog_seed.sql
 │   └── test
+│       ├── catalog-db.integration.test.js
+│       ├── catalog-integrity.test.js
+│       ├── token-revocation-db.integration.test.js
+│       ├── favorites-fixture.integration.test.js       [pending PR]
+│       └── fixtures                                [pending PR]
+│           ├── 20261008_ayu_favorites_test_fixture.sql
+│           └── verify_ayu_favorites_fixture.sql
 │
 ├── docs
 │
@@ -2339,6 +2553,8 @@ omitted below.
 │   │   ├── search
 │   │   ├── app.js
 │   │   └── server.js
+│   ├── integration
+│   │   └── postgres-favorites-isolation.check.mjs    [pending PR]
 │   └── test
 │       ├── media-access.app.test.js
 │       └── media-streaming.test.js
@@ -2802,6 +3018,20 @@ npm run test:integrity
 npm run test:db
 ```
 
+For the SCRUM-228/SCRUM-230 Favorites fixture and user-isolation PR,
+additionally run **after** the database fixture tests:
+
+```bash
+cd ../server
+node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+npm run test:auth
+npm test
+```
+
+Expect 36 database tests, 2 integrity checks, 5 HTTP isolation tests,
+95 security tests, and 222 server tests at the recorded October 15
+checkout. The security test count is included in the full server suite.
+
 Then from the repository root:
 
 ```bash
@@ -2859,6 +3089,15 @@ node --env-file=../database/.env.test --test integration/postgres-logout.check.m
 
 This uses the job's migrated and seeded test database; it does
 not create a separate workflow or replace Compose smoke checks.
+
+**Allison's pending SCRUM-228/SCRUM-230 CI extension:** The database
+`test:db` script runs the new Favorites fixture tests, and a new
+`Verify PostgreSQL-backed Favorites user isolation` step has been
+added locally to the same Database Tests job, after the database
+fixtures and server dependencies. The local scripts and 5/5 HTTP
+isolation checks pass, but the workflow change is **not yet merged**
+and **has no confirmed hosted CI result**. See Section 23.8 for exact
+paths, test data, run commands and verification boundaries.
 
 The project also uses build metadata for traceability.
 
@@ -3032,34 +3271,46 @@ Current Sprint 3 work includes:
 - client session integration;
 - Search-to-Playback orchestration;
 - **Allison Yu's merged, authenticated Favorites read API**;
-- **Allison's merged October 11 Favorites table migration**; development
-  and test migration runs now skip its recorded filename (physical table
-  and live Favorites API read remain separate verification);
+- **Allison's merged October 11 Favorites table migration**; the
+  physical table and constraints were verified in PostgreSQL and the
+  authenticated API-to-React read path was demonstrated live;
+- **Allison's merged React Favorites Library feature (SCRUM-229 Done)**
+  and merged Favorites Read Interface Contract v1 (SCRUM-231);
+- deterministic Favorites CI fixture and real-PostgreSQL two-user HTTP
+  isolation checks passing locally (SCRUM-227/228/230; PR/hosted CI
+  pending);
 - cross-feature regression coverage;
 - midterm integration preparation.
 
-### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02 / AY-S3-03)
+### Allison Yu — Sprint 3 Favorites (SCRUM-227 through SCRUM-231)
 
-Allison authored a vertical slice across the Favorites schema,
-principal-scoped PostgreSQL repository query, catalog service mapping,
-authenticated read API, React Library UI, component/integration tests,
-and documentation. The read-API PR and later migration/README PR were
-merged. Development and test migration runs recognize the recorded
-migration; the deterministic Favorites seed requirement still needs
-explicit closure, and a live authenticated PostgreSQL read is not yet
-confirmed. The Favorites frontend work is local and pending its own
-peer-reviewed PR.
+Allison authored the Favorites vertical slice: PostgreSQL schema,
+principal-scoped repository, catalog service mapping, authenticated
+read API, React Library cards, component/integration tests, and
+interface documentation. The API, migration, frontend implementation,
+and Favorites Read Interface Contract v1 PRs were merged, and SCRUM-229
+is marked Done. Allison verified the actual Favorites relation,
+`devuser`/tracks 3001 and 3005, HTTP `200` and matching React Library
+cards on the local development stack.
 
-The client uses the existing in-memory access token and shared
-`onSelectTrack(track.id)` interface instead of reimplementing
-Christian's JWT authorization, Konner's navigation/session design, or
-Matthew/Emmanuel's playback pipeline. The last fully pasted client
-verification logs show **63/63 tests**, clean ESLint, and a successful
-Vite build. PDF-inspired card styling has been supplied since those
-logs, so rerun checks before committing the final working tree.
-Artwork when present, a dedicated Library Favorites tab, and filled
-saved-state hearts were explicitly deferred rather than implemented.
-Details and commands are in Sections 23.1–23.6.
+Additional local work for SCRUM-227/228/230 adds deterministic SQL test
+fixtures (two users/four Favorites), automated negative fixture checks
+with rollback, and real-PostgreSQL HTTP user isolation with signed JWTs
+and spoofed-header rejection. The database tests passed **36/36** plus
+**2/2** integrity; HTTP isolation passed **5/5**; authentication passed
+**95/95**; and the full server suite passed **222/222** (overlapping
+suites). The existing Database Tests CI job has been extended locally
+to invoke isolation testing after fixture setup. **This new test/CI
+change set is pending PR review, hosted CI, and merge**; do not mark
+SCRUM-227/228/230 Done based on local testing alone.
+
+The frontend PR was merged following corrected JSX/CSS regression runs:
+**63/63 client tests**, ESLint, and Vite build all passed. The client
+retains the shared in-memory token and `onSelectTrack(track.id)` seam;
+no second player or custom authentication was introduced. Album artwork
+where available, a dedicated Favorites Library tab, and filled-heart
+saved-state indicators remain explicitly deferred. Selection handoff
+does not establish protected audible playback. See Sections 23.1–23.8.
 
 Emmanuel's current Sprint 3 Search-to-Playback happy path is implemented
 and verified through:
