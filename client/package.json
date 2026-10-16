@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:search-to-play": "vitest run src/components/PlaybackBar.test.jsx src/App.search-playback.test.jsx"
   },
   "dependencies": {
     "howler": "^2.2.4",
