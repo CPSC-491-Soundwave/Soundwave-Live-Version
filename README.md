@@ -3351,6 +3351,52 @@ and verified.
 
 ---
 
+## 34.2 Sprint 3 Compose reliability verification — Konner Rigby
+
+Sprint 3 expanded the existing Docker Compose runtime smoke test with
+independent startup/readiness, failure-propagation, and cleanup checks.
+The existing `compose.yml`, `compose.ci.yml`, and
+`.github/workflows/ci.yml` did not require changes for the additional
+smoke-test timeout fix.
+
+| Jira / contribution | Verification | Evidence |
+|---|---|---|
+| SCRUM-186 — startup/readiness | Bounded startup, readiness retries, timeout/failure detection | [PR #102](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/102) |
+| SCRUM-181 — runtime failure propagation | Four controlled backend/client/health/startup failure scenarios passed | [PR #118](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/118) |
+| SCRUM-185 — cleanup verification | Three success/failure/repeated-start scenarios passed; containers, networks and test-owned volumes checked | [PR #120](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/120) |
+| Additional CI reliability | Improved smoke-test request timeout handling; three consecutive local runs passed | [PR #126](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/126) |
+
+PR #126 was approved and merged with 11/11 GitHub checks passing.
+A passing CI run does not prove that intermittent timing failures can
+never recur.
+
+From the repository root, run the existing automated checks with the
+appropriate local Docker and environment configuration:
+
+```bash
+node scripts/compose-failure-tests.mjs
+node scripts/compose-cleanup-tests.mjs
+node scripts/compose-smoke-test.mjs
+```
+
+The smoke test starts and tears down its Compose services. When `CI`
+is set, it uses both `compose.yml` and `compose.ci.yml`; do not run it
+against an active local test database you intend to preserve without
+reviewing its cleanup behavior.
+
+**Local protected playback verification:** Konner additionally tested
+Track 3005 (`Kontekst`) against a disposable Docker PostgreSQL database.
+The host's `mediaFiles/test.mp3` was absent from the server image, so a
+**local-only, uncommitted** Compose override mounted
+`./mediaFiles` read-only at `/soundwave/mediaFiles` and set
+`MEDIA_ROOT=/soundwave`. The server could then access the fixture;
+Firefox confirmed Library selection, player continuity and audible
+playback. This does **not** mean the default shared Compose files now
+provide a media mount or that the standard CI smoke test verifies audio.
+Do not commit local secrets or machine-specific overrides.
+
+---
+
 # 35. Environment and Secret Rules
 
 Never commit:
@@ -3567,6 +3613,52 @@ phase. As Sprint 1's media spike author, Matthew should **not** be
 primary owner of Sprint 4's largest streaming slice; his later work
 must continue spanning the eight contribution areas through separate
 vertical slices.
+
+---
+
+## 36.2 Konner Rigby — Sprint 3 CI/CD and independent testing
+
+Konner completed the Sprint 3 Library/Compose testing story
+[SCRUM-174](https://491group1.atlassian.net/browse/SCRUM-174)
+and the navigation/session-continuity story
+[SCRUM-200](https://491group1.atlassian.net/browse/SCRUM-200).
+Both parent stories and their recorded testing subtasks were marked
+Done. This work adds regression and operational evidence to existing
+shared application contracts rather than replacing teammates' feature
+implementations.
+
+| Jira | Test scope and recorded result | Evidence |
+|---|---|---|
+| SCRUM-201 | Client route-guard navigation decision table; 9 tests passed | [PR #100](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/100) |
+| SCRUM-202 | Manual six-route navigation/player continuity walkthrough; results recorded in Jira | [Jira](https://491group1.atlassian.net/browse/SCRUM-202) |
+| SCRUM-178 | Library-to-Playback integration: recently added, Favorites, and navigation continuity; 3 tests passed | [PR #122](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/122) |
+| SCRUM-180 | Library malformed response, network failure and stale-token response; 3 tests passed | [PR #128](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/128) |
+| SCRUM-188 | Firefox manual Library/playback verification; nine areas checked, including keyboard interaction, navigation, controlled missing-media errors and audible Track 3005 | [Jira](https://491group1.atlassian.net/browse/SCRUM-188) |
+| SCRUM-189 | Individual test plan and Sprint 3 evidence consolidation | [Jira](https://491group1.atlassian.net/browse/SCRUM-189) |
+
+The client suite at Konner's SCRUM-180 verification checkpoint passed
+**100/100 tests across 20 files**, with ESLint and Vite build passing.
+This is the **whole client suite**, not 100 tests authored by Konner.
+It is a later, separate local checkpoint from the 97-test checkout
+recorded elsewhere in this README; always report the actual current
+checkout's output.
+
+Manual SCRUM-188 testing used Firefox, a local Docker Compose stack,
+a seeded PostgreSQL database and an authenticated test account.
+Four fixture tracks had no `media_path`, so controlled playback
+unavailability was expected for those tracks; only Track 3005 had a
+configured MP3. The Firefox console showed Track 3005 loaded,
+playing and paused without unexpected errors during the recorded
+walkthrough. These observations are not a substitute for HTTP Range,
+media-ticket-expiry, or production deployment tests.
+
+Future individual testing is tracked separately in the Jira backlog:
+Sprint 4 [SCRUM-251](https://491group1.atlassian.net/browse/SCRUM-251)
+(SCRUM-252–254), Sprint 5
+[SCRUM-258](https://491group1.atlassian.net/browse/SCRUM-258)
+(SCRUM-259–260), and Sprint 6
+[SCRUM-264](https://491group1.atlassian.net/browse/SCRUM-264)
+(SCRUM-265–266). These are **planned**, not completed Sprint 3 work.
 
 ---
 
