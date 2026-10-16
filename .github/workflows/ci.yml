@@ -31,8 +31,32 @@ jobs:
         run: npm ci
 
       - name: Run server tests
+        id: server_tests
         working-directory: server
-        run: npm test
+        run: |
+          mkdir -p ../artifacts/ci
+          status=0
+          npm test -- --experimental-test-coverage > ../artifacts/ci/server-console.txt 2>&1 || status=$?
+          cat ../artifacts/ci/server-console.txt
+          exit "$status"
+
+      - name: Summarize server test results
+        if: ${{ always() }}
+        env:
+          TEST_STEP_OUTCOME: ${{ steps.server_tests.outcome }}
+        run: |
+          node scripts/ci-results-report.mjs server artifacts/ci/server-console.txt artifacts/ci "$TEST_STEP_OUTCOME"
+
+      - name: Upload server test report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundwave-ci-server-${{ github.run_number }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            artifacts/ci/server-results.json
+            artifacts/ci/server-summary.md
+          if-no-files-found: warn
+          retention-days: 30
 
 
   media-regression:
@@ -272,8 +296,32 @@ jobs:
         run: npm ci
 
       - name: Run client tests
+        id: client_tests
         working-directory: client
-        run: npm run test:run
+        run: |
+          mkdir -p ../artifacts/ci
+          status=0
+          CI=1 NO_COLOR=1 npm run test:run > ../artifacts/ci/client-console.txt 2>&1 || status=$?
+          cat ../artifacts/ci/client-console.txt
+          exit "$status"
+
+      - name: Summarize client test results
+        if: ${{ always() }}
+        env:
+          TEST_STEP_OUTCOME: ${{ steps.client_tests.outcome }}
+        run: |
+          node scripts/ci-results-report.mjs client artifacts/ci/client-console.txt artifacts/ci "$TEST_STEP_OUTCOME"
+
+      - name: Upload client test report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundwave-ci-client-${{ github.run_number }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            artifacts/ci/client-results.json
+            artifacts/ci/client-summary.md
+          if-no-files-found: warn
+          retention-days: 30
 
   search-to-play-regression:
     name: Search-to-Play Regression
