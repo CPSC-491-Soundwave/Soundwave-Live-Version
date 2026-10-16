@@ -368,6 +368,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -422,6 +424,70 @@ jobs:
       - name: Verify PostgreSQL-backed Favorites user isolation
         working-directory: server
         run: node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+
+      - name: Create isolated forward-compatibility database
+        working-directory: database
+        run: |
+          node --env-file=.env.test --input-type=module <<'NODE'
+          import pg from 'pg';
+
+          const client = new pg.Client();
+
+          try {
+            await client.connect();
+
+            const { rows: [connection] } = await client.query(
+              'SELECT current_database() AS database_name, current_user AS role_name'
+            );
+
+            // The database creation step must connect
+            // through the existing disposable CI database.
+            if (
+              connection.database_name !== 'soundwave_allison_test' ||
+              connection.role_name !== 'soundwave_app'
+            ) {
+              throw new Error(
+                'Unexpected CI database connection; refusing database creation'
+              );
+            }
+
+            // A fresh CI service must not already have
+            // the forward-compatibility rehearsal database.
+            const { rows: existing } = await client.query(
+              'SELECT 1 FROM pg_database WHERE datname = $1',
+              ['soundwave_ayu_forward_test']
+            );
+
+            if (existing.length !== 0) {
+              throw new Error(
+                'Forward-compatibility database already exists'
+              );
+            }
+
+            // PostgreSQL CREATE DATABASE must run outside
+            // an explicit transaction.
+            await client.query(
+              'CREATE DATABASE soundwave_ayu_forward_test'
+            );
+
+            console.log(
+              'PASS: created isolated forward-compatibility database'
+            );
+          } finally {
+            await client.end();
+          }
+          NODE
+
+      - name: Verify populated-schema migration forward compatibility
+        working-directory: database
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: soundwave_app
+          PGPASSWORD: soundwave_ci_only_password
+          PGDATABASE: soundwave_ayu_forward_test
+        run: node test/forward-migration-bootstrap.mjs
+
 
 
   build-metadata:
