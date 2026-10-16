@@ -348,6 +348,11 @@ jobs:
         working-directory: server
         run: node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
 
+      - name: Verify PostgreSQL-backed Favorites user isolation
+        working-directory: server
+        run: node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+
+
   build-metadata:
     name: Build Metadata
     runs-on: ubuntu-latest

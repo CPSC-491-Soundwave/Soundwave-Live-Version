@@ -1,3 +1,4 @@
+
 import { Howl } from "howler";
 
 let music = null;
@@ -9,13 +10,15 @@ let loadedTrackId = null;
  * The client only needs the stable catalog Track ID.
  * It does not know the physical media path.
  *
- * onError allows the React playback UI to surface
- * controlled media-load/playback failures without
- * owning the media implementation itself.
+ * Callbacks allow the React playback UI to respond
+ * to actual Howler playback events.
  */
 export function loadTrack(
     trackId,
     {
+        onPlay,
+        onPause,
+        onEnd,
         onError
     } = {}
 ) {
@@ -65,59 +68,77 @@ export function loadTrack(
         // Explicitly identify the audio format.
         format: ["mp3"],
 
-        volume: 0.5,
+            volume: 0.5,
 
-        /*
-         * HTML5 Audio is appropriate for the
-         * backend HTTP byte-range streaming path.
-         */
-        html5: true,
+            /*
+             * HTML5 Audio is appropriate for the
+             * backend HTTP byte-range streaming path.
+             */
+            html5: true,
 
-        onload: () => {
-            console.log(
-                `Track ${trackId} loaded`
-            );
-        },
+            onload: () => {
+                console.log(
+                    `Track ${trackId} loaded`
+                );
+            },
 
-        onplay: () => {
-            console.log(
-                `Track ${trackId} playing`
-            );
-        },
+            onplay: () => {
+                console.log(
+                    `Track ${trackId} playing`
+                );
 
-        onpause: () => {
-            console.log(
-                `Track ${trackId} paused`
-            );
-        },
+                if (
+                    typeof onPlay === "function"
+                ) {
+                    onPlay();
+                }
+            },
 
-        onend: () => {
-            console.log(
-                `Track ${trackId} finished`
-            );
-        },
+            onpause: () => {
+                console.log(
+                    `Track ${trackId} paused`
+                );
 
-        onloaderror: (
-            id,
-            error
-        ) => {
-            reportError(
-                "load",
+                if (
+                    typeof onPause === "function"
+                ) {
+                    onPause();
+                }
+            },
+
+            onend: () => {
+                console.log(
+                    `Track ${trackId} finished`
+                );
+
+                if (
+                    typeof onEnd === "function"
+                ) {
+                    onEnd();
+                }
+            },
+
+            onloaderror: (
                 id,
                 error
-            );
-        },
+            ) => {
+                reportError(
+                    "load",
+                    id,
+                    error
+                );
+            },
 
-        onplayerror: (
-            id,
-            error
-        ) => {
-            reportError(
-                "play",
+            onplayerror: (
                 id,
                 error
-            );
-        }
+            ) => {
+                reportError(
+                    "play",
+                    id,
+                    error
+                );
+            }
     });
 
     return music;

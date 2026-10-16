@@ -108,6 +108,12 @@ Vite client
 Docker Compose is available for packaging and runtime smoke verification,
 but it is not required for the normal direct local-development workflow.
 
+**Local path note:** Commands below sometimes use `~/Soundwave-Live-Version`
+(the clone example). Matthew's verified workstation checkout is
+`~/Documents/Projects/Soundwave-Live-Version`. Run commands from **your
+actual repository checkout**, not blindly from the example directory.
+Section 28.1 provides the verified three-terminal Sprint 3 demo sequence.
+
 ## 3.1 Clone
 
 ```bash
@@ -339,13 +345,18 @@ Track `3005` is the current shared media-backed development fixture.
 
 Production feature logic must not assume a fixture ID always exists.
 
-**Favorites seed note (Allison Yu, Sprint 3):** the shared catalog seed
-above does **not** itself prove that `devuser` has Favorites rows. The
-new Favorites migration creates the table only; it does not populate
-`favorites`. The deterministic Favorites fixture was part of the
-Sprint 3 task plan, but its inclusion in the merged repository has not
-been confirmed. For a local development-only manual association, use
-the documented SQL in Section 23.3, not an untracked table creation.
+**Favorites data note (Allison Yu, Sprint 3):** the shared catalog seed
+above seeds catalog metadata, not a development account's Favorites.
+The Favorites migration creates the relation without populating it.
+For a browser demonstration, Allison verified `devuser` (ID 7) had
+Track 3001 saved, and locally inserted Track 3005 without duplicating
+associations; see Section 23.7. This development-only row is distinct
+from the deterministic **test-only** fixture under
+`database/test/fixtures/`, which creates users 9900101 and 9900102 and
+four associations in `soundwave_allison_test` (Section 23.8). Those
+new fixture/test files are locally verified but **pending the current
+SCRUM-228/SCRUM-230 review and merge**, not part of the shared catalog
+seed.
 
 ---
 
@@ -897,41 +908,35 @@ A successful run must report `fail 0`.
 
 ## 15.4 Sprint 3 local playback verification — Matthew Choi (SCRUM-170)
 
-The following was verified on the developer's local PostgreSQL +
-Node.js + React/Vite setup after the media-root change:
+**October 15, 2026 update:** The earlier pre-protection album playback
+checkpoint is retained for history, but authenticated browser playback
+has now also been verified on Matthew's local PostgreSQL + Node.js +
+React/Vite stack. The results below are **actual local observations**,
+not merely expectations from mocked tests.
 
 | Verification | Observed result |
 |---|---|
-| `GET /api/catalog/tracks/3005` | `200`, `Kontekst` / `Buddha` / `No Copyright` |
-| `GET /api/tracks/3005/stream` with `Range: bytes=0-999` | `206 Partial Content` |
-| Open `/albums/2003` and select Track 3005 | Real audio played in the shared PlaybackBar |
+| `GET /api/catalog/tracks/3005` | HTTP `200` (`Kontekst`, `Buddha`, `No Copyright`) |
+| `POST /api/tracks/3005/media-access` after login | HTTP `204` in Firefox Network |
+| `GET /api/tracks/3005/stream` through native Howler audio | HTTP `206` in Firefox Network (two successful Range requests observed) |
+| Track 3005 playback | Audible in the shared React PlaybackBar |
+| Playback status transitions | **Playing** and **Paused** confirmed in the browser; **Finished** covered by a mocked component test, not separately verified live |
+| Stream request without credentials, with Range header | HTTP `401 Unauthorized` from `curl` |
+| New playback request after logout | Rejected in the browser (user-confirmed) |
 
-The table above is a **historical pre-protection checkpoint**, not
-proof that the currently protected Howler player can stream without
-a credential. To reproduce current backend behavior, obtain a fresh
-JWT and use the authenticated Range command in Section 15.1, or use
-a scoped media cookie as documented in Section 15.5. An anonymous
-stream request now correctly returns `401`.
+The authenticated browser flow uses the short-lived `sw_media` cookie
+issued by the media-access POST; direct anonymous streaming must remain
+`401`. Browser `206` responses prove Range transfer, but the recorded
+session does **not** separately prove seeking behavior after cookie
+expiration or automatic renewal. See Sections 15.5 and 15.7.
 
-After Emmanuel's frontend credential handoff is integrated, open
-`http://localhost:5173/albums/2003` (or the Vite port shown), select
-Track 3005, and confirm audible playback, seek/Range (`206`), Play,
-Pause and Volume. Browser Network errors `401`, `403` or `503` need
-separate inspection; Howler's generic media load error does not expose
-the precise HTTP status. **Current protected browser playback has not
-been verified by the backend test run.**
-
-Track `3005` must use audio covered by `mediaFiles/license.txt` or
-another documented public-domain, Creative Commons, or owned fixture.
-The current seed/API displays `durationMs: 12345`; confirm that the seed
-value matches the actual audio metadata before making duration-accuracy
-claims in a graded demo.
-
-These historical checks documented **direct local playback before the
-new credential requirement**; they do not verify protected browser
-playback or media accessibility inside Docker Compose. Container audio
-remains a separate verification.
-
+The fixture is `mediaFiles/test.mp3` mapped to Track `3005`. Before a
+graded demo, verify its permitted use is documented by
+`mediaFiles/license.txt` (public domain, appropriately licensed Creative
+Commons, or a recording the team owns). The current catalog seed reports
+`durationMs: 12345`; do not claim duration accuracy until it has been
+reconciled with the real media metadata. Playback inside Docker Compose
+is not yet verified.
 ## 15.5 Sprint 3 track-scoped media tickets — Matthew Choi
 
 The backend now includes these Matthew-owned modules:
@@ -1046,12 +1051,16 @@ rm -f "$COOKIE_JAR"
 unset COOKIE_JAR SW_TOKEN SW_USER
 ```
 
-These commands confirm the **live HTTP backend only**. They are not
-evidence of Firefox storing cookies via Vite or Howler actually playing
-audio; Emmanuel owns the client-side issuance, renewal, error UX and
-Search-to-Play tests. A native HTML5 `<audio>` element does not expose
-HTTP `401`/`503` directly to Howler, so client auth-specific error UX
-must use the observable issuance/renewal HTTP responses.
+These commands confirm the **live HTTP backend only**. Independent
+Firefox/Vite/Howler observations on October 15 also confirmed a `204`
+POST, native-audio `206` Range requests, audible playback, and Play/Pause
+feedback (Section 15.7). Do not conflate those browser observations with
+proof of automatic cookie renewal after expiry. Emmanuel owns the
+shared client playback interface and its initial credential handoff;
+Matthew contributed focused event-state and negative-path regression
+work without creating a second player. A native HTML5 `<audio>` element
+does not expose HTTP `401`/`503` directly to Howler, so client
+auth-specific error UX relies on the observable issuance response.
 
 ## 15.6 Sprint 3 media-ticket automated evidence
 
@@ -1063,7 +1072,7 @@ node --test test/media-streaming.test.js
 npm test
 ```
 
-**Matthew's reported local checkout (October 13, 2026):**
+**Matthew's reported local checkout (reconfirmed October 15, 2026):**
 
 | Verification | Observed outcome |
 |---|---|
@@ -1076,30 +1085,82 @@ The nine media-access application tests verify issuance, cookie-based
 `401`, source-session revocation `401`, database outage `503`, ticket
 renewal, Bearer precedence, and exclusion of media cookies from
 `/auth/me`. They use a temporary synthetic audio fixture, not a live
-PostgreSQL database or real browser. A successful suite is **not**
-proof of deployed secrets, actual `204`/`206` live responses, browser
-seeking, or CI/Docker readiness. Record those separately before merge.
+PostgreSQL database or real browser. A successful suite by itself is **not** proof of a deployed stack.
+Live browser `204`/`206` evidence was subsequently collected on October
+15 (Section 15.7); automatic renewal after expiration, long-running
+seeking, and container audio remain separately unverified.
+
+## 15.7 October 15 protected-playback and HTTP regression evidence — Matthew Choi
+
+This table captures reproducible **local** verification across the
+existing backend, shared client, and browser. It is not a hosted CI
+report and does not establish that the current PR was merged.
+
+| Check | Actual October 15 result | Evidence method |
+|---|---|---|
+| `node --test test/media-access.app.test.js` | **9/9 passed** | Node test runner |
+| `npm test` from `server/` | **222/222 passed**, 0 failed | Node test runner |
+| `npx vitest run src/components/PlaybackBar.test.jsx` | **13/13 passed** | Vitest |
+| `npx vitest run src/App.search-playback.test.jsx` | **6/6 passed** | Vitest |
+| `npm run test:run` from `client/` | **97/97 passed** in 19 files | Vitest |
+| `npm run lint` and `npm run build` | **Both passed** | ESLint / Vite |
+| Anonymous `GET /api/tracks/3005/stream` with Range | **401** | Live `curl` |
+| Catalog `GET /api/catalog/tracks/999999` | **404**, `{"error":"track_not_found"}` | Live `curl` |
+| Catalog `GET /api/catalog/tracks/3005` | **200** | Firefox Network |
+| Login-authenticated `POST /api/tracks/3005/media-access` | **204** | Firefox Network |
+| Browser `GET /api/tracks/3005/stream` | **206**, repeated Range requests | Firefox Network |
+| Actual Track 3005 audio; Play/Pause states | **Confirmed** | User's local browser check |
+| New playback after logout | **Rejected** | User's local browser check |
+| Invalid Range and missing media file | **416** and **404** respectively | Automated `media-streaming.test.js`, not direct browser checks |
+
+The status codes `401`, `404`, `416`, and `503` in negative-path tests
+represent *expected rejection*, not unresolved defects. An unavailable
+media-access `404` produces a visible `Playback unavailable` error in
+`PlaybackBar.test.jsx`; a separate live-browser missing-media fixture
+was not documented. Test fixtures for media must be rights-cleared.
+
+Minimal negative check with the backend running:
+
+```bash
+curl -i -H 'Range: bytes=0-99' \
+  http://localhost:8080/api/tracks/3005/stream
+curl -i http://localhost:8080/api/catalog/tracks/999999
+```
+
+Expect `401` and `404` respectively. Do **not** print signed cookies,
+JWTs or private credentials in Jira, terminal captures, or PRs. For the
+full browser demonstration follow Section 28.1.
 
 ---
 
 # 16. Important Sprint 3 Media/Auth Boundary
 
-The protected streaming **backend** is implemented: Matthew's route
-checks Christian's revocation-aware Bearer authentication or a valid
-track-scoped media cookie before accessing the catalog and filesystem.
-Automated streaming and media-ticket tests passed (Section 15.6).
+**Current local status (October 15): the initial protected browser
+playback path is working.** Howler `html5: true` does not attach a login
+Bearer token to native audio requests; the shared PlaybackBar therefore
+uses the authenticated `POST /api/tracks/:id/media-access` before
+loading the Track. The short-lived, path-scoped HttpOnly cookie is then
+sent by the browser to `GET /api/tracks/:id/stream`, including Range
+requests. Firefox showed a `204` POST, `206` GET requests, and audible
+playback with Playing/Paused feedback.
 
-The **browser-to-media integration is not yet complete**: Howler with
-`html5: true` does not attach the login Bearer header automatically.
-Emmanuel owns acquiring or renewing the media cookie via the new POST
-endpoint before playback, and implementing observable `401`/`403`/`503`
-UX. Matthew owns ticket issuance/verification and protected Range
-behavior; Christian reviews JWT/session-revocation requirements.
+**Ownership boundaries:** Christian's existing JWT, role and revocation
+services supply the login-security contract. Matthew authored media
+storage confinement, media-ticket issuance/verification, protected
+stream tests, and the bounded event/error regression changes described
+in Section 36.1. Emmanuel's existing Search/App/PlaybackBar interface
+remains the shared frontend; no standalone HTML test page or second
+player is shipped. Review changes to that shared interface with
+Emmanuel. Backend stream authorization is **not** proof of copyright
+ownership or individual song-purchase entitlements.
 
-The authenticated Range backend tests must not be presented as proof
-of protected audible playback. Verify real browser playback and seeking
-before the October 22 midterm. Do not disable authorization to make
-the player appear to work. See Sections 15.5 and 15.6.
+**Limitations:** This local happy path has not established native audio
+seeking after ticket expiration, unattended media-cookie renewal, an
+accurate seeded duration, production HTTPS deployment, or media mounts
+inside Docker Compose. The independent media-ticket secret and
+revocation table remain mandatory. Do not disable authorization to
+make playback work. The course's October 22 midterm demo can use the
+verified initial playback path, with rights-cleared audio only.
 
 ---
 
@@ -1124,33 +1185,36 @@ Current client routes include:
 
 # 18. Shared Playback Architecture
 
-The application has one shared playback state in `App.jsx`.
-
-Conceptually:
+The application has one shared selected Track in `App.jsx` and one
+shared `PlaybackBar` (rather than a second standalone HTML player).
+The protected browser handoff is:
 
 ```text
-Feature page
-    |
-    | onSelectTrack(track.id)
-    v
-App.jsx selectedTrackId
-    |
-    v
-PlaybackBar
-    |
-    +--> GET /api/catalog/tracks/:id
-    |
-    v
-loadTrack(track.id)
-    |
-    v
-Howler
-    |
-    v
-GET /api/tracks/:id/stream
+Search / Album Detail / Library
+    -> onSelectTrack(track.id)
+    -> App.jsx selectedTrackId
+    -> PlaybackBar.jsx
+       -> GET /api/catalog/tracks/:id  (metadata)
+       -> POST /api/tracks/:id/media-access
+          Authorization: Bearer <login JWT>  -> 204 + HttpOnly sw_media
+       -> client/src/playback/playback.js loadTrack(id)
+          -> Howler (html5: true)
+          -> GET /api/tracks/:id/stream + browser cookie
+             -> 200 full stream / 206 Range response
+       <- Howler onplay / onpause / onend / onloaderror / onplayerror
+       -> Ready to play / Playing / Paused / Finished / visible error
 ```
 
-Feature pages should reuse this seam rather than create separate players.
+Howler events drive the visible state; clicking Play alone does **not**
+claim sound has started. A `401` from media-access triggers sign-in
+handling, `403` preserves the session with an access-denied message,
+and `503` preserves the session with a temporary-auth-unavailable
+message. Other preparation and load failures produce controlled UI
+errors. The streaming response is not permitted to expose physical
+media paths or bypass session revocation.
+
+Feature pages should reuse this seam rather than create separate
+players; the client uses the canonical `tracks.id` across features.
 
 ---
 
@@ -1235,8 +1299,13 @@ PlaybackBar
     ↓
 GET /api/catalog/tracks/3005
     ↓
-loadTrack(3005)
+POST /api/tracks/3005/media-access (204)
+    ↓
+loadTrack(3005) and native GET /stream (206)
 ```
+
+The current integration suite also covers permission responses,
+visible playback failures, and the Howler `onPlay` state handoff.
 
 ---
 
@@ -1256,7 +1325,12 @@ With PostgreSQL, backend, and frontend running:
 7. click the PlaybackBar Play control;
 8. verify audio plays.
 
-This happy-path integration has been manually verified.
+**October 15 update:** The protected happy path was manually verified:
+`GET` metadata `200`, media-access `POST` `204`, native-audio Range
+`GET` `206`, audible audio, and Playing/Paused UI feedback. The user
+also confirmed that new playback is rejected after logout. These
+observations are separate from the mocked integration tests and do not
+establish automated ticket renewal after expiration.
 
 ---
 
@@ -1453,6 +1527,53 @@ Section 15; they do not revalidate a user's changed role against
 PostgreSQL on every request, implement login-token refresh, or finish
 client-side handling for expired sessions and `401`/`403`.
 
+## 20.6 Dedicated Security Regression Gate (SCRUM-207 / SCRUM-208)
+
+The existing GitHub Actions **Authentication Security** job invokes
+`npm run test:auth` from `server/`. SCRUM-207 extends this dedicated command
+from six foundational test files to fourteen security regression test files.
+All these files were already exercised by the full `npm test` suite; this
+change makes their coverage explicit in the dedicated security check.
+
+| Security test group | Files | Verified regression areas |
+|---|---:|---|
+| Authentication foundation | 6 | Login, password hashing, JWT issuance/verification, `/auth/me` |
+| Logout and revocation storage | 3 | Token-specific logout, independent sessions, revocation repository errors |
+| Authorization | 3 | Explicit roles, 401/403, forged role headers, policy failure |
+| Revocation enforcement | 2 | Protected routes, revoked/invalid JWTs, fail-closed errors |
+
+The fourteen files are defined explicitly in `server/package.json` under
+`test:auth`. From the repository root, run:
+
+```bash
+cd server
+npm run test:auth
+npm test
+```
+
+**Local verification on October 14, 2026:** the expanded dedicated security
+command passed **95/95 tests**; the full backend suite passed **222/222**.
+The suites overlap; these totals must not be added together. CI verification
+for this Block 5 change is pending its own pull request and review.
+
+The documented authentication/authorization response distinctions remain:
+
+- `401 Unauthorized`: missing, invalid, expired, or revoked access token.
+- `403 Forbidden`: authenticated principal lacking an explicitly permitted role.
+- `503 Service Unavailable`: fail-closed revocation lookup failure; existing
+  configuration failures may also map to `503` as explained in Section 20.5.
+
+The current production routes in Section 20.5 permit both `user` and `admin`.
+The administrator-only and `403` role cases are verified by test-only policy
+fixtures, not by introducing a new production administrator endpoint.
+
+**Scope and limitations:** this dedicated Node test command does not replace
+PostgreSQL-backed logout integration, Database Tests, frontend/browser session
+checks, or Matthew Choi's media-access regression tests. Broader cross-feature
+authorization scenarios and contract-change verification are reserved for
+SCRUM-210 and SCRUM-213. No secrets, raw JWTs, or user credentials should be
+included in test logs or CI artifacts.
+
 ---
 
 # 21. Authentication Foundation
@@ -1537,12 +1658,15 @@ creating a competing playback implementation.
 
 ## 23.1 Sprint 3 authenticated Favorites read path — Allison Yu
 
-**Implementation status:** Allison's Favorites read API and follow-up
-`favorites` table migration/README pull requests were merged. Development
-and test migration runs complete and skip the already-recorded migration.
-The React Favorites read UI has also been implemented and tested locally
-in a separate pending AY-S3-03 frontend PR. Verification against a live
-authenticated PostgreSQL Favorites response has not yet been reported.
+**Implementation status (October 15, 2026):** The Favorites read API,
+`favorites` migration, and React Favorites Library integration were
+approved and merged through peer-reviewed PRs. SCRUM-229 is **Done**.
+Allison also merged the Favorites Read Interface Contract v1 under
+SCRUM-231. The physical table, authenticated HTTP `200`, and matching
+React Library cards were verified against the local development database
+(Section 23.7). Separate fixture and HTTP user-isolation verification
+for SCRUM-227/228/230 now passes locally but is **not yet merged** or
+verified in hosted CI (Section 23.8).
 
 The API is:
 
@@ -1665,21 +1789,23 @@ WHERE u.username = 'devuser'
 ORDER BY f.track_id;
 ```
 
-Zero rows are valid when no favorites have been saved. For a controlled
-local demonstration only, this statement inserts **one association**
-using an existing development user and existing track, if available:
+Zero rows are valid when no favorites have been saved. Allison's
+October 15 read-path demonstration used Track `3005` (`Kontekst`). To
+reproduce **only in your local development database**, insert an
+association for an existing development user and that seeded track:
 
 ```sql
 INSERT INTO favorites (user_id, track_id)
 SELECT u.id, t.id
 FROM users AS u
-CROSS JOIN (
-    SELECT id FROM tracks ORDER BY id LIMIT 1
-) AS t
+JOIN tracks AS t ON t.id = 3005
 WHERE u.username = 'devuser'
 ON CONFLICT (user_id, track_id) DO NOTHING
 RETURNING user_id, track_id;
 ```
+
+If Track 3005 is not present, first verify the existing catalog seed
+instead of creating an arbitrary media or Favorites row.
 
 Do not run this fixture SQL against production or shared hosted data.
 The migration itself intentionally has **no automatic Favorites seed**.
@@ -1777,40 +1903,34 @@ principals, controlled error responses, and preservation of the public
 catalog. The HTTP tests use mocked data; they **do not** independently
 prove a live Favorites query against PostgreSQL.
 
-**Later local regression verification (Allison):** After merging the
-shared role-authorization and Favorites migration changes, Allison
-reported running `npm test` in `server/`: **208 passed, 0 failed**.
-She also reported `npm run test:db` (**34 passed, 0 failed**) and
-`npm run test:integrity` (**2 passed, 0 failed**) from `database/`.
-The database test counts do not constitute a dedicated live Favorites
-schema/integration test; retain the separate SQL/API verification below.
+**October 15 regression checkpoint (Allison):** After the latest shared
+changes, `npm run test:auth` passed **95/95** and `npm test` passed
+**222/222** in `server/`. The expanded `database/` suite passed
+**36/36** integration tests plus **2/2** catalog integrity tests.
+The authentication suite overlaps the full backend suite; do not add
+them as independent totals. The extra database and HTTP isolation
+checks currently reside in local work awaiting a reviewed PR.
 
-**Observed live HTTP checks from Allison's earlier local run:**
-`GET /health` returned `200`; unauthenticated
-`GET /api/library/favorites` returned `401` with
-`WWW-Authenticate: Bearer`. The initial query against
-`soundwave_allison_dev` failed with `relation "favorites" does not
-exist`, motivating the now-merged October 11 migration. The migration
-runner later reported the migration filename as already applied in
-both development and test configurations. However, a subsequent
-`SELECT to_regclass('public.favorites')` result and an authenticated
-Favorites response matched to PostgreSQL rows have not been supplied.
-
-**Remaining live evidence:** confirm the table and constraints with
-PostgreSQL; verify deterministic Favorites fixture requirements or track
-them explicitly as unfinished; log in and compare API Track IDs with
-real database associations; optionally verify revoked-token denial;
-and perform browser/API smoke tests before marking end-to-end behavior
-verified. The migration/README PR itself has already been merged.
+**Live PostgreSQL-to-browser evidence:** Allison confirmed that
+`to_regclass('public.favorites')` returned `favorites` and inspected
+the physical primary key, foreign keys and index. She observed a saved
+association for `devuser` (ID 7) / Track 3001, inserted a second
+association for Track 3005, observed authenticated
+`GET /api/library/favorites` return HTTP `200`, and saw `Kontekst`
+and `Fixture Track One` rendered in the React Library. This confirms
+the live read path for the demonstrated development account; see
+Section 23.7. A separate real-PostgreSQL two-principal HTTP isolation
+test now passes **5/5** locally (Section 23.8). Revocation persistence
+is covered by the shared authentication tests; the new isolation test
+stubs revocation so that it isolates principal-scoped Favorites reads.
 
 ## 23.6 Sprint 3 Favorites React client — Allison Yu (AY-S3-03)
 
-**Status:** React implementation and automated integration tests have
-been authored locally for a new peer-reviewed frontend PR; the PR has
-not yet been reported merged. The code reuses the existing shared
-Library route, in-memory `accessToken`, and `onSelectTrack(track.id)`
-callback. It does **not** add authentication storage, a second player,
-or a new Library route.
+**Status:** The Favorites frontend PR was approved and **merged**;
+SCRUM-229 is **Done**. The code reuses the shared Library route,
+in-memory `accessToken`, and `onSelectTrack(track.id)` callback. It does
+**not** add authentication storage, a second player, or a new Library
+route.
 
 Files introduced or modified for this frontend vertical slice:
 
@@ -1888,7 +2008,7 @@ npm run lint
 npm run build
 ```
 
-**Last fully pasted logs (before the final PDF-inspired styling pass):**
+**Verified results after correcting the final Favorites JSX/styling regression:**
 
 | Check | Result |
 |---|---|
@@ -1909,12 +2029,212 @@ Favorites component and verify both endpoints, track selection, and
 independent failures. This prevents one section's fixtures from
 accidentally satisfying another section's assertions.
 
-The final visual styling change was supplied after the above log.
-**Rerun the full test/lint/build commands and record the actual output
-from the working tree before committing**; do not assume the earlier
-63-test snapshot proves the final CSS/JSX version. A live browser
-Favorites HTTP 200, PostgreSQL row matching, and audible playback
-have not been confirmed here by automated mock-based tests.
+The final styling iteration initially duplicated the ready-state
+track list and omitted the empty-state branch. Allison corrected those
+conditions and reran the focused checks (**17/17**) plus the full
+frontend suite (**63/63 across 15 files**), ESLint and Vite build;
+all passed, and the frontend PR was subsequently merged. Live SQL,
+HTTP `200`, and React card evidence was also captured separately
+(Section 23.7). Track selection uses the shared PlaybackBar contract,
+but this does **not** establish reliable authenticated audible playback.
+
+## 23.7 Verified live Favorites read — Allison Yu (SCRUM-228 / SCRUM-229)
+
+**Local development verification (October 12-15, 2026):** This was a
+live check, separate from mocked route/component tests. In
+`soundwave_allison_dev` the `favorites` relation exists with the
+`(user_id, track_id)` composite primary key, foreign keys to `users`
+and `tracks`, and an index on `track_id`. The recorded development
+account was `devuser`, ID `7`.
+
+| Layer | Observed evidence |
+|---|---|
+| PostgreSQL | `devuser` owns saved Track `3001`; a conflict-safe development-only insert added Track `3005` (`Kontekst`, Buddha, No Copyright) |
+| Authorization | Unauthenticated Favorites request returned `401`; a logged-in development session accessed the protected endpoint |
+| HTTP | Browser Network showed `GET /api/library/favorites` returning `200 OK` through Vite's `/api` proxy |
+| React | Library displayed cards for `Fixture Track One` and `Kontekst`, matching the saved database associations |
+| Selection | Favorites forwards the canonical Track ID via the existing `onSelectTrack` callback; audible playback is a separate media-system check |
+
+To inspect the current development state **without changing data**, use
+the host/port and database from the intended local `.env`:
+
+```sql
+SELECT to_regclass('public.favorites');
+SELECT u.id AS user_id, u.username, f.track_id, t.title,
+       a.title AS album_title, ar.name AS artist_name
+FROM favorites AS f
+JOIN users AS u ON u.id = f.user_id
+JOIN tracks AS t ON t.id = f.track_id
+JOIN albums AS a ON a.id = t.album_id
+JOIN artists AS ar ON ar.id = a.artist_id
+WHERE u.username = 'devuser'
+ORDER BY f.track_id;
+```
+
+Do not present these local records as a global application seed or
+repeat the development insertion in shared, staging, or production
+databases. The isolated, version-controlled test fixture is documented
+below.
+
+## 23.8 Deterministic Favorites fixtures and authenticated user isolation — Allison Yu
+
+**Jira:** SCRUM-227 (fixture dependency), SCRUM-228 (protected user
+isolation), SCRUM-230 (fixture and CI verification).
+
+**Integration status (October 15, 2026):** The following files have
+been authored and exercised locally for an upcoming peer-reviewed PR;
+they are **not yet merged or verified on hosted GitHub Actions**:
+
+```text
+database/test/fixtures/20261008_ayu_favorites_test_fixture.sql
+database/test/fixtures/verify_ayu_favorites_fixture.sql
+database/test/favorites-fixture.integration.test.js
+database/package.json                         (test:db registration)
+server/integration/postgres-favorites-isolation.check.mjs
+.github/workflows/ci.yml                      (Database Tests step)
+```
+
+The fixture is **test-only**. It refuses database names not marked
+`test` or `ci`, assumes the catalog seed already established tracks
+3001-3003, and uses conflict-safe inserts. It does **not** seed the
+development `devuser` account and must never be run on production.
+
+| Test principal | User ID | Saved Track IDs |
+|---|---:|---|
+| `ayu_s3_fixture_a` | 9900101 | 3001, 3002 |
+| `ayu_s3_fixture_b` | 9900102 | 3002, 3003 |
+
+The SQL verifier checks the exact two fixture users, four associations,
+correct role/identity expectations, physical Favorites table, and
+joins to tracks, albums, and artists. The JavaScript fixture tests
+run setup twice, assert the same four pairs, deliberately remove one
+association inside a transaction, confirm that the SQL verifier
+rejects missing data, and roll back the transaction.
+
+### Test-only setup and fixture commands (PowerShell)
+
+The commands below use Allison's **local isolated** database as an
+example. Confirm the actual `.env.test` values before executing:
+
+```powershell
+cd database
+node --env-file=.env.test -e "console.log({ database: process.env.PGDATABASE, host: process.env.PGHOST, port: process.env.PGPORT })"
+```
+
+Expected on Allison's workstation:
+
+```text
+{ database: 'soundwave_allison_test', host: 'localhost', port: '5432' }
+```
+
+**Stop** if the connection instead points to a development, shared, or
+production database. Never print the password. With an isolated test
+DB confirmed, and from `database/`:
+
+```powershell
+npm run db:migrate:test
+npm run db:migrate:test
+npm run db:seed:test
+node --env-file=.env.test --test test/favorites-fixture.integration.test.js
+npm run test:integrity
+npm run test:db
+```
+
+The updated `test:db` script registers
+`test/favorites-fixture.integration.test.js` alongside the original
+catalog and revocation database tests. The fixture test reads both SQL
+files from `test/fixtures/` and connects using `PG*` values from
+`.env.test`; no manual `psql` step or interactive password is needed
+for automated CI execution.
+
+For a manual one-time SQL check from the **repository root** (optional),
+using the isolated fixture database only:
+
+```powershell
+psql -h localhost -p 5432 -U soundwave_app `
+  -d soundwave_allison_test -v ON_ERROR_STOP=1 `
+  -f database/test/fixtures/20261008_ayu_favorites_test_fixture.sql
+
+psql -h localhost -p 5432 -U soundwave_app `
+  -d soundwave_allison_test -v ON_ERROR_STOP=1 `
+  -f database/test/fixtures/verify_ayu_favorites_fixture.sql
+```
+
+The fixture was executed twice locally: first run inserted **2 users
+and 4 Favorites**; second run inserted **0 users and 0 Favorites**.
+The verifier reported **PASS: 2 users, 4 exact associations, 4 valid
+catalog joins**. These are local observations, not hosted CI results.
+
+### Authenticated HTTP isolation test
+
+After fixture setup, from `server/`:
+
+```powershell
+node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+npm run test:auth
+npm test
+```
+
+The isolation check uses the real PostgreSQL-backed Favorites repository,
+application HTTP route, and Christian's existing JWT token service. It
+signs test-only tokens for the two fixture principals, starts an
+isolated HTTP server on an ephemeral port, and confirms:
+
+- User A's HTTP `200` contains tracks 3001 and 3002, not 3003.
+- User B's HTTP `200` contains tracks 3002 and 3003, not 3001.
+- Forged `X-User-Id` and `X-Role` headers cannot replace the signed
+  JWT principal.
+- Requests without a token or with malformed tokens return `401`.
+- The returned track objects contain expected metadata and do not
+  expose filesystem media locations.
+
+The isolation test stubs the **revocation repository** so the test can
+focus on user filtering. It does **not** replace Christian's revocation
+implementation or independently test actual PostgreSQL-backed token
+revocation. Existing security tests cover that separate boundary.
+
+### Local verification results (October 15, 2026)
+
+| Command / check | Observed result |
+|---|---|
+| Double migration run | All seven migrations recognized and safely skipped on rerun |
+| `npm run db:seed:test` | Catalog test seed succeeded |
+| Manual Favorites fixture, run twice | 2 users/4 associations; rerun inserted 0 additional rows |
+| SQL Favorites verifier | PASS: 2 users, 4 associations, 4 valid joins |
+| `node --env-file=.env.test --test test/favorites-fixture.integration.test.js` | **2/2 passed** |
+| `npm run test:db` | **36/36 passed** |
+| `npm run test:integrity` | **2/2 passed** |
+| PostgreSQL-backed HTTP Favorites isolation | **5/5 passed** (includes parent test) |
+| `npm run test:auth` | **95/95 passed** |
+| `npm test` (server) | **222/222 passed** |
+| Last merged React frontend regression | **63/63 passed**, ESLint/build passed |
+
+These command totals include overlapping test groups. Do not add the
+authentication and full server counts together or claim that an
+unexecuted hosted job passed.
+
+### CI and PR completion boundary
+
+The existing PostgreSQL 16 **Database Tests** GitHub Actions job already
+runs migrations, seeds the catalog, invokes `npm run test:db`, installs
+server dependencies, and runs the PostgreSQL-backed logout check.
+The new pending change relies on the expanded `test:db` script to
+create/verify Favorites fixtures, then adds this step **after** the
+fixture setup and server dependency installation:
+
+```yaml
+- name: Verify PostgreSQL-backed Favorites user isolation
+  working-directory: server
+  run: node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+```
+
+No new CI workflow or production behavior is required. A **fresh hosted
+Database Tests run** must demonstrate that fixtures exist from a clean
+PostgreSQL service, followed by the user-isolation check. The pending
+verification changes require peer review and merge; Konner should
+review shared workflow changes, while Christian can review auth-test
+boundaries. Until then SCRUM-227/228/230 verification is **locally
+complete, pending hosted CI and reviewed merge**, not Done.
 
 ---
 
@@ -1947,59 +2267,39 @@ playback seam.
 
 # 25. Client Verification
 
-From:
+From your repository's `client/` directory run:
 
 ```bash
-cd ~/Soundwave-Live-Version/client
-```
-
-run:
-
-```bash
-npm test -- --run
+npx vitest run src/components/PlaybackBar.test.jsx
+npx vitest run src/App.search-playback.test.jsx
+npm run test:run
 npm run lint
 npm run build
 ```
 
-Last fully pasted local frontend regression result (before the
-subsequent PDF-inspired CSS/JSX styling change):
+**Matthew's actual October 15 Sprint 3 regression output:**
 
-```text
-Test Files: 15 passed
-Tests:      63 passed
-Failures:   0
-ESLint:     PASS
-Build:      PASS
-```
+| Verification | Observed result |
+|---|---|
+| PlaybackBar component tests | **13/13 passed** |
+| Search-to-playback App integration | **6/6 passed** |
+| Full frontend suite | **97/97 passed across 19 files**, 0 failed |
+| ESLint | Passed |
+| Vite production build | Passed |
 
-Rerun all three commands on the final working tree before its PR; the
-numbers above are a recorded checkpoint, not a promise of a newer run.
+The focused test groups are **included** in the full 97-test total;
+do not add their counts. Earlier Favorites-only documentation records
+historical 63-test milestones before the newer playback integration;
+those records are not the current complete-client baseline.
 
-Current client coverage includes:
-
-- Search;
-- Search Track selection;
-- Search → App → PlaybackBar integration;
-- Library and authenticated Favorites read states;
-- cross-component Library/Favorites loading and selection;
-- authenticated Favorites navigation token propagation;
-- Profile;
-- Artist browse/detail;
-- Album browse/detail;
-- ArtistCard;
-- AlbumCard;
-- Sidebar;
-- PlaybackBar.
-
-Playback coverage includes:
-
-- empty state;
-- metadata retrieval;
-- metadata display;
-- Play/Pause;
-- volume;
-- controlled metadata failure;
-- unloading/cleanup.
+Current client coverage includes Search, Library/Favorites, navigation,
+authenticated Search-to-App playback, profile, artist and album pages,
+and shared player. Playback-specific verification covers loading,
+metadata, the protected media-access POST, empty/error states, volume,
+cleanup, Howler callback-driven Playing/Paused/Finished states, missing
+media, and denial handling (`401`, `403`, `503`). A mocked audio test
+proves UI logic, while Section 15.7 documents separate real-browser
+proof. Future test totals can change as teammate branches merge.
 
 ---
 
@@ -2037,20 +2337,16 @@ The server suite covers areas including:
 - protected Bearer streaming, ticket issuance, cookie-authenticated
   Range behavior, expiration, renewal and session revocation.
 
-Earlier Sprint 3 baselines grew as work merged. Allison verified
-**163/163** server tests at the initial Favorites read-API checkpoint,
-and subsequently reported rerunning the backend suite at **208/208**
-after shared role authorization and the Favorites migration merge.
-This verifies the backend automated suite at that local checkout, not
-a browser-to-PostgreSQL Favorites happy path. Rerun on later shared
-changes and record actual counts. The focused Favorites test files are
-listed in Section 23.5.
-
-Matthew's most recent reported local server run (October 13, 2026)
-finished at **222/222 passing, zero failures**, including nine new
-`media-access.app.test.js` cases. That evidence is local and does not
-prove the live PostgreSQL/browser/deployment paths. Earlier checkpoint
-counts are retained above as historical team evidence.
+Earlier Sprint 3 baselines grew from **163/163** at Allison's initial
+Favorites API milestone to **208/208** after shared authorization.
+On October 15, Allison reran `npm test` locally and observed
+**222/222 passed, 0 failed**, following teammate media changes; she
+also ran the dedicated security suite at **95/95 passed**. These two
+server suites overlap and do not include the separate PostgreSQL HTTP
+Favorites isolation script. That script passed **5/5** locally, and a
+previously verified live development DB/API/React read is documented
+in Sections 23.7-23.8. Hosted CI evidence for the new integration
+work remains pending.
 
 The durable requirement is:
 
@@ -2081,9 +2377,15 @@ npm run test:db
 ```
 
 The repeated migration run verifies that already-applied migrations are
-safely skipped.
+safely skipped. On October 15, Allison's expanded `test:db` reported
+**36/36 passing** and `test:integrity` reported **2/2 passing**. The
+new two-test Favorites fixture suite is registered in the local
+`database/package.json`; see Section 23.8 for fixture setup, isolated
+PostgreSQL safety checks, and the separate signed-JWT HTTP test.
 
 The test database must be separate from the development database.
+The new fixture verification and CI additions have **not** yet been
+merged or verified on hosted GitHub Actions.
 
 ---
 
@@ -2171,27 +2473,104 @@ Verify:
 /profile
 ```
 
-Historical album-to-playback proof (SCRUM-170, verified **before**
-streaming protection): selecting Track `3005` in `/albums/2003` showed
-`Kontekst` / `Buddha` / `No Copyright` and played the audio. With the
-protected stream, **repeat this test after Emmanuel's cookie handoff**:
-confirm the media-access POST succeeds `204`, native media returns
-`200` or `206`, playback is audible, seeking succeeds, and subsequent
-requests work after ticket renewal. This newer browser check is pending.
+Historical album-to-playback proof (SCRUM-170) preceded media
+protection. The **protected** browser path was reverified October 15:
+Track `3005`, media-access `204`, native-audio Range `206`, audible
+playback, and visible Playing/Paused state. Live seeking after the
+five-minute credential expires and automatic renewal remain unverified,
+not part of that completed check.
 
 Search-to-playback proof:
 
 ```text
 Search "Kontekst"
     ↓
-Play
+Select track 3005
     ↓
-PlaybackBar displays Kontekst
+PlaybackBar displays Kontekst / Buddha / No Copyright
     ↓
-PlaybackBar displays Buddha • No Copyright
+Media-access 204 -> native stream 206
     ↓
-Play audio
+Audible playback, Playing / Paused UI state
 ```
+
+## 28.1 October 15 midterm-ready demo runbook — Matthew Choi (SCRUM-194)
+
+Use **three terminals** on Matthew's local Linux workstation. If your
+clone lives elsewhere, substitute its actual repository root.
+
+**Prerequisites (one-time or after schema changes):** PostgreSQL must
+be running; `database/.env` and `server/.env` must refer to the same
+migrated/seeded development database; `server/.env` must contain
+independent `JWT_SECRET` and `MEDIA_TICKET_SECRET` values. Apply
+`npm run db:migrate` and `npm run db:seed` from `database/` as described
+in Sections 5-6. Confirm `mediaFiles/test.mp3` is present and its use
+rights are recorded in `mediaFiles/license.txt`.
+
+Terminal A — PostgreSQL (when not already running):
+
+```bash
+sudo systemctl start postgresql
+```
+
+Terminal B — backend:
+
+```bash
+cd ~/Documents/Projects/Soundwave-Live-Version/server
+node --env-file=.env src/server.js
+```
+
+Expected listen address: `http://localhost:8080`. If database settings
+are not stored in `server/.env`, use Section 8's explicit export of the
+local database and server environment files before `npm start`.
+
+Terminal C — frontend:
+
+```bash
+cd ~/Documents/Projects/Soundwave-Live-Version/client
+npm run dev
+```
+
+Open `http://localhost:5173/` (or the URL printed by Vite). Before
+presenting, confirm `http://localhost:8080/health` returns `200`.
+
+**Authenticated playback demo:**
+
+1. Log in with a development account; do not reveal credentials.
+2. Open Search and search for `Kontekst`; select **Track 3005**, or
+   visit Album 2003 and select the same track.
+3. Observe **Ready to play** in the shared React PlaybackBar; click
+   Play and confirm actual audio and **Playing**. Pause and confirm
+   **Paused**. The **Finished** label exists, but was verified by
+   a component-event test rather than a separately recorded browser run.
+4. Firefox DevTools -> Network: verify catalog `200`, media-access
+   `POST 204`, and native audio `GET 206`. Multiple `206` requests are
+   normal for browser Range loading. Do not capture cookies or JWTs.
+5. Log out and verify a fresh playback request is rejected. The
+   browser may temporarily retain previously buffered audio; assess
+   *new* protected requests, not only whether already-buffered sound
+   stops instantly.
+
+**Negative check from a separate shell:**
+
+```bash
+curl -i -H 'Range: bytes=0-99' \
+  http://localhost:8080/api/tracks/3005/stream
+curl -i http://localhost:8080/api/catalog/tracks/999999
+```
+
+Expected: `401 Unauthorized` for anonymous audio and `404` with
+`{"error":"track_not_found"}` for the nonexistent catalog Track.
+Invalid `Range` -> `416`, unavailable file -> `404`, wrong-track ticket
+-> `401`, and revocation outage -> `503` are evidenced by backend
+regression tests, not all directly repeated in the browser.
+
+**Known limitations for the October 22 demo:** Token/cookie renewal
+after the 300-second ticket lifetime, post-expiration seeking, Docker
+container media mounts, exact seeded duration accuracy, and full
+hosted-service behavior are **not** established by this runbook. Keep
+the demo within the validated path; do not remove the access guard or
+use music without documented usage rights.
 
 ---
 
@@ -2267,6 +2646,13 @@ omitted below.
 │   ├── seeds
 │   │   └── 20260915_ayu_catalog_seed.sql
 │   └── test
+│       ├── catalog-db.integration.test.js
+│       ├── catalog-integrity.test.js
+│       ├── token-revocation-db.integration.test.js
+│       ├── favorites-fixture.integration.test.js       [pending PR]
+│       └── fixtures                                [pending PR]
+│           ├── 20261008_ayu_favorites_test_fixture.sql
+│           └── verify_ayu_favorites_fixture.sql
 │
 ├── docs
 │
@@ -2292,6 +2678,8 @@ omitted below.
 │   │   ├── search
 │   │   ├── app.js
 │   │   └── server.js
+│   ├── integration
+│   │   └── postgres-favorites-isolation.check.mjs    [pending PR]
 │   └── test
 │       ├── media-access.app.test.js
 │       └── media-streaming.test.js
@@ -2639,6 +3027,21 @@ and the authenticated media-access POST.
   `NODE_ENV=production` enables `Secure` cookies, which require
   a properly configured HTTPS deployment. Test the browser's
   cookie storage and Vite proxy explicitly.
+- If Firefox shows a native audio `401`, use the Network panel to
+  look for the **preceding** `POST /api/tracks/:id/media-access`.
+  Missing POST means the frontend credential handoff did not run;
+  `401` on the POST means the login session must be checked; `503`
+  points to revocation infrastructure, not a missing audio file.
+- If a Vitest integration test expects **Pause** immediately after
+  clicking **Play**, update the mock to trigger `loadTrack`'s
+  `onPlay()` callback first. The UI intentionally waits for Howler's
+  actual playback-start event. In whole-App tests, multiple
+  `role="status"` elements may exist (backend status and playback
+  status); scope the query or assert the visible `Playing` text.
+- If `ReferenceError: it is not defined` originates in
+  `PlaybackBar.jsx`, test code was likely pasted into the component.
+  Keep `it()` blocks in `PlaybackBar.test.jsx`; do not replace the
+  production component with a test snippet.
 
 ---
 
@@ -2717,15 +3120,21 @@ PRs should:
 
 # 32. Pull Request Verification Checklist
 
-Before opening a client-related PR:
+Before opening a client-related PR (run from your clone's
+`client/` directory):
 
 ```bash
-cd ~/Soundwave-Live-Version/client
-
-npm test -- --run
+npx vitest run src/components/PlaybackBar.test.jsx
+npx vitest run src/App.search-playback.test.jsx
+npm run test:run
 npm run lint
 npm run build
 ```
+
+Matthew's October 15 local baseline: **13/13**, **6/6**, **97/97**
+(full suite), clean ESLint, and successful Vite build. Report the
+actual output from the branch being reviewed; do not claim that local
+passes guarantee hosted CI passes.
 
 Before opening a backend-related PR:
 
@@ -2739,9 +3148,11 @@ npm test
 
 For media-ticket changes, additionally verify live cookie issuance
 (`204`) and cookie-only Range streaming (`206`) against PostgreSQL,
-and obtain Emmanuel's browser playback/renewal evidence. Do not commit
-real `MEDIA_TICKET_SECRET` or include response headers containing the
-media cookie in review logs.
+and include the documented October 15 initial protected-browser
+playback evidence (`204`, `206`, audible audio, visible states) when
+relevant. **Do not claim renewal after expiration was verified.** Do
+not commit real `MEDIA_TICKET_SECRET` or include response headers
+containing the media cookie in review logs.
 
 Before opening a database-related PR:
 
@@ -2754,6 +3165,20 @@ npm run db:seed:test
 npm run test:integrity
 npm run test:db
 ```
+
+For the SCRUM-228/SCRUM-230 Favorites fixture and user-isolation PR,
+additionally run **after** the database fixture tests:
+
+```bash
+cd ../server
+node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
+npm run test:auth
+npm test
+```
+
+Expect 36 database tests, 2 integrity checks, 5 HTTP isolation tests,
+95 security tests, and 222 server tests at the recorded October 15
+checkout. The security test count is included in the full server suite.
 
 Then from the repository root:
 
@@ -2797,10 +3222,14 @@ startup now requires `MEDIA_TICKET_SECRET`, independently signed from
 `JWT_SECRET`. Ensure CI jobs or smoke-test services that actually start
 `server/src/server.js` receive a securely provided test/deployment
 value; unit tests that instantiate `createApp()` without the media
-service retain their original Bearer-only behavior. This additional
-configuration is a **pending CI verification**, not a claimed passing
-CI change. Never print these values in GitHub Actions logs or embed
-them in committed workflow files.
+service retain their original Bearer-only behavior. Matthew
+previously reported that the media-ticket PR's CI checks were green
+after updating the workflow's test-only independent media signing
+secret. That observation is **not** proof that this documentation PR,
+new frontend PR, or a subsequent `main` revision passed hosted CI.
+Verify the actual relevant PR checks before requesting merge. Never
+print secret values in GitHub Actions logs or embed real secrets in
+committed workflow files.
 
 Christian McGowan extended the existing Database Tests job to
 install server dependencies and execute the PostgreSQL-backed
@@ -2812,6 +3241,15 @@ node --env-file=../database/.env.test --test integration/postgres-logout.check.m
 
 This uses the job's migrated and seeded test database; it does
 not create a separate workflow or replace Compose smoke checks.
+
+**Allison's pending SCRUM-228/SCRUM-230 CI extension:** The database
+`test:db` script runs the new Favorites fixture tests, and a new
+`Verify PostgreSQL-backed Favorites user isolation` step has been
+added locally to the same Database Tests job, after the database
+fixtures and server dependencies. The local scripts and 5/5 HTTP
+isolation checks pass, but the workflow change is **not yet merged**
+and **has no confirmed hosted CI result**. See Section 23.8 for exact
+paths, test data, run commands and verification boundaries.
 
 The project also uses build metadata for traceability.
 
@@ -2979,40 +3417,54 @@ Current Sprint 3 work includes:
 - JWT revocation persistence foundation;
 - session/auth hardening integration;
 - protected Bearer streaming merged into `main` (per Christian's
-  October 13 verification); Matthew's short-lived media-cookie issuance
-  and verification implemented and tested locally, with browser and
-  deployment integration still pending;
+  October 13 verification); Matthew's short-lived media-cookie
+  issuance and verification passed local backend tests, **and the
+  initial protected browser flow was verified October 15** (`204`,
+  `206`, audible audio, Playing/Paused); production/container
+  integration and unattended renewal remain unverified;
 - client session integration;
 - Search-to-Playback orchestration;
 - **Allison Yu's merged, authenticated Favorites read API**;
-- **Allison's merged October 11 Favorites table migration**; development
-  and test migration runs now skip its recorded filename (physical table
-  and live Favorites API read remain separate verification);
+- **Allison's merged October 11 Favorites table migration**; the
+  physical table and constraints were verified in PostgreSQL and the
+  authenticated API-to-React read path was demonstrated live;
+- **Allison's merged React Favorites Library feature (SCRUM-229 Done)**
+  and merged Favorites Read Interface Contract v1 (SCRUM-231);
+- deterministic Favorites CI fixture and real-PostgreSQL two-user HTTP
+  isolation checks passing locally (SCRUM-227/228/230; PR/hosted CI
+  pending);
 - cross-feature regression coverage;
 - midterm integration preparation.
 
-### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02 / AY-S3-03)
+### Allison Yu — Sprint 3 Favorites (SCRUM-227 through SCRUM-231)
 
-Allison authored a vertical slice across the Favorites schema,
-principal-scoped PostgreSQL repository query, catalog service mapping,
-authenticated read API, React Library UI, component/integration tests,
-and documentation. The read-API PR and later migration/README PR were
-merged. Development and test migration runs recognize the recorded
-migration; the deterministic Favorites seed requirement still needs
-explicit closure, and a live authenticated PostgreSQL read is not yet
-confirmed. The Favorites frontend work is local and pending its own
-peer-reviewed PR.
+Allison authored the Favorites vertical slice: PostgreSQL schema,
+principal-scoped repository, catalog service mapping, authenticated
+read API, React Library cards, component/integration tests, and
+interface documentation. The API, migration, frontend implementation,
+and Favorites Read Interface Contract v1 PRs were merged, and SCRUM-229
+is marked Done. Allison verified the actual Favorites relation,
+`devuser`/tracks 3001 and 3005, HTTP `200` and matching React Library
+cards on the local development stack.
 
-The client uses the existing in-memory access token and shared
-`onSelectTrack(track.id)` interface instead of reimplementing
-Christian's JWT authorization, Konner's navigation/session design, or
-Matthew/Emmanuel's playback pipeline. The last fully pasted client
-verification logs show **63/63 tests**, clean ESLint, and a successful
-Vite build. PDF-inspired card styling has been supplied since those
-logs, so rerun checks before committing the final working tree.
-Artwork when present, a dedicated Library Favorites tab, and filled
-saved-state hearts were explicitly deferred rather than implemented.
-Details and commands are in Sections 23.1–23.6.
+Additional local work for SCRUM-227/228/230 adds deterministic SQL test
+fixtures (two users/four Favorites), automated negative fixture checks
+with rollback, and real-PostgreSQL HTTP user isolation with signed JWTs
+and spoofed-header rejection. The database tests passed **36/36** plus
+**2/2** integrity; HTTP isolation passed **5/5**; authentication passed
+**95/95**; and the full server suite passed **222/222** (overlapping
+suites). The existing Database Tests CI job has been extended locally
+to invoke isolation testing after fixture setup. **This new test/CI
+change set is pending PR review, hosted CI, and merge**; do not mark
+SCRUM-227/228/230 Done based on local testing alone.
+
+The frontend PR was merged following corrected JSX/CSS regression runs:
+**63/63 client tests**, ESLint, and Vite build all passed. The client
+retains the shared in-memory token and `onSelectTrack(track.id)` seam;
+no second player or custom authentication was introduced. Album artwork
+where available, a dedicated Favorites Library tab, and filled-heart
+saved-state indicators remain explicitly deferred. Selection handoff
+does not establish protected audible playback. See Sections 23.1–23.8.
 
 Emmanuel's current Sprint 3 Search-to-Playback happy path is implemented
 and verified through:
@@ -3033,38 +3485,88 @@ Howler
 HTTP media stream
 ```
 
-Protected media-cookie delivery to native Howler, renewal and
-auth-specific player errors remain Emmanuel's separate Sprint 3
-frontend integration work. Matthew's backend ticket tests do not yet
-prove these browser behaviors.
+The shared React PlaybackBar now performs an authenticated media-access
+POST before Howler's native stream, and local browser verification
+confirmed the initial protected playback path. Emmanuel owns the
+frontend integration contract; Matthew contributed bounded playback
+state and negative-path verification without building a second player.
+Automatic renewal after media-cookie expiration has **not** been
+separately verified. Backend tests alone still do not prove browser
+behavior; see the independent network evidence in Section 15.7.
 
 ### Matthew Choi — Sprint 3 media-storage and playback verification
 
-Matthew's SCRUM-168 inspection confirmed that the shared
-Track-ID-to-Howler playback path already existed from Sprint 2, avoiding
-duplicate implementation. SCRUM-169 adds configurable `MEDIA_ROOT`,
-source-relative defaults, validated path containment and regression
-tests. SCRUM-170 recorded Track 3005 metadata `200`, Range `206` and
-audible playback **before** media authorization was enforced. Christian
-subsequently confirmed the protected Bearer stream is merged into
-`main`. Matthew's October 13 local media-ticket addition implements a
-track-scoped HttpOnly cookie, independent HMAC signing, issuance,
-revocation checks and renewal; the **nine new application tests and
-all 222 backend tests passed**.
+Matthew's SCRUM-168 investigation reused the existing shared Track-ID
+playback seam rather than creating a second player. SCRUM-169 added a
+configurable `MEDIA_ROOT`, source-relative defaults and path
+confinement; SCRUM-170 verified licensed Track 3005 playback. After
+Christian's revocation-aware security foundation, Matthew implemented
+track-scoped `sw_media` credentials and protected HTTP Range behavior,
+plus application and negative-boundary tests. The October 15 local
+backend results were **9/9 focused media-access** and **222/222 full
+server** tests; direct anonymous media returned `401`.
 
-The remaining acceptance work is a live `204` issuance and cookie-only
-`206` against the running PostgreSQL-backed server, Emmanuel's
-Howler client handoff and audible protected playback including seeks
-and renewal, and peer-reviewed PR/CI/Compose verification. Do not
-claim those steps completed from automated tests alone. Actual
-container-media access remains unverified.
+Matthew also authored bounded integration/regression changes in the
+existing shared frontend player: Howler-driven Playing/Paused/Finished
+UI state, visible error handling and focused tests. Emmanuel retains
+the core Search/App/PlaybackBar ownership and should review shared
+interface changes. On October 15, Matthew's client verification passed
+**13/13 PlaybackBar**, **6/6 Search-to-Playback integration**, and
+**97/97 complete client** tests, plus lint and build. Independently,
+Firefox showed `200` metadata, `204` media-access, two `206` native
+audio Range responses, audible playback, and Playing/Paused states;
+the user verified new playback requests fail after logout.
 
-The CPSC 490 roadmap assumed a longer streaming timeline, but the CPSC
-491 syllabus governs the six-sprint calendar. Its midterm demonstration
-is October 22, immediately after Sprint 3 (October 8-15), so an actual
-playback path must remain demonstrable by October 15 rather than being
-deferred to the dedicated streaming sprint. Use only rights-cleared
-audio in the midterm and final demonstrations.
+The remaining engineering risks are unattended media ticket renewal,
+seek-after-expiry behavior, Docker/Compose media mounts, precise seeded
+track duration and production deployment. Those were not proven by
+the successful initial local browser demonstration. The latest
+frontend/documentation PR approval, merge and GitHub Actions status
+must be checked on the actual PR rather than inferred from local tests.
+
+## 36.1 Matthew Choi — Sprint 3 setup, demo and contribution record
+
+**Jira:** SCRUM-194 (startup and seeded-track instructions), SCRUM-195
+(known limitations, test commands, Jira/PR traceability), SCRUM-196
+(named-account and reviewed-PR submission). See Section 28.1 for the
+runnable Linux three-terminal demo and Section 15.7 for observed test
+results. Section 30.11 documents the common media-cookie, session,
+player-state, and Vitest integration failures.
+
+| Area of Matthew's Sprint 3 contribution | Evidence / source |
+|---|---|
+| Streaming and backend/security | `server/src/media/media-ticket.js`, `media-access.handler.js`, protected routes, 9 focused media tests |
+| Storage safety and automated verification | Configurable media root, traversal/symlink tests, 222 server tests |
+| Shared frontend event/error regression | `client/src/playback/playback.js`, `client/src/components/PlaybackBar.jsx`, `PlaybackBar.test.jsx`, `App.search-playback.test.jsx` (bounded integration; review with Emmanuel) |
+| Integration and user-visible verification | Network `200/204/206`, audible Track 3005, Playing/Paused, post-logout denial |
+| Docs and project tracking | This README, Jira SCRUM-168–172, SCRUM-175–177, SCRUM-182–184, SCRUM-190–192, SCRUM-194–196 |
+
+**Links and review status:** Existing backend media-ticket work was
+tracked in the team's GitHub repository under
+[PR #116](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/116)
+(check its current status before describing it as merged). Add the
+**actual frontend/docs PR URL** and the Jira issue URLs once created;
+none is provided here, so no review approval or merge is claimed.
+
+For SCRUM-196, verify `git config user.name`,
+`git config user.email`, the GitHub commit identity, the named account
+used for all course document edits, PR review approval and successful
+CI. **Do not mark reviewed/merged based only on a local commit or test
+run.** Review `git diff --check` and the staged diff, push the
+feature branch, request a teammate review (including Emmanuel for the
+shared player), and merge only after approval. Never expose raw JWTs,
+media cookies, signing keys or database passwords in evidence.
+
+**Course scheduling:** The CPSC 490 roadmap describes a sixteen-week
+sequence and places streaming close to its implied midterm. The CPSC
+491 syllabus overrides that calendar: six course sprints, Sprint 3
+ending October 15 and the graded midterm October 22. Working
+rights-cleared playback was therefore brought forward and verified
+on October 15 rather than waiting until the dedicated Sprint 4 media
+phase. As Sprint 1's media spike author, Matthew should **not** be
+primary owner of Sprint 4's largest streaming slice; his later work
+must continue spanning the eight contribution areas through separate
+vertical slices.
 
 ---
 
