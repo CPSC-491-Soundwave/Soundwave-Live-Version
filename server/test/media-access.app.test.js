@@ -353,3 +353,97 @@ test("media ticket cannot authenticate ordinary API routes", async () => {
         assert.equal(response.status, 401);
     });
 });
+
+
+test("valid media cookie supports nonzero-byte Range seeking", async () => {
+    await withApp(async ({ baseUrl }) => {
+        const { cookie } = await issueCookie(baseUrl);
+
+        const response = await fetch(
+            `${baseUrl}/api/tracks/3005/stream`,
+            {
+                headers: {
+                    Cookie: cookie,
+                    Range: "bytes=32-47"
+                }
+            }
+        );
+
+        // A valid authenticated Range request
+        // must return Partial Content.
+        assert.equal(response.status, 206);
+
+        // Verify the exact byte boundaries.
+        assert.equal(
+            response.headers.get("content-range"),
+                     "bytes 32-47/128"
+        );
+
+        // Bytes 32 through 47 inclusive = 16 bytes.
+        assert.equal(
+            response.headers.get("content-length"),
+                     "16"
+        );
+
+        // Verify HTTP byte-range support.
+        assert.equal(
+            response.headers.get("accept-ranges"),
+                     "bytes"
+        );
+
+        // Verify the response identifies MP3 audio.
+        assert.match(
+            response.headers.get("content-type"),
+                     /audio\/mpeg/
+        );
+
+        // Verify that the returned bytes match
+        // the requested portion of the fixture.
+        const receivedBytes = Buffer.from(
+            await response.arrayBuffer()
+        );
+
+        const expectedBytes = AUDIO.subarray(32, 48);
+
+        assert.equal(receivedBytes.length, 16);
+
+        assert.deepEqual(
+            receivedBytes,
+            expectedBytes
+        );
+    });
+});
+
+test("unauthenticated nonzero-byte Range seeking is rejected", async () => {
+    await withApp(async ({ baseUrl, getTrackLookups }) => {
+        const response = await fetch(
+            `${baseUrl}/api/tracks/3005/stream`,
+            {
+                headers: {
+                    Range: "bytes=32-47"
+                }
+            }
+        );
+
+        // Unauthenticated clients must not
+        // retrieve protected audio.
+        assert.equal(response.status, 401);
+
+        // No valid audio range should be returned.
+        assert.equal(
+            response.headers.get("content-range"),
+                     null
+        );
+
+        // The response must be an error response,
+        // not audio data.
+        assert.match(
+            response.headers.get("content-type"),
+                     /application\/json/
+        );
+
+        // Authorization must fail before the
+        // server accesses Track information.
+        assert.equal(getTrackLookups(), 0);
+    });
+});
