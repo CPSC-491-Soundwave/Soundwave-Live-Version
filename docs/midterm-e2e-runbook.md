@@ -393,7 +393,7 @@ npx vitest run src/components/PlaybackBar.test.jsx
 Expected:
 
 ```text
-12 tests passed
+13 tests passed
 0 failed
 ```
 
@@ -421,7 +421,7 @@ npx vitest run \
 Expected:
 
 ```text
-18 focused tests passed
+19 focused tests passed
 0 failed
 ```
 
@@ -445,9 +445,9 @@ Production build succeeds.
 
 | Verification | Expected | Actual | Result |
 |---|---|---|---|
-| PlaybackBar focused suite | 12/12 |  |  |
+| PlaybackBar focused suite | 13/13 |  |  |
 | App Search-to-Play suite | 6/6 |  |  |
-| Combined focused suites | 18/18 |  |  |
+| Combined focused suites | 19/19 |  |  |
 | Full client suite | PASS |  |  |
 | Client lint | PASS |  |  |
 | Client build | PASS |  |  |
@@ -949,13 +949,13 @@ Current focused regression evidence:
 
 ```text
 PlaybackBar focused tests:
-12/12 passed
+13/13 passed
 
 App Search-to-Play integration tests:
 6/6 passed
 
 Combined focused suites:
-18/18 passed
+19/19 passed
 
 Full client regression:
 passed
