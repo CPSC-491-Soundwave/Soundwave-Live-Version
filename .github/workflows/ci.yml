@@ -491,7 +491,7 @@ jobs:
       - name: CC6.6 Catalog Input Security
         working-directory: server
         run: |
-        node --env-file=../database/.env.test --test integration/hostile-identifier-sql-boundary.check.mjs
+          node --env-file=../database/.env.test --test integration/hostile-identifier-sql-boundary.check.mjs
 
 
 
