@@ -14,6 +14,10 @@ import {
     classifyMediaAccessStatus
 } from "../playback/streamFailure.js";
 
+import {
+    recordPlaybackDiagnostic
+} from "../playback/playbackDiagnostics.js";
+
 import "./PlaybackBar.css";
 
 export default function PlaybackBar({
@@ -38,7 +42,24 @@ export default function PlaybackBar({
 
         let cancelled = false;
 
-        function showFailure(failure) {
+        // A late response must not affect a newer track or session.
+        // Record that the obsolete result was discarded.
+        function dropStaleResult() {
+            if (!cancelled) {
+                return false;
+            }
+
+            recordPlaybackDiagnostic(
+                "STALE_OPERATION_DROPPED"
+            );
+
+            return true;
+        }
+
+        function showFailure(
+            failure,
+            { recordDiagnostic = true } = {}
+        ) {
             if (cancelled) {
                 return;
             }
@@ -48,6 +69,10 @@ export default function PlaybackBar({
             setPlaybackStatus("ready");
             setFailureState(failure);
             setError(failure.message);
+
+            if (recordDiagnostic) {
+                recordPlaybackDiagnostic(failure.code);
+            }
 
             if (
                 failure.invalidateSession &&
@@ -65,20 +90,28 @@ export default function PlaybackBar({
             setPlaybackStatus("ready");
 
             if (!accessToken) {
-                showFailure({
-                    ...classifyMediaAccessStatus(401),
-                    invalidateSession: false
-                });
+                // Missing client session is already known locally.
+                // Do not count it as another server-side 401 response.
+                showFailure(
+                    {
+                        ...classifyMediaAccessStatus(401),
+                        invalidateSession: false
+                    },
+                    { recordDiagnostic: false }
+                );
 
                 setLoading(false);
                 return;
             }
 
             try {
-                // Preserve the existing metadata request contract.
                 const metadataResponse = await fetch(
                     `/api/catalog/tracks/${trackId}`
                 );
+
+                if (dropStaleResult()) {
+                    return;
+                }
 
                 if (!metadataResponse.ok) {
                     throw new Error("metadata_request_failed");
@@ -86,14 +119,13 @@ export default function PlaybackBar({
 
                 const metadata = await metadataResponse.json();
 
-                if (cancelled) {
+                if (dropStaleResult()) {
                     return;
                 }
 
                 let mediaAccessResponse;
 
                 try {
-                    // Preserve the existing protected-media contract.
                     mediaAccessResponse = await fetch(
                         `/api/tracks/${metadata.id}/media-access`,
                         {
@@ -105,12 +137,14 @@ export default function PlaybackBar({
                         }
                     );
                 } catch (requestError) {
-                    if (cancelled) {
+                    if (dropStaleResult()) {
                         return;
                     }
 
                     const failure =
-                        classifyMediaAccessRequestError(requestError);
+                        classifyMediaAccessRequestError(
+                            requestError
+                        );
 
                     if (failure.code !== "REQUEST_CANCELLED") {
                         showFailure(failure);
@@ -119,7 +153,7 @@ export default function PlaybackBar({
                     return;
                 }
 
-                if (cancelled) {
+                if (dropStaleResult()) {
                     return;
                 }
 
@@ -129,6 +163,7 @@ export default function PlaybackBar({
                             mediaAccessResponse.status
                         )
                     );
+
                     return;
                 }
 
@@ -165,7 +200,7 @@ export default function PlaybackBar({
                     }
                 });
             } catch {
-                if (cancelled) {
+                if (dropStaleResult()) {
                     return;
                 }
 
@@ -204,8 +239,7 @@ export default function PlaybackBar({
             return;
         }
 
-        // A user action starts a fresh preparation attempt.
-        // No automatic retry timers are scheduled.
+        // Manual retry only; no automatic retry timers.
         setRetryAttempt((current) => current + 1);
     }
 
@@ -221,7 +255,6 @@ export default function PlaybackBar({
 
         const started = playMusic();
 
-        // Wait for Howler's onPlay callback before showing Pause.
         if (!started) {
             setPlaybackStatus("ready");
             setFailureState(null);
@@ -241,6 +274,7 @@ export default function PlaybackBar({
             <footer className="playback-bar">
                 <div className="track-info">
                     <div className="track-placeholder" />
+
                     <div>
                         <strong>Nothing Playing</strong>
                         <p>Select a track</p>
@@ -248,9 +282,17 @@ export default function PlaybackBar({
                 </div>
 
                 <div className="playback-controls">
-                    <button disabled aria-label="Previous track">⏮</button>
-                    <button disabled aria-label="Play">▶</button>
-                    <button disabled aria-label="Next track">⏭</button>
+                    <button disabled aria-label="Previous track">
+                        ⏮
+                    </button>
+
+                    <button disabled aria-label="Play">
+                        ▶
+                    </button>
+
+                    <button disabled aria-label="Next track">
+                        ⏭
+                    </button>
                 </div>
 
                 <div className="volume-placeholder">
@@ -275,6 +317,7 @@ export default function PlaybackBar({
             <footer className="playback-bar">
                 <div className="track-info">
                     <strong>Playback unavailable</strong>
+
                     <p role="alert">{error}</p>
 
                     {canRetryPlayback(failureState, loading) && (
@@ -322,7 +365,12 @@ export default function PlaybackBar({
             </div>
 
             <div className="playback-controls">
-                <button disabled aria-label="Previous track">⏮</button>
+                <button
+                    disabled
+                    aria-label="Previous track"
+                >
+                    ⏮
+                </button>
 
                 <button
                     onClick={handlePlayPause}
@@ -331,7 +379,12 @@ export default function PlaybackBar({
                     {isPlaying ? "⏸" : "▶"}
                 </button>
 
-                <button disabled aria-label="Next track">⏭</button>
+                <button
+                    disabled
+                    aria-label="Next track"
+                >
+                    ⏭
+                </button>
             </div>
 
             <label className="volume-placeholder">
