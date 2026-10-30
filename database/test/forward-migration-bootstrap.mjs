@@ -117,6 +117,173 @@ function assertMigrationOutput(
   );
 }
 
+// AY-T32 / SCRUM-214: Capture the actual public PostgreSQL
+// schema before and after the historical forward upgrade.
+//
+// Scope: relations, columns, constraints, and indexes.
+// This does not replace a full pg_dump comparison of functions,
+// triggers, or other database objects.
+
+async function capturePublicSchema(client) {
+  const { rows } = await client.query(`
+    SELECT category, object_name, definition
+    FROM (
+      SELECT
+        'relation'::text AS category,
+        format('%I.%I', n.nspname, c.relname) AS object_name,
+        c.relkind::text AS definition
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n
+        ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'p', 'S', 'v', 'm')
+
+      UNION ALL
+
+      SELECT
+        'column'::text AS category,
+        format(
+          '%I.%I.%I',
+          n.nspname,
+          c.relname,
+          a.attname
+        ) AS object_name,
+        concat(
+          'type=', pg_catalog.format_type(
+            a.atttypid,
+            a.atttypmod
+          ),
+          '; notnull=', a.attnotnull,
+          '; default=', coalesce(
+            pg_catalog.pg_get_expr(
+              d.adbin,
+              d.adrelid
+            ),
+            '<none>'
+          ),
+          '; identity=', a.attidentity,
+          '; generated=', a.attgenerated
+        ) AS definition
+      FROM pg_catalog.pg_attribute a
+      JOIN pg_catalog.pg_class c
+        ON c.oid = a.attrelid
+      JOIN pg_catalog.pg_namespace n
+        ON n.oid = c.relnamespace
+      LEFT JOIN pg_catalog.pg_attrdef d
+        ON d.adrelid = a.attrelid
+       AND d.adnum = a.attnum
+      WHERE n.nspname = 'public'
+        AND c.relkind IN ('r', 'p', 'v', 'm')
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+
+      UNION ALL
+
+      SELECT
+        'constraint'::text AS category,
+        format(
+          '%I.%I.%I',
+          n.nspname,
+          c.relname,
+          con.conname
+        ) AS object_name,
+        pg_catalog.pg_get_constraintdef(con.oid)
+          AS definition
+      FROM pg_catalog.pg_constraint con
+      JOIN pg_catalog.pg_class c
+        ON c.oid = con.conrelid
+      JOIN pg_catalog.pg_namespace n
+        ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+
+      UNION ALL
+
+      SELECT
+        'index'::text AS category,
+        format('%I.%I', schemaname, indexname)
+          AS object_name,
+        indexdef AS definition
+      FROM pg_catalog.pg_indexes
+      WHERE schemaname = 'public'
+    ) AS schema_objects
+    ORDER BY category, object_name
+  `);
+
+  return new Map(
+    rows.map((row) => [
+      `${row.category}:${row.object_name}`,
+      row.definition,
+    ]),
+  );
+}
+
+function verifySchemaDiff(before, after) {
+  const added = [...after.entries()].filter(
+    ([key]) => !before.has(key),
+  );
+
+  const removed = [...before.entries()].filter(
+    ([key]) => !after.has(key),
+  );
+
+  const changed = [...before.entries()].filter(
+    ([key, definition]) =>
+      after.has(key) && after.get(key) !== definition,
+  );
+
+  console.log('\nAY-T32: PostgreSQL before/after schema diff');
+  console.log(`Before objects: ${before.size}`);
+  console.log(`After objects: ${after.size}`);
+  console.log(`Added objects: ${added.length}`);
+  console.log(`Removed objects: ${removed.length}`);
+  console.log(`Changed definitions: ${changed.length}`);
+
+  for (const [key] of added) {
+    console.log(`SCHEMA ADDED: ${key}`);
+  }
+
+  for (const [key] of removed) {
+    console.log(`SCHEMA REMOVED: ${key}`);
+  }
+
+  for (const [key, original] of changed) {
+    console.log(`SCHEMA CHANGED: ${key}`);
+    console.log(`  Before: ${original}`);
+    console.log(`  After: ${after.get(key)}`);
+  }
+
+  assert.equal(
+    removed.length,
+    0,
+    'Historical schema objects were removed',
+  );
+
+  assert.equal(
+    changed.length,
+    0,
+    'Historical schema definitions changed',
+  );
+
+  for (const tableName of [
+    'public.favorites',
+    'public.revoked_access_tokens',
+  ]) {
+    assert.ok(
+      added.some(
+        ([key]) => key === `relation:${tableName}`,
+      ),
+      `Expected new relation missing: ${tableName}`,
+    );
+  }
+
+  console.log(
+    'PASS: historical schema definitions preserved',
+  );
+  console.log(
+    'PASS: both expected Sprint 3 relations added',
+  );
+}
+
 async function main() {
   // --------------------------------------------------
   // 1. Validate the configured database.
@@ -160,6 +327,7 @@ async function main() {
     'utf8',
   );
 
+  let historicalSchema;
   const client = new pg.Client();
 
   await client.connect();
@@ -337,6 +505,11 @@ async function main() {
     console.log(
       'PASS: populated historical schema and captured audit snapshot',
     );
+    historicalSchema = await capturePublicSchema(client);
+
+    console.log(
+      `PASS: captured ${historicalSchema.size} historical schema objects`,
+    );
   } finally {
     await client.end();
   }
@@ -361,6 +534,35 @@ async function main() {
         'm',
       ),
     );
+  }
+  
+  // Capture the actual upgraded schema and compare it with
+  // the historical snapshot taken before Sprint 3 migrations.
+  const schemaClient = new pg.Client();
+
+  await schemaClient.connect();
+
+  try {
+    const { rows: [connection] } = await schemaClient.query(
+      'SELECT current_database() AS name',
+    );
+
+    assert.equal(
+      connection.name,
+      EXPECTED_DATABASE,
+      'Unsafe schema comparison database target',
+    );
+
+    const upgradedSchema = await capturePublicSchema(
+      schemaClient,
+    );
+
+    verifySchemaDiff(
+      historicalSchema,
+      upgradedSchema,
+    );
+  } finally {
+    await schemaClient.end();
   }
 
   // --------------------------------------------------
