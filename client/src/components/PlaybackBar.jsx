@@ -1,8 +1,4 @@
-
-import {
-    useEffect,
-    useState
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
     loadTrack,
@@ -12,6 +8,16 @@ import {
     setMusicVolume
 } from "../playback/playback.js";
 
+import {
+    canRetryPlayback,
+    classifyMediaAccessRequestError,
+    classifyMediaAccessStatus
+} from "../playback/streamFailure.js";
+
+import {
+    recordPlaybackDiagnostic
+} from "../playback/playbackDiagnostics.js";
+
 import "./PlaybackBar.css";
 
 export default function PlaybackBar({
@@ -19,23 +25,15 @@ export default function PlaybackBar({
     accessToken = "",
     onSessionInvalidated
 }) {
-    const [track, setTrack] =
-    useState(null);
+    const [track, setTrack] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [failureState, setFailureState] = useState(null);
+    const [playbackStatus, setPlaybackStatus] = useState("ready");
+    const [volume, setVolume] = useState(0.5);
+    const [retryAttempt, setRetryAttempt] = useState(0);
 
-    const [loading, setLoading] =
-    useState(false);
-
-    const [error, setError] =
-    useState(null);
-
-    const [playbackStatus, setPlaybackStatus] =
-    useState("ready");
-
-    const isPlaying =
-    playbackStatus === "playing";
-
-    const [volume, setVolume] =
-    useState(0.5);
+    const isPlaying = playbackStatus === "playing";
 
     useEffect(() => {
         if (!trackId) {
@@ -44,271 +42,177 @@ export default function PlaybackBar({
 
         let cancelled = false;
 
+        // A late response must not affect a newer track or session.
+        // Record that the obsolete result was discarded.
+        function dropStaleResult() {
+            if (!cancelled) {
+                return false;
+            }
+
+            recordPlaybackDiagnostic(
+                "STALE_OPERATION_DROPPED"
+            );
+
+            return true;
+        }
+
+        function showFailure(
+            failure,
+            { recordDiagnostic = true } = {}
+        ) {
+            if (cancelled) {
+                return;
+            }
+
+            unloadMusic();
+            setTrack(null);
+            setPlaybackStatus("ready");
+            setFailureState(failure);
+            setError(failure.message);
+
+            if (recordDiagnostic) {
+                recordPlaybackDiagnostic(failure.code);
+            }
+
+            if (
+                failure.invalidateSession &&
+                typeof onSessionInvalidated === "function"
+            ) {
+                onSessionInvalidated(accessToken);
+            }
+        }
+
         async function loadSelectedTrack() {
-            setLoading(
-                true
-            );
-
-            setError(
-                null
-            );
-
-            setPlaybackStatus(
-                "ready"
-            );
+            setLoading(true);
+            setError(null);
+            setFailureState(null);
+            setTrack(null);
+            setPlaybackStatus("ready");
 
             if (!accessToken) {
-                unloadMusic();
-
-                setTrack(
-                    null
+                // Missing client session is already known locally.
+                // Do not count it as another server-side 401 response.
+                showFailure(
+                    {
+                        ...classifyMediaAccessStatus(401),
+                        invalidateSession: false
+                    },
+                    { recordDiagnostic: false }
                 );
 
-                setError(
-                    "Please log in to play this track."
-                );
-
-                setLoading(
-                    false
-                );
-
+                setLoading(false);
                 return;
             }
 
             try {
-                const metadataResponse =
-                await fetch(
+                const metadataResponse = await fetch(
                     `/api/catalog/tracks/${trackId}`
                 );
 
-                if (
-                    !metadataResponse.ok
-                ) {
-                    throw new Error(
-                        "metadata_request_failed"
-                    );
+                if (dropStaleResult()) {
+                    return;
                 }
 
-                const metadata =
-                await metadataResponse.json();
+                if (!metadataResponse.ok) {
+                    throw new Error("metadata_request_failed");
+                }
 
-                if (cancelled) {
+                const metadata = await metadataResponse.json();
+
+                if (dropStaleResult()) {
                     return;
                 }
 
                 let mediaAccessResponse;
 
                 try {
-                    mediaAccessResponse =
-                    await fetch(
+                    mediaAccessResponse = await fetch(
                         `/api/tracks/${metadata.id}/media-access`,
                         {
-                            method:
-                            "POST",
-
+                            method: "POST",
                             headers: {
-                                Authorization:
-                                `Bearer ${accessToken}`
+                                Authorization: `Bearer ${accessToken}`
                             },
-
-                            credentials:
-                            "same-origin"
+                            credentials: "same-origin"
                         }
                     );
-                } catch {
-                    if (
-                        cancelled
-                    ) {
+                } catch (requestError) {
+                    if (dropStaleResult()) {
                         return;
                     }
 
-                    unloadMusic();
-
-                    setTrack(
-                        null
-                    );
-
-                    setError(
-                        "Unable to prepare playback."
-                    );
-
-                    return;
-                }
-
-                if (cancelled) {
-                    return;
-                }
-
-                if (
-                    mediaAccessResponse.status ===
-                    401
-                ) {
-                    unloadMusic();
-
-                    setTrack(
-                        null
-                    );
-
-                    setPlaybackStatus(
-                        "ready"
-                    );
-
-                    if (
-                        typeof onSessionInvalidated ===
-                        "function"
-                    ) {
-                        onSessionInvalidated(
-                            accessToken
+                    const failure =
+                        classifyMediaAccessRequestError(
+                            requestError
                         );
+
+                    if (failure.code !== "REQUEST_CANCELLED") {
+                        showFailure(failure);
                     }
 
-                    setError(
-                        "Please log in to play this track."
+                    return;
+                }
+
+                if (dropStaleResult()) {
+                    return;
+                }
+
+                if (mediaAccessResponse.status !== 204) {
+                    showFailure(
+                        classifyMediaAccessStatus(
+                            mediaAccessResponse.status
+                        )
                     );
 
                     return;
                 }
 
-                if (
-                    mediaAccessResponse.status ===
-                    403
-                ) {
-                    unloadMusic();
+                setTrack(metadata);
 
-                    setTrack(
-                        null
-                    );
-
-                    setPlaybackStatus(
-                        "ready"
-                    );
-
-                    setError(
-                        "You do not have access to play this track."
-                    );
-
-                    return;
-                }
-
-                if (
-                    mediaAccessResponse.status ===
-                    503
-                ) {
-                    unloadMusic();
-
-                    setTrack(
-                        null
-                    );
-
-                    setPlaybackStatus(
-                        "ready"
-                    );
-
-                    setError(
-                        "Playback authentication is temporarily unavailable."
-                    );
-
-                    return;
-                }
-
-                if (
-                    mediaAccessResponse.status !==
-                    204
-                ) {
-                    unloadMusic();
-
-                    setTrack(
-                        null
-                    );
-
-                    setPlaybackStatus(
-                        "ready"
-                    );
-
-                    setError(
-                        "Unable to prepare playback."
-                    );
-
-                    return;
-                }
-
-                setTrack(
-                    metadata
-                );
-
-                loadTrack(
-                    metadata.id,
-                    {
-                        onPlay: () => {
-                            if (cancelled) {
-                                return;
-                            }
-
+                loadTrack(metadata.id, {
+                    onPlay: () => {
+                        if (!cancelled) {
                             setPlaybackStatus("playing");
-                        },
-
-                        onPause: () => {
-                            if (cancelled) {
-                                return;
-                            }
-
-                            setPlaybackStatus("paused");
-                        },
-
-                        onEnd: () => {
-                            if (cancelled) {
-                                return;
-                            }
-
-                            setPlaybackStatus("finished");
-                        },
-
-                        onError: () => {
-                            if (
-                                cancelled
-                            ) {
-                                return;
-                            }
-
-                            unloadMusic();
-
-                            setPlaybackStatus(
-                                "ready"
-                            );
-
-                            setError(
-                                "Unable to play this track."
-                            );
                         }
+                    },
+
+                    onPause: () => {
+                        if (!cancelled) {
+                            setPlaybackStatus("paused");
+                        }
+                    },
+
+                    onEnd: () => {
+                        if (!cancelled) {
+                            setPlaybackStatus("finished");
+                        }
+                    },
+
+                    onError: () => {
+                        if (cancelled) {
+                            return;
+                        }
+
+                        unloadMusic();
+                        setPlaybackStatus("ready");
+                        setFailureState(null);
+                        setError("Unable to play this track.");
                     }
-                );
+                });
             } catch {
-                if (
-                    cancelled
-                ) {
+                if (dropStaleResult()) {
                     return;
                 }
 
-                unloadMusic();
-
-                setTrack(
-                    null
-                );
-
-                setPlaybackStatus(
-                    "ready"
-                );
-
-                setError(
-                    "Unable to load track."
-                );
+                showFailure({
+                    code: "TRACK_METADATA_FAILED",
+                    message: "Unable to load track.",
+                    retryable: false,
+                    invalidateSession: false
+                });
             } finally {
-                if (
-                    !cancelled
-                ) {
-                    setLoading(
-                        false
-                    );
+                if (!cancelled) {
+                    setLoading(false);
                 }
             }
         }
@@ -317,14 +221,27 @@ export default function PlaybackBar({
 
         return () => {
             cancelled = true;
-
             unloadMusic();
         };
     }, [
         trackId,
         accessToken,
-        onSessionInvalidated
+        onSessionInvalidated,
+        retryAttempt
     ]);
+
+    function handleRetry() {
+        if (
+            !trackId ||
+            !accessToken ||
+            !canRetryPlayback(failureState, loading)
+        ) {
+            return;
+        }
+
+        // Manual retry only; no automatic retry timers.
+        setRetryAttempt((current) => current + 1);
+    }
 
     function handlePlayPause() {
         if (!track) {
@@ -336,81 +253,51 @@ export default function PlaybackBar({
             return;
         }
 
-        // Wait for Howler's onplay event before
-        // changing the button to Pause.
-        const started =
-        playMusic();
+        const started = playMusic();
 
         if (!started) {
             setPlaybackStatus("ready");
-            setError(
-                "Unable to play this track."
-            );
+            setFailureState(null);
+            setError("Unable to play this track.");
         }
     }
 
-    function handleVolumeChange(
-        event
-    ) {
-        const nextVolume =
-        Number(
-            event.target.value
-        );
+    function handleVolumeChange(event) {
+        const nextVolume = Number(event.target.value);
 
-        setVolume(
-            nextVolume
-        );
-
-        setMusicVolume(
-            nextVolume
-        );
+        setVolume(nextVolume);
+        setMusicVolume(nextVolume);
     }
 
     if (!trackId) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <div
-            className="track-placeholder"
-            />
+                <div className="track-info">
+                    <div className="track-placeholder" />
 
-            <div>
-            <strong>
-            Nothing Playing
-            </strong>
+                    <div>
+                        <strong>Nothing Playing</strong>
+                        <p>Select a track</p>
+                    </div>
+                </div>
 
-            <p>
-            Select a track
-            </p>
-            </div>
-            </div>
+                <div className="playback-controls">
+                    <button disabled aria-label="Previous track">
+                        ⏮
+                    </button>
 
-            <div className="playback-controls">
-            <button
-            disabled
-            aria-label="Previous track"
-            >
-            ⏮
-            </button>
+                    <button disabled aria-label="Play">
+                        ▶
+                    </button>
 
-            <button
-            disabled
-            aria-label="Play"
-            >
-            ▶
-            </button>
+                    <button disabled aria-label="Next track">
+                        ⏭
+                    </button>
+                </div>
 
-            <button
-            disabled
-            aria-label="Next track"
-            >
-            ⏭
-            </button>
-            </div>
-
-            <div className="volume-placeholder">
-            Volume
-            </div>
+                <div className="volume-placeholder">
+                    Volume
+                </div>
             </footer>
         );
     }
@@ -418,11 +305,9 @@ export default function PlaybackBar({
     if (loading) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <strong>
-            Loading track...
-            </strong>
-            </div>
+                <div className="track-info">
+                    <strong>Loading track...</strong>
+                </div>
             </footer>
         );
     }
@@ -430,15 +315,21 @@ export default function PlaybackBar({
     if (error) {
         return (
             <footer className="playback-bar">
-            <div className="track-info">
-            <strong>
-            Playback unavailable
-            </strong>
+                <div className="track-info">
+                    <strong>Playback unavailable</strong>
 
-            <p role="alert">
-            {error}
-            </p>
-            </div>
+                    <p role="alert">{error}</p>
+
+                    {canRetryPlayback(failureState, loading) && (
+                        <button
+                            type="button"
+                            onClick={handleRetry}
+                            aria-label="Retry playback"
+                        >
+                            Retry playback
+                        </button>
+                    )}
+                </div>
             </footer>
         );
     }
@@ -449,83 +340,66 @@ export default function PlaybackBar({
 
     return (
         <footer className="playback-bar">
-        <div className="track-info">
-        <div
-        className="track-placeholder"
-        />
+            <div className="track-info">
+                <div className="track-placeholder" />
 
-        <div>
-        <strong>
-        {track.title}
-        </strong>
+                <div>
+                    <strong>{track.title}</strong>
 
-        <p>
-        {track.artist.name}
-        {" • "}
-        {track.album.title}
-        </p>
+                    <p>
+                        {track.artist.name}
+                        {" • "}
+                        {track.album.title}
+                    </p>
 
-        <p
-        role="status"
-        aria-live="polite"
-        >
-        {playbackStatus === "playing"
-            ? "Playing"
-            : playbackStatus === "paused"
-            ? "Paused"
-            : playbackStatus === "finished"
-            ? "Finished"
-            : "Ready to play"}
-            </p>
-            </div>
+                    <p role="status" aria-live="polite">
+                        {playbackStatus === "playing"
+                            ? "Playing"
+                            : playbackStatus === "paused"
+                            ? "Paused"
+                            : playbackStatus === "finished"
+                            ? "Finished"
+                            : "Ready to play"}
+                    </p>
+                </div>
             </div>
 
             <div className="playback-controls">
-            <button
-            disabled
-            aria-label="Previous track"
-            >
-            ⏮
-            </button>
-
-            <button
-            onClick={
-                handlePlayPause
-            }
-            aria-label={
-                isPlaying
-                ? "Pause"
-                : "Play"
-            }
-            >
-            {isPlaying
-                ? "⏸"
-                : "▶"}
+                <button
+                    disabled
+                    aria-label="Previous track"
+                >
+                    ⏮
                 </button>
 
                 <button
-                disabled
-                aria-label="Next track"
+                    onClick={handlePlayPause}
+                    aria-label={isPlaying ? "Pause" : "Play"}
                 >
-                ⏭
+                    {isPlaying ? "⏸" : "▶"}
                 </button>
-                </div>
 
-                <label className="volume-placeholder">
+                <button
+                    disabled
+                    aria-label="Next track"
+                >
+                    ⏭
+                </button>
+            </div>
+
+            <label className="volume-placeholder">
                 Volume
 
                 <input
-                aria-label="Volume"
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={volume}
-                onChange={
-                    handleVolumeChange
-                }
+                    aria-label="Volume"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={volume}
+                    onChange={handleVolumeChange}
                 />
-                </label>
-                </footer>
+            </label>
+        </footer>
     );
 }

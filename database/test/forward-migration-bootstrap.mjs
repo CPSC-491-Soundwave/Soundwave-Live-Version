@@ -33,6 +33,7 @@ const HISTORICAL_MIGRATIONS = [
 const NEW_MIGRATIONS = [
   '20261008_cmg_001_revoked_access_tokens.sql',
   '20261011_ayu_003_user_favorites.sql',
+  '20261029_mchoi_001_playback_events.sql',
 ];
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -524,7 +525,7 @@ async function main() {
 
   const firstOutput = runNode(['migrate.js']);
 
-  assertMigrationOutput(firstOutput, 2, 5);
+  assertMigrationOutput(firstOutput, 3, 5);
 
   for (const filename of NEW_MIGRATIONS) {
     assert.match(
@@ -613,8 +614,11 @@ async function main() {
   console.log('\nRe-running current migrations:');
 
   const secondOutput = runNode(['migrate.js']);
-
-  assertMigrationOutput(secondOutput, 0, 7);
+  assertMigrationOutput(
+    secondOutput,
+    0,
+    HISTORICAL_MIGRATIONS.length + NEW_MIGRATIONS.length,
+  );
 
   // --------------------------------------------------
   // 8. Execute preservation + negative-control tests.
