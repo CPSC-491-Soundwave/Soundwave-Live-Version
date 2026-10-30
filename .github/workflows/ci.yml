@@ -488,6 +488,12 @@ jobs:
           PGDATABASE: soundwave_ayu_forward_test
         run: node test/forward-migration-bootstrap.mjs
 
+      - name: CC6.6 Catalog Input Security
+        working-directory: server
+        run: |
+        node --env-file=../database/.env.test --test integration/hostile-identifier-sql-boundary.check.mjs
+
+
 
 
   build-metadata:
