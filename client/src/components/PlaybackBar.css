@@ -45,3 +45,40 @@
     justify-self: end;
     color: var(--color-text-secondary);
 }
+
+
+.playback-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.playback-status--loading,
+.playback-status--buffering {
+    color: #f6d18b;
+}
+
+.playback-status--loading::before,
+.playback-status--buffering::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: currentColor;
+    animation: playback-status-pulse 1s ease-in-out infinite;
+}
+
+@keyframes playback-status-pulse {
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .playback-status--loading::before,
+    .playback-status--buffering::before {
+        animation: none;
+    }
+}
