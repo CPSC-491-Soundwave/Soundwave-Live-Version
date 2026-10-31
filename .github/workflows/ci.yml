@@ -498,10 +498,6 @@ jobs:
         run: |
           node --env-file=../database/.env.test --test integration/catalog-media-reference-faults.check.mjs
 
-
-
-
-
   build-metadata:
     name: Build Metadata
     runs-on: ubuntu-latest
