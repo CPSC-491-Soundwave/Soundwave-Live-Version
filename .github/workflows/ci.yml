@@ -492,6 +492,12 @@ jobs:
         working-directory: server
         run: |
           node --env-file=../database/.env.test --test integration/hostile-identifier-sql-boundary.check.mjs
+      
+      - name: CC6.6 Catalog-to-Media Reference Integrity
+        working-directory: server
+        run: |
+          node --env-file=../database/.env.test --test integration/catalog-media-reference-faults.check.mjs
+
 
 
 
