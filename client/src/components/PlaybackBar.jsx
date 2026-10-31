@@ -33,7 +33,9 @@ export default function PlaybackBar({
     const [volume, setVolume] = useState(0.5);
     const [retryAttempt, setRetryAttempt] = useState(0);
 
-    const isPlaying = playbackStatus === "playing";
+    const isPlaying =
+        playbackStatus === "playing" ||
+        playbackStatus === "buffering";
 
     useEffect(() => {
         if (!trackId) {
@@ -167,26 +169,59 @@ export default function PlaybackBar({
                     return;
                 }
 
+                
+                
                 setTrack(metadata);
+                setPlaybackStatus("loading");
 
                 loadTrack(metadata.id, {
-                    onPlay: () => {
+                    onLoad: () => {
                         if (!cancelled) {
-                            setPlaybackStatus("playing");
+                            setPlaybackStatus(current =>
+                                current === "loading"
+                                    ? "ready"
+                                    : current
+                            );
                         }
                     },
 
-                    onPause: () => {
-                        if (!cancelled) {
-                            setPlaybackStatus("paused");
-                        }
-                    },
+                onBuffering: () => {
+                    if (!cancelled) {
+                        setPlaybackStatus(current =>
+                            current === "playing"
+                                ? "buffering"
+                                : current
+                        );
+                    }
+                },
 
-                    onEnd: () => {
-                        if (!cancelled) {
-                            setPlaybackStatus("finished");
-                        }
-                    },
+                onRecovered: () => {
+                    if (!cancelled) {
+                        setPlaybackStatus(current =>
+                            current === "buffering"
+                                ? "playing"
+                                : current
+                        );
+                    }
+                },
+
+                onPlay: () => {
+                    if (!cancelled) {
+                        setPlaybackStatus("playing");
+                    }
+                },
+
+                onPause: () => {
+                    if (!cancelled) {
+                        setPlaybackStatus("paused");
+                    }
+                },
+
+                 onEnd: () => {
+                    if (!cancelled) {
+                        setPlaybackStatus("finished");
+                    }
+                },
 
                     onError: () => {
                         if (cancelled) {
@@ -352,8 +387,18 @@ export default function PlaybackBar({
                         {track.album.title}
                     </p>
 
-                    <p role="status" aria-live="polite">
-                        {playbackStatus === "playing"
+                    <p
+                        role="status"
+                        aria-live="polite"
+                        className={
+                            `playback-status playback-status--${playbackStatus}`
+                        }
+                    >
+                        {playbackStatus === "loading"
+                            ? "Loading audio..."
+                            : playbackStatus === "buffering"
+                            ? "Buffering..."
+                            : playbackStatus === "playing"
                             ? "Playing"
                             : playbackStatus === "paused"
                             ? "Paused"
