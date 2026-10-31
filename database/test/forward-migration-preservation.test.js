@@ -29,6 +29,7 @@ const BASELINE_MIGRATIONS = [
 const NEW_MIGRATIONS = [
   '20261008_cmg_001_revoked_access_tokens.sql',
   '20261011_ayu_003_user_favorites.sql',
+  '20261029_mchoi_001_playback_events.sql',
 ];
 
 const EXPECTED_TABLE_COUNTS = [
