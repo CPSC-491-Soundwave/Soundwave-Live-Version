@@ -42,30 +42,33 @@ const DEFINITIONS = Object.freeze({
     STALE_OPERATION_DROPPED: [
         "stale_operation",
         "safety_event"
+    ],
+
+    REPEATED_ACCESS_DENIAL: [
+        "repeated_denial_burst",
+        "potential_security_event"
     ]
 });
 
-// Limits the amount of diagnostic data retained in memory.
-// This is NOT an anomaly-detection threshold.
 const CAPACITY = 25;
+
+// Team-approved Sprint 4 anomaly policy.
+const DENIAL_THRESHOLD = 3;
+const DENIAL_WINDOW_MS = 60_000;
+
+const DENIAL_CODES = new Set([
+    "AUTHENTICATION_REQUIRED",
+    "ACCESS_DENIED"
+]);
 
 let records = [];
 let sequence = 0;
 
-export function recordPlaybackDiagnostic(
-    code,
-    {
-        now = Date.now(),
-        emit = console.info
-    } = {}
-) {
-    const definition = DEFINITIONS[code];
+let denialTimes = [];
+let burstReported = false;
 
-    // Reject unknown classifications rather than
-    // storing arbitrary exception or request content.
-    if (!definition) {
-        return null;
-    }
+function appendRecord(code, now, emit) {
+    const definition = DEFINITIONS[code];
 
     const record = Object.freeze({
         sequence: ++sequence,
@@ -76,19 +79,66 @@ export function recordPlaybackDiagnostic(
         reviewStatus: "not_reviewed"
     });
 
-    // Retain only the most recent 25 records.
     records = [
         ...records.slice(-(CAPACITY - 1)),
         record
     ];
 
-    // Emit only the sanitized, allowlisted fields.
     emit(
         "[Soundwave] playback diagnostic",
         { ...record }
     );
 
     return { ...record };
+}
+
+export function recordPlaybackDiagnostic(
+    code,
+    {
+        now = Date.now(),
+        emit = console.info
+    } = {}
+) {
+    // Unknown codes cannot enter the diagnostic history.
+    // The derived burst marker cannot be submitted directly.
+    if (
+        !DEFINITIONS[code] ||
+        code === "REPEATED_ACCESS_DENIAL"
+    ) {
+        return null;
+    }
+
+    const record = appendRecord(code, now, emit);
+
+    if (DENIAL_CODES.has(code)) {
+        // Retain only denial times inside the rolling window.
+        denialTimes = denialTimes.filter(
+            (time) =>
+                time >= now - DENIAL_WINDOW_MS &&
+                time <= now
+        );
+
+        // Only the three most recent timestamps are needed.
+        denialTimes = [
+            ...denialTimes,
+            now
+        ].slice(-DENIAL_THRESHOLD);
+
+        if (denialTimes.length < DENIAL_THRESHOLD) {
+            burstReported = false;
+        } else if (!burstReported) {
+            // Emit one marker for this continuous burst.
+            appendRecord(
+                "REPEATED_ACCESS_DENIAL",
+                now,
+                emit
+            );
+
+            burstReported = true;
+        }
+    }
+
+    return record;
 }
 
 export function getPlaybackDiagnostics() {
@@ -100,4 +150,7 @@ export function getPlaybackDiagnostics() {
 export function clearPlaybackDiagnostics() {
     records = [];
     sequence = 0;
+
+    denialTimes = [];
+    burstReported = false;
 }
