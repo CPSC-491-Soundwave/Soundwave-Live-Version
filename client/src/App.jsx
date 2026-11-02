@@ -1,3 +1,4 @@
+
 import {
   useCallback,
   useState
@@ -11,6 +12,11 @@ import {
 import Sidebar from "./components/Sidebar";
 import SessionStatus from "./components/SessionStatus";
 import PlaybackBar from "./components/PlaybackBar";
+
+import {
+  createQueue,
+  getCurrentQueueTrack
+} from "./playback/queue.js";
 
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -51,18 +57,53 @@ export default function App() {
       setSession((current) =>
         current.accessToken === token
           ? {
-              accessToken: "",
-              loginViewEpoch:
-                current.loginViewEpoch + 1
-            }
+            accessToken: "",
+            loginViewEpoch:
+              current.loginViewEpoch + 1
+          }
           : current
       );
     }, []);
 
-  const [
-    selectedTrackId,
-    setSelectedTrackId
-  ] = useState(null);
+  /*
+   * SCRUM-323:
+   * Maintain playback queue state at the application
+   * level so route navigation does not reset it.
+   */
+  const [queue, setQueue] = useState(
+    () => createQueue()
+  );
+
+  /*
+   * Existing pages select individual track IDs.
+   * Establish a single-track queue for each selection.
+   *
+   * Multi-track queue population and Next/Previous
+   * controls will be integrated separately.
+   */
+  const handleSelectTrack = useCallback(
+    (trackId) => {
+      if (
+        !Number.isInteger(trackId) ||
+        trackId <= 0
+      ) {
+        return;
+      }
+
+      setQueue(
+        createQueue([trackId], trackId)
+      );
+    },
+    []
+  );
+
+  /*
+   * Derive the active track from queue state.
+   * PlaybackBar continues receiving the same
+   * trackId interface as before.
+   */
+  const selectedTrackId =
+    getCurrentQueueTrack(queue);
 
   return (
     <div className="app-shell">
@@ -87,7 +128,7 @@ export default function App() {
             element={
               <Search
                 onSelectTrack={
-                  setSelectedTrackId
+                  handleSelectTrack
                 }
               />
             }
@@ -101,7 +142,7 @@ export default function App() {
                   accessToken
                 }
                 onSelectTrack={
-                  setSelectedTrackId
+                  handleSelectTrack
                 }
               />
             }
@@ -158,7 +199,7 @@ export default function App() {
             element={
               <AlbumDetail
                 onSelectTrack={
-                  setSelectedTrackId
+                  handleSelectTrack
                 }
               />
             }
