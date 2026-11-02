@@ -33,6 +33,13 @@ export default function PlaybackBar({
     const [volume, setVolume] = useState(0.5);
     const [retryAttempt, setRetryAttempt] = useState(0);
 
+    // SCRUM-289: Associate visible playback state with a track.
+    const [requestedTrackId, setRequestedTrackId] = useState(null);
+
+    // SCRUM-289: Distinguish initial loading from manual retry.
+    const [retryingTrackId, setRetryingTrackId] = useState(null);
+
+    // SCRUM-293: A buffering player is still actively playing.
     const isPlaying =
         playbackStatus === "playing" ||
         playbackStatus === "buffering";
@@ -44,8 +51,6 @@ export default function PlaybackBar({
 
         let cancelled = false;
 
-        // A late response must not affect a newer track or session.
-        // Record that the obsolete result was discarded.
         function dropStaleResult() {
             if (!cancelled) {
                 return false;
@@ -85,6 +90,7 @@ export default function PlaybackBar({
         }
 
         async function loadSelectedTrack() {
+            setRequestedTrackId(trackId);
             setLoading(true);
             setError(null);
             setFailureState(null);
@@ -92,8 +98,6 @@ export default function PlaybackBar({
             setPlaybackStatus("ready");
 
             if (!accessToken) {
-                // Missing client session is already known locally.
-                // Do not count it as another server-side 401 response.
                 showFailure(
                     {
                         ...classifyMediaAccessStatus(401),
@@ -103,6 +107,7 @@ export default function PlaybackBar({
                 );
 
                 setLoading(false);
+                setRetryingTrackId(null);
                 return;
             }
 
@@ -169,59 +174,78 @@ export default function PlaybackBar({
                     return;
                 }
 
-                
-                
+                // SCRUM-289: Successful authorization clears old errors.
+                setError(null);
+                setFailureState(null);
                 setTrack(metadata);
-                setPlaybackStatus("loading");
+
+                // SCRUM-293: Authorization success does not mean
+                // the audio itself has finished loading.
+                setPlaybackStatus("loading_audio");
 
                 loadTrack(metadata.id, {
+                    // SCRUM-293: The audio is ready.
                     onLoad: () => {
+                        if (cancelled) {
+                            return;
+                        }
+
+                        setPlaybackStatus((current) =>
+                            current === "loading_audio"
+                                ? "ready"
+                                : current
+                        );
+                    },
+
+                    onPlay: () => {
                         if (!cancelled) {
-                            setPlaybackStatus(current =>
-                                current === "loading"
-                                    ? "ready"
-                                    : current
-                            );
+                            setPlaybackStatus("playing");
                         }
                     },
 
-                onBuffering: () => {
-                    if (!cancelled) {
-                        setPlaybackStatus(current =>
-                            current === "playing"
-                                ? "buffering"
-                                : current
-                        );
-                    }
-                },
+                    onPause: () => {
+                        if (!cancelled) {
+                            setPlaybackStatus("paused");
+                        }
+                    },
 
-                onRecovered: () => {
-                    if (!cancelled) {
-                        setPlaybackStatus(current =>
+                    onEnd: () => {
+                        if (!cancelled) {
+                            setPlaybackStatus("finished");
+                        }
+                    },
+
+                    // SCRUM-293: Report a stall during playback.
+                    onBuffering: () => {
+                        if (cancelled) {
+                            return;
+                        }
+
+                        setPlaybackStatus((current) => {
+                            if (
+                                current === "playing" ||
+                                current === "buffering"
+                            ) {
+                                return "buffering";
+                            }
+
+                            return current;
+                        });
+                    },
+
+                    // SCRUM-293: Resume the displayed playing state
+                    // without restarting the track.
+                    onRecovered: () => {
+                        if (cancelled) {
+                            return;
+                        }
+
+                        setPlaybackStatus((current) =>
                             current === "buffering"
                                 ? "playing"
                                 : current
                         );
-                    }
-                },
-
-                onPlay: () => {
-                    if (!cancelled) {
-                        setPlaybackStatus("playing");
-                    }
-                },
-
-                onPause: () => {
-                    if (!cancelled) {
-                        setPlaybackStatus("paused");
-                    }
-                },
-
-                 onEnd: () => {
-                    if (!cancelled) {
-                        setPlaybackStatus("finished");
-                    }
-                },
+                    },
 
                     onError: () => {
                         if (cancelled) {
@@ -248,6 +272,7 @@ export default function PlaybackBar({
             } finally {
                 if (!cancelled) {
                     setLoading(false);
+                    setRetryingTrackId(null);
                 }
             }
         }
@@ -274,7 +299,13 @@ export default function PlaybackBar({
             return;
         }
 
-        // Manual retry only; no automatic retry timers.
+        // SCRUM-289: Immediately show retry feedback.
+        // SCRUM-288 still controls the actual retry operation.
+        setRetryingTrackId(trackId);
+        setLoading(true);
+        setError(null);
+        setFailureState(null);
+
         setRetryAttempt((current) => current + 1);
     }
 
@@ -337,11 +368,29 @@ export default function PlaybackBar({
         );
     }
 
-    if (loading) {
+    // SCRUM-289: Hide the previous track's state immediately
+    // after selection changes.
+    if (requestedTrackId !== trackId || loading) {
+        const isRetrying =
+            requestedTrackId === trackId &&
+            retryingTrackId === trackId;
+
         return (
             <footer className="playback-bar">
                 <div className="track-info">
-                    <strong>Loading track...</strong>
+                    <div>
+                        <strong role="status" aria-live="polite">
+                            {isRetrying
+                                ? "Retrying playback..."
+                                : "Loading track..."}
+                        </strong>
+
+                        {isRetrying && (
+                            <p>
+                                Attempting to recover playback.
+                            </p>
+                        )}
+                    </div>
                 </div>
             </footer>
         );
@@ -351,19 +400,21 @@ export default function PlaybackBar({
         return (
             <footer className="playback-bar">
                 <div className="track-info">
-                    <strong>Playback unavailable</strong>
+                    <div>
+                        <strong>Playback unavailable</strong>
 
-                    <p role="alert">{error}</p>
+                        <p role="alert">{error}</p>
 
-                    {canRetryPlayback(failureState, loading) && (
-                        <button
-                            type="button"
-                            onClick={handleRetry}
-                            aria-label="Retry playback"
-                        >
-                            Retry playback
-                        </button>
-                    )}
+                        {canRetryPlayback(failureState, loading) && (
+                            <button
+                                type="button"
+                                onClick={handleRetry}
+                                aria-label="Retry playback"
+                            >
+                                Retry playback
+                            </button>
+                        )}
+                    </div>
                 </div>
             </footer>
         );
@@ -387,14 +438,8 @@ export default function PlaybackBar({
                         {track.album.title}
                     </p>
 
-                    <p
-                        role="status"
-                        aria-live="polite"
-                        className={
-                            `playback-status playback-status--${playbackStatus}`
-                        }
-                    >
-                        {playbackStatus === "loading"
+                    <p role="status" aria-live="polite">
+                        {playbackStatus === "loading_audio"
                             ? "Loading audio..."
                             : playbackStatus === "buffering"
                             ? "Buffering..."
