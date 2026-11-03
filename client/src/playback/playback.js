@@ -45,7 +45,8 @@ export function loadTrack(
         onEnd,
         onBuffering,
         onRecovered,
-        onError
+        onError,
+        onProgress
     } = {}
 ) {
     if (
@@ -69,6 +70,41 @@ export function loadTrack(
     let lastPosition = null;
     let lastProgressAt = Date.now();
     let buffering = false;
+
+    /*
+     * SCRUM-310: Report the actual media position and duration.
+     *
+     * Use the current Howl only. Never report stale-track
+     * progress or substitute catalog fixture duration.
+     */
+    function emitProgress(positionSeconds) {
+        if (
+            music !== currentHowl ||
+            typeof onProgress !== "function" ||
+            !Number.isFinite(positionSeconds) ||
+            positionSeconds < 0
+        ) {
+            return;
+        }
+
+        let durationSeconds = 0;
+
+        if (typeof currentHowl.duration === "function") {
+            const actualDuration = currentHowl.duration();
+
+            if (
+                Number.isFinite(actualDuration) &&
+                actualDuration > 0
+            ) {
+                durationSeconds = actualDuration;
+            }
+        }
+
+        onProgress({
+            positionSeconds,
+            durationSeconds
+        });
+    }
 
     /*
      * Stop monitoring whenever playback pauses, ends,
@@ -104,6 +140,7 @@ export function loadTrack(
                 : null;
 
         lastProgressAt = Date.now();
+        emitProgress(initialPosition);
 
         pollTimer = setInterval(() => {
             /*
@@ -136,6 +173,7 @@ export function loadTrack(
 
             const now = Date.now();
             const position = currentHowl.seek();
+            emitProgress(position);
 
             /*
              * An unavailable playback position is not
@@ -263,6 +301,8 @@ export function loadTrack(
             ) {
                 onLoad();
             }
+
+            emitProgress(0);
         },
 
         /*
@@ -286,6 +326,21 @@ export function loadTrack(
             ) {
                 onPlay();
             }
+        },
+
+        /*
+         * SCRUM-310: A seek may occur while paused.
+         * Report it without starting another timer.
+         */
+        onseek: () => {
+            if (
+                music !== currentHowl ||
+                typeof onProgress !== "function"
+            ) {
+                return;
+            }
+
+            emitProgress(currentHowl.seek());
         },
 
         /*

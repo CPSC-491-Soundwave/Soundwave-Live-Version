@@ -5,7 +5,8 @@ import {
     playMusic,
     pauseMusic,
     unloadMusic,
-    setMusicVolume
+    setMusicVolume,
+    setMusicProgress
 } from "../playback/playback.js";
 
 import {
@@ -20,6 +21,18 @@ import {
 
 import "./PlaybackBar.css";
 
+function formatPlaybackTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+        return "0:00";
+    }
+
+    const wholeSeconds = Math.floor(seconds);
+    const minutes = Math.floor(wholeSeconds / 60);
+    const remainder = String(wholeSeconds % 60).padStart(2, "0");
+
+    return `${minutes}:${remainder}`;
+}
+
 export default function PlaybackBar({
     trackId = null,
     accessToken = "",
@@ -32,6 +45,10 @@ export default function PlaybackBar({
     const [playbackStatus, setPlaybackStatus] = useState("ready");
     const [volume, setVolume] = useState(0.5);
     const [retryAttempt, setRetryAttempt] = useState(0);
+
+    // SCRUM-310: Position and duration come from the actual media.
+    const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
+    const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
     // SCRUM-309: Block duplicate unconfirmed transport commands.
     const pendingTransportCommandRef = useRef(null);
 
@@ -94,6 +111,8 @@ export default function PlaybackBar({
 
         async function loadSelectedTrack() {
             pendingTransportCommandRef.current = null;
+            setPlaybackPositionSeconds(0);
+            setMediaDurationSeconds(0);
             setRequestedTrackId(trackId);
             setLoading(true);
             setError(null);
@@ -188,6 +207,30 @@ export default function PlaybackBar({
                 setPlaybackStatus("loading_audio");
 
                 loadTrack(metadata.id, {
+                    // SCRUM-310: Ignore obsolete player events and
+                    // use actual media duration, not fixture metadata.
+                    onProgress: ({ positionSeconds, durationSeconds }) => {
+                        if (cancelled) {
+                            return;
+                        }
+
+                        const duration =
+                            Number.isFinite(durationSeconds) &&
+                            durationSeconds > 0
+                                ? durationSeconds
+                                : 0;
+
+                        const position =
+                            Number.isFinite(positionSeconds) &&
+                            positionSeconds >= 0 &&
+                            duration > 0
+                                ? Math.min(positionSeconds, duration)
+                                : 0;
+
+                        setMediaDurationSeconds(duration);
+                        setPlaybackPositionSeconds(position);
+                    },
+
                     // SCRUM-293: The audio is ready.
                     onLoad: () => {
                         if (cancelled) {
@@ -346,6 +389,33 @@ export default function PlaybackBar({
         }
     }
 
+    function handleSeekChange(event) {
+        if (
+            !track ||
+            !Number.isFinite(mediaDurationSeconds) ||
+            mediaDurationSeconds <= 0
+        ) {
+            return;
+        }
+
+        const requestedSeconds = Number(event.target.value);
+
+        if (!Number.isFinite(requestedSeconds)) {
+            return;
+        }
+
+        const boundedSeconds = Math.max(
+            0,
+            Math.min(requestedSeconds, mediaDurationSeconds)
+        );
+
+        // Only show the new position if the player accepted it.
+        // Seeking must not change Play/Pause state.
+        if (setMusicProgress(boundedSeconds)) {
+            setPlaybackPositionSeconds(boundedSeconds);
+        }
+    }
+
     function handleVolumeChange(event) {
         const nextVolume = Number(event.target.value);
 
@@ -442,6 +512,10 @@ export default function PlaybackBar({
         return null;
     }
 
+    const canSeek =
+        Number.isFinite(mediaDurationSeconds) &&
+        mediaDurationSeconds > 0;
+
     return (
         <footer className="playback-bar">
             <div className="track-info">
@@ -472,7 +546,8 @@ export default function PlaybackBar({
                 </div>
             </div>
 
-            <div className="playback-controls">
+            <div className="playback-center">
+                <div className="playback-controls">
                 <button
                     disabled
                     aria-label="Previous track"
@@ -493,6 +568,49 @@ export default function PlaybackBar({
                 >
                     ⏭
                 </button>
+                </div>
+
+                <div className="playback-timeline">
+                    <span
+                        className="playback-time"
+                        aria-label="Elapsed time"
+                    >
+                        {formatPlaybackTime(playbackPositionSeconds)}
+                    </span>
+
+                    <input
+                        className="playback-seek"
+                        type="range"
+                        aria-label="Seek position"
+                        aria-valuetext={
+                            canSeek
+                                ? `${formatPlaybackTime(playbackPositionSeconds)} of ${formatPlaybackTime(mediaDurationSeconds)}`
+                                : "Position unavailable"
+                        }
+                        min="0"
+                        max={canSeek ? mediaDurationSeconds : 0}
+                        step="0.1"
+                        value={
+                            canSeek
+                                ? Math.min(
+                                    playbackPositionSeconds,
+                                    mediaDurationSeconds
+                                )
+                                : 0
+                        }
+                        disabled={!canSeek}
+                        onChange={handleSeekChange}
+                    />
+
+                    <span
+                        className="playback-time"
+                        aria-label="Total duration"
+                    >
+                        {canSeek
+                            ? formatPlaybackTime(mediaDurationSeconds)
+                            : "--:--"}
+                    </span>
+                </div>
             </div>
 
             <label className="volume-placeholder">
