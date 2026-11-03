@@ -33,3 +33,61 @@
 .sidebar-section p {
     color: var(--color-text-secondary);
 }
+
+/* SCRUM-310: Keep navigation usable on narrow screens. */
+@media (max-width: 720px) {
+  .sidebar {
+    padding: 12px 16px;
+    gap: 10px;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-brand {
+    font-size: 21px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: thin;
+  }
+
+  .sidebar-nav a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 15px;
+  }
+
+  .sidebar-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .sidebar-section h3 {
+    font-size: 13px;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .sidebar-section p {
+    font-size: 12px;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar > :last-child {
+    margin-top: 0;
+  }
+}
