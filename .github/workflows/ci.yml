@@ -498,6 +498,75 @@ jobs:
         run: |
           node --env-file=../database/.env.test --test integration/catalog-media-reference-faults.check.mjs
 
+      - name: SCRUM-284 Catalog/Media SQL Performance Smoke
+        working-directory: server
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --env-file=../database/.env.test integration/scrum-294-sql-baseline.mjs \
+            | tee "$RUNNER_TEMP/scrum-284-sql-performance.json"
+
+      - name: Compare SCRUM-284 SQL baseline (informational)
+        working-directory: server
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+
+          const baseline = JSON.parse(
+            readFileSync(
+              "integration/scrum-294-sql-baseline.json",
+              "utf8"
+            )
+          );
+
+          const current = JSON.parse(
+            readFileSync(
+              `${process.env.RUNNER_TEMP}/scrum-284-sql-performance.json`,
+              "utf8"
+            )
+          );
+
+          if (
+            current.repetitions !== 20 ||
+            current.querySql !== baseline.querySql ||
+            String(current.trackId) !== String(baseline.trackId)
+          ) {
+            throw new Error(
+              "SCRUM-284 measurement scope or fixture mismatch."
+            );
+          }
+
+          for (const [label, key] of [
+            ["median", "median"],
+            ["p95", "p95_nearest_rank"]
+          ]) {
+            const oldValue = baseline.nodeRoundTripMs[key];
+            const newValue = current.nodeRoundTripMs[key];
+            const delta = ((newValue - oldValue) / oldValue) * 100;
+
+            console.log(
+              `${label}: baseline=${oldValue.toFixed(5)} ms, ` +
+              `CI=${newValue.toFixed(5)} ms, ` +
+              `difference=${delta.toFixed(1)}%`
+            );
+          }
+
+          console.log(
+            "Comparison is informational only. " +
+            "Local and CI environments are not equivalent. " +
+            "No latency pass/fail threshold is enforced."
+          );
+          NODE
+
+      - name: Upload SCRUM-284 SQL Performance Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrum-284-sql-performance
+          path: ${{ runner.temp }}/scrum-284-sql-performance.json
+          if-no-files-found: warn
+
   build-metadata:
     name: Build Metadata
     runs-on: ubuntu-latest

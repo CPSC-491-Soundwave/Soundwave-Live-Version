@@ -65,6 +65,20 @@ try {
 
     const trackId = eligible.rows[0].id;
 
+    const expectedMediaPath = eligible.rows[0].media_path;
+
+    function assertExpectedTrack(track) {
+        if (
+            !track ||
+            String(track.track_id) !== String(trackId) ||
+            track.media_path !== expectedMediaPath
+        ) {
+            throw new Error(
+                "FAIL: repository returned an incorrect track ID or media reference."
+        );
+        }
+    }
+
     let capturedStatement;
     let capturedParameters;
 
@@ -97,9 +111,7 @@ try {
         );
 
         if (!track) {
-            throw new Error(
-                "BLOCKED: chosen track lookup returned null."
-            );
+            assertExpectedTrack(track);
         }
     }
 
@@ -124,9 +136,7 @@ try {
             ) / 1e6;
 
         if (!track) {
-            throw new Error(
-                "FAIL: lookup unexpectedly returned null."
-            );
+            assertExpectedTrack(track);
         }
 
         samples.push(elapsedMs);
