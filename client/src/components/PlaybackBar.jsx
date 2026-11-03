@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
     loadTrack,
@@ -32,6 +32,8 @@ export default function PlaybackBar({
     const [playbackStatus, setPlaybackStatus] = useState("ready");
     const [volume, setVolume] = useState(0.5);
     const [retryAttempt, setRetryAttempt] = useState(0);
+    // SCRUM-309: Block duplicate unconfirmed transport commands.
+    const pendingTransportCommandRef = useRef(null);
 
     // SCRUM-289: Associate visible playback state with a track.
     const [requestedTrackId, setRequestedTrackId] = useState(null);
@@ -71,6 +73,7 @@ export default function PlaybackBar({
                 return;
             }
 
+            pendingTransportCommandRef.current = null;
             unloadMusic();
             setTrack(null);
             setPlaybackStatus("ready");
@@ -90,6 +93,7 @@ export default function PlaybackBar({
         }
 
         async function loadSelectedTrack() {
+            pendingTransportCommandRef.current = null;
             setRequestedTrackId(trackId);
             setLoading(true);
             setError(null);
@@ -199,18 +203,25 @@ export default function PlaybackBar({
 
                     onPlay: () => {
                         if (!cancelled) {
+                            if (pendingTransportCommandRef.current === "play") {
+                                pendingTransportCommandRef.current = null;
+                            }
                             setPlaybackStatus("playing");
                         }
                     },
 
                     onPause: () => {
                         if (!cancelled) {
+                            if (pendingTransportCommandRef.current === "pause") {
+                                pendingTransportCommandRef.current = null;
+                            }
                             setPlaybackStatus("paused");
                         }
                     },
 
                     onEnd: () => {
                         if (!cancelled) {
+                            pendingTransportCommandRef.current = null;
                             setPlaybackStatus("finished");
                         }
                     },
@@ -252,6 +263,7 @@ export default function PlaybackBar({
                             return;
                         }
 
+                        pendingTransportCommandRef.current = null;
                         unloadMusic();
                         setPlaybackStatus("ready");
                         setFailureState(null);
@@ -281,6 +293,7 @@ export default function PlaybackBar({
 
         return () => {
             cancelled = true;
+            pendingTransportCommandRef.current = null;
             unloadMusic();
         };
     }, [
@@ -310,18 +323,23 @@ export default function PlaybackBar({
     }
 
     function handlePlayPause() {
-        if (!track) {
+        if (!track || pendingTransportCommandRef.current !== null) {
             return;
         }
 
         if (isPlaying) {
-            pauseMusic();
+            pendingTransportCommandRef.current = "pause";
+            const paused = pauseMusic();
+            if (paused === false) {
+                pendingTransportCommandRef.current = null;
+            }
             return;
         }
 
+        pendingTransportCommandRef.current = "play";
         const started = playMusic();
-
         if (!started) {
+            pendingTransportCommandRef.current = null;
             setPlaybackStatus("ready");
             setFailureState(null);
             setError("Unable to play this track.");
