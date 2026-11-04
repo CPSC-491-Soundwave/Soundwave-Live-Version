@@ -59,7 +59,7 @@ React / Vite Client
         |
         | /auth
         | /account
-        | /api
+        | /api (including authenticated playback history)
         v
 Node.js HTTP Server
         |
@@ -245,6 +245,7 @@ Current migrations include:
 20260927_cmg_001_catalog_search_support.sql
 20261008_cmg_001_revoked_access_tokens.sql
 20261011_ayu_003_user_favorites.sql
+20261029_mchoi_001_playback_events.sql
 trackMediaPath.sql
 ```
 
@@ -265,6 +266,20 @@ as a composite primary key, plus `created_at TIMESTAMPTZ NOT NULL`
 `track_id` supports the reverse foreign-key access pattern. The
 cascade-on-delete behavior is an implementation decision; the project
 specification does not prescribe an exact Favorites deletion policy.
+
+**Sprint 4 PlaybackEvent migration (Matthew Choi, SCRUM-295):**
+`20261029_mchoi_001_playback_events.sql` creates the
+`playback_events` relation and preserves the existing catalog/auth
+schema. Each record has a server-generated `id`, client-supplied UUID
+`client_event_id`, authenticated `user_id`, existing `track_id`,
+`event_type`, client occurrence time `occurred_at`, and server receipt
+time `received_at`. Both foreign keys use `ON DELETE RESTRICT` (a
+provisional implementation decision); `(user_id, client_event_id)` is
+unique to make retries idempotent per account. Indexes support user-
+scoped chronological history and track lookups. The migration does **not**
+enforce JWT authorization by itself; the API must do that. Exact event
+vocabulary, timestamp policy, and deletion semantics remain subject to
+team approval. Section 27.2 describes the API and local evidence.
 
 The `trackMediaPath.sql` migration adds:
 
@@ -2163,6 +2178,27 @@ fail 0
 
 Test totals may increase as Sprint 3 work is merged.
 
+**Matthew Choi, Sprint 4 (SCRUM-296 / CC6.1):** The focused
+PlaybackEvent repository, handler, and application-route suites passed
+**20/20** locally. The expanded `npm run test:auth` command passed
+**107/107** locally. The simulated `database unavailable` and revocation
+outage logs are deliberate negative-test fixtures; the suites still
+finished with zero failures. One CC6.3 role-demotion assessment test
+reports a known policy gap despite a passing characterization assertion;
+this is not evidence of complete SOC 2 compliance. The full `npm test`
+result for this particular Sprint 4 checkout and hosted CI are not yet
+confirmed.
+
+```bash
+cd server
+node --test \
+  test/playback-events.repository.test.js \
+  test/playback-events.handler.test.js \
+  test/playback-events.routes.test.js
+npm run test:auth
+npm test
+```
+
 ---
 
 # 27. Database Test Verification
@@ -2188,6 +2224,31 @@ safely skipped.
 
 The test database must be separate from the development database.
 
+**Sprint 4 local database regression checkpoint (Matthew Choi):** After
+applying all current migrations and loading the catalog seed into the
+isolated `soundwave_allison_test` database, `npm run test:db` passed
+**36/36, zero failures**. In a separately isolated, initially empty
+`soundwave_ayu_forward_test` database, AY-T32's historical forward-migration bootstrap successfully applied
+the new PlaybackEvent migration and preserved historical schema
+definitions (zero removed objects, zero changed definitions). These
+are local results, not confirmation of hosted GitHub Actions.
+
+Example using an existing, isolated, correctly provisioned test database
+with the seed fixtures expected by the suite:
+
+```bash
+cd database
+PGDATABASE=soundwave_allison_test npm run db:migrate:test
+PGDATABASE=soundwave_allison_test npm run db:seed:test
+PGDATABASE=soundwave_allison_test npm run test:db
+```
+
+Do not use these commands to reset or alter a shared or production
+database. The database tests explicitly expect the database name
+`soundwave_allison_test` and PostgreSQL role `soundwave_app` in the
+current fixture suite. `PGDATABASE` in `server/.env` is a separate
+setting and must match the target database used for live API checks.
+
 ## 27.1 Populated-schema forward migration - SCRUM-283 / PR #136
 
 The ordinary migration/seed checks above test the **current schema**.
@@ -2206,11 +2267,13 @@ Allison's SCRUM-283 rehearsal adds that separate verification.
    records, original table row counts/JSONB values, and a password-hash
    equality fingerprint. The fingerprint is **test-only**, not the
    application's password-hashing mechanism.
-4. Runs the current migration runner: **five old migrations skipped,
-   two Sprint 3 migrations applied**.
+4. Runs the current migration runner: **five historical migrations
+   skipped; three newer migrations applied** (two Sprint 3 migrations
+   plus `20261029_mchoi_001_playback_events.sql` in Sprint 4).
 5. Inserts Favorites `(user_id=9900201, track_id=3001)` and
    `(user_id=9900201, track_id=3002)` after the upgrade.
-6. Reruns the migration runner: **seven skipped, zero applied**.
+6. Reruns the migration runner: **eight skipped, zero applied**
+   when the PlaybackEvent migration is included.
 7. Verifies preservation of historical records, user authentication
    state, catalog joins, Favorites joins, and a negative control that
    detects a changed Track inside a transaction and rolls it back.
@@ -2277,7 +2340,7 @@ test "$PGDATABASE" = 'soundwave_ayu_forward_test' || { echo 'Wrong DB target'; e
 node test/forward-migration-bootstrap.mjs
 ```
 
-**Recorded result (local disposable PostgreSQL 16):**
+**Recorded original Sprint 3 result (local disposable PostgreSQL 16):**
 
 ```text
 five historical migrations applied
@@ -2288,17 +2351,177 @@ PASS: AY-T32 complete forward-compatibility rehearsal
 ```
 
 A separate run against the previously prepared local rehearsal database
-also passed **7/7**. These are recorded *local* results. The Sprint 3
+also passed **7/7** at that Sprint 3 checkpoint. These are recorded
+*local* results, not today's migration-count expectations. In Sprint 4,
+Matthew updated the approved `NEW_MIGRATIONS` list and both apply/skip
+count assertions to accommodate the PlaybackEvent migration. His later
+local rerun passed after the changes; its schema comparison showed
+**83 before, 133 after, 50 added, zero removed and zero changed**. The
+later modifications do not retroactively change Allison's Sprint 3
+reported test counts. The Sprint 3
 deliverable links PR #136 and Jira SCRUM-283 is Done; the artifacts
 provided here do not independently establish a hosted GitHub Actions
 run ID. Verify the workflow on the actual PR/commit before labeling
 this exact forward-compatibility check as hosted-CI passed.
 
-**Maintenance note:** The initial preservation suite expects exactly
-five original and two Sprint 3 migration filenames. Later legitimate
-migrations will require updating the approved migration set/expectations
-or making the test version-aware. Do not silently loosen the
-historical-preservation assertions to make a new schema pass.
+**Maintenance note:** AY-T32 currently expects five historical
+migrations and three approved newer migrations, including Matthew's
+PlaybackEvent migration. Its first-run and rerun count checks should
+derive from the explicit migration lists. Any future legitimate new
+migration must be reviewed and added to the approved list; do not
+disable the count assertions or weaken historical preservation checks.
+
+## 27.2 Sprint 4 authenticated PlaybackEvent API — Matthew Choi (SCRUM-295 / SCRUM-296)
+
+**Implementation status:** The PostgreSQL model, authenticated HTTP
+handler, and user-scoped repository are implemented and tested locally.
+This is a backend event-history feature, not proof that the React player
+emits events yet; frontend hookup is tracked separately under SCRUM-297.
+The exact route names and event vocabulary are a provisional team
+contract pending frontend/API agreement.
+
+**Implementation files**
+
+```text
+database/migrations/20261029_mchoi_001_playback_events.sql
+server/src/data/playback-events.repository.js
+server/src/playback/playback-events.handler.js
+server/src/app.js
+server/src/server.js
+server/test/playback-events.repository.test.js
+server/test/playback-events.handler.test.js
+server/test/playback-events.routes.test.js
+```
+
+**HTTP endpoints** (Bearer JWT required, with token revocation checked
+before event storage access):
+
+| Method and route | Outcome |
+|---|---|
+| `POST /api/playback-events` | `201 Created` for a new event; `200 OK` with `replayed: true` for an identical retry |
+| `GET /api/playback-events?limit=10` | `200 OK`, `{ "events": [...] }` for the authenticated user only |
+
+The POST body accepts **only** these fields:
+
+```json
+{
+  "clientEventId": "d88892fc-4cdd-47e3-8d75-d282863f2ab5",
+  "trackId": 3005,
+  "eventType": "play",
+  "occurredAt": "2026-11-04T02:15:04.000Z"
+}
+```
+
+The sample UUID/time above is illustrative; generate a fresh UUID for
+each new logical event. A retry must reuse **the same** UUID, track,
+event type, and occurrence time. The server derives `user_id` from the
+verified JWT principal, **not** from the body, headers, query string,
+or a supplied user identifier; unexpected JSON keys are rejected. The
+server generates `received_at`. `eventType` currently allows a nonblank
+string of at most 128 characters; `play` is a tested example, **not**
+evidence that a final enum of playback-event types was agreed.
+
+History defaults to `limit=50`, permits 1–100, and orders by
+`occurred_at DESC, id DESC`. It does not return other users' events.
+The `(user_id, client_event_id)` uniqueness constraint prevents
+additional rows from an identical retry; reusing the same UUID with
+changed event content returns `409` rather than silently overwriting.
+
+| Condition | HTTP status / response |
+|---|---|
+| Missing, invalid, expired or revoked JWT | `401 Unauthorized` |
+| Valid JWT with disallowed role (if policy changes) | `403 Forbidden` via the shared guard |
+| New valid event | `201 Created`, `{ "event": {...}, "replayed": false }` |
+| Identical event retry | `200 OK`, `{ "event": {...}, "replayed": true }` |
+| Own event history | `200 OK`, `{ "events": [...] }` |
+| Unexpected/forged JSON keys, malformed payload or invalid limit | `400 Bad Request` |
+| Existing UUID with different event data | `409 Conflict`, `client_event_id_conflict` |
+| Missing referenced Track | `404 Not Found`, `track_not_found` |
+| JSON body above 16 KiB | `413 Payload Too Large` |
+| Unsupported POST content type | `415 Unsupported Media Type` |
+| Unavailable revocation lookup or event repository | `503 Service Unavailable` (fail closed) |
+
+The authenticated endpoints use `Cache-Control: private, no-store` and
+`Vary: Authorization`. The current GET implementation does not expose
+`user_id` as a client-selectable filter.
+
+### Manual HTTP verification (Linux/macOS)
+
+Start the backend with `server/.env` against the **same migrated
+development database** as `database/.env` (Sections 5 and 8). Use a
+current test-user JWT in `SW_TOKEN` as described in Section 15.5; do
+not paste the token, passwords, or database URLs into Git or Jira. If
+checking only the unauthenticated boundary, no token is required:
+
+```bash
+curl -i -w '\n' http://localhost:8080/api/playback-events
+# Expected: 401 Unauthorized
+```
+
+Once authenticated, prepare an event with an existing, seeded Track
+(e.g., `3005` where available). Using curl's standard-input config
+keeps the JWT out of visible command arguments:
+
+```bash
+TRACK_ID=3005
+EVENT_ID=$(node -p 'crypto.randomUUID()')
+OCCURRED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+BODY=$(printf '{"clientEventId":"%s","trackId":%s,"eventType":"play","occurredAt":"%s"}' \
+  "$EVENT_ID" "$TRACK_ID" "$OCCURRED_AT")
+printf 'header = "Authorization: Bearer %s"\n' "$SW_TOKEN" | \
+  curl -sS -i --config - -H 'Content-Type: application/json' \
+    -X POST --data-binary "$BODY" \
+    http://localhost:8080/api/playback-events
+# Expected: 201 Created
+```
+
+Read the same account's history, then repeat the identical POST **without
+regenerating** `EVENT_ID`, `OCCURRED_AT`, or `BODY`:
+
+```bash
+printf 'header = "Authorization: Bearer %s"\n' "$SW_TOKEN" | \
+  curl -sS -i --config - \
+    'http://localhost:8080/api/playback-events?limit=10'
+# Expected: 200 OK; event appears in "events"
+
+printf 'header = "Authorization: Bearer %s"\n' "$SW_TOKEN" | \
+  curl -sS -i --config - -H 'Content-Type: application/json' \
+    -X POST --data-binary "$BODY" \
+    http://localhost:8080/api/playback-events
+# Expected: 200 OK; "replayed": true
+```
+
+For a stronger authorization result, use a *different* test account and
+an isolated test database to verify the first user's event is not in
+the second user's GET response; measure row counts before and after
+rejected writes. Neither of these **real-database** negative checks has
+been reported as completed yet. The three automated route suites do
+cover these boundaries using mocked storage.
+
+### Verification recorded on November 3, 2026 (local environment)
+
+| Test / observation | Result | Boundary |
+|---|---|---|
+| `server/test/playback-events.{repository,handler,routes}.test.js` | **20/20 passing** | Mocked storage, handlers, and HTTP routes |
+| `server/npm run test:auth` | **107/107 passing** | Existing auth and role-policy regression; one CC6.3 assessment gap remains |
+| `database/npm run test:db`, isolated `soundwave_allison_test` | **36/36 passing** | PostgreSQL catalog/auth/Favorites regression |
+| Historical forward-migration bootstrap | **Passed locally** | Upgraded schema retained historical definitions |
+| Live unauthenticated GET | **401 Unauthorized** | HTTP boundary only; no independent DB-count check |
+| Live `/auth/me` with current JWT | **200 OK** | JWT accepted |
+| Live event POST, seeded Track `3005` | **201 Created** | PostgreSQL-backed insertion |
+| Live authenticated history GET | **200 OK** | Owner's event returned (user-reported) |
+| Live identical-event retry | **200 OK** | Idempotent response (user-reported) |
+
+The local development server initially returned `503 storage_unavailable`
+because its active database lacked `playback_events`. Applying the
+migration to the **server's actual database** resolved this. A separate
+existing-table/missing-migration-history mismatch for
+`revoked_access_tokens` had to be validated and reconciled before the
+runner could apply newer migrations (see Section 30.12). The successful
+201 response confirms a live write; a separate PostgreSQL-count check,
+per-user negative test, hosted CI, and peer-reviewed merge are still
+outstanding. The passing tests alone do **not** constitute SOC 2
+certification or prove the frontend submits events.
 
 ---
 
@@ -2477,6 +2700,7 @@ omitted below.
 │   │   ├── 20260927_cmg_001_catalog_search_support.sql
 │   │   ├── 20261008_cmg_001_revoked_access_tokens.sql
 │   │   ├── 20261011_ayu_003_user_favorites.sql
+│   │   ├── 20261029_mchoi_001_playback_events.sql
 │   │   └── trackMediaPath.sql
 │   ├── seed.js
 │   ├── seeds
@@ -2501,6 +2725,9 @@ omitted below.
 │   │   ├── auth
 │   │   ├── catalog
 │   │   ├── data
+│   │   │   └── playback-events.repository.js
+│   │   ├── playback
+│   │   │   └── playback-events.handler.js
 │   │   ├── media
 │   │   │   ├── media-access.handler.js
 │   │   │   └── media-ticket.js
@@ -2509,7 +2736,10 @@ omitted below.
 │   │   └── server.js
 │   └── test
 │       ├── media-access.app.test.js
-│       └── media-streaming.test.js
+│       ├── media-streaming.test.js
+│       ├── playback-events.repository.test.js
+│       ├── playback-events.handler.test.js
+│       └── playback-events.routes.test.js
 │
 ├── compose.yml
 ├── CONTRIBUTING.md
@@ -2855,6 +3085,43 @@ and the authenticated media-access POST.
   a properly configured HTTPS deployment. Test the browser's
   cookie storage and Vite proxy explicitly.
 
+## 30.12 PlaybackEvent `503` / migration history mismatch (SCRUM-295/296)
+
+A live authenticated playback write can return:
+
+```text
+HTTP 503 {"error":"storage_unavailable"}
+PostgreSQL 42P01: relation "playback_events" does not exist
+```
+
+This means the database **connected to the running server** lacks the
+table, even if the migration passed in a different test database.
+Compare `PGDATABASE`, `PGHOST`, `PGPORT`, and `PGUSER` in the server's
+local environment and the intended migration environment. Against the
+*same* development database, check:
+
+```sql
+SELECT current_database(), current_user;
+SELECT to_regclass('public.playback_events');
+SELECT filename FROM schema_migrations ORDER BY filename;
+```
+
+Apply pending **tracked** migrations only after verifying the correct
+nonproduction target. Do not infer that migrating `soundwave_test` or
+`soundwave_allison_test` also updates a separate server database.
+
+Another observed local error was `42P07: relation
+"revoked_access_tokens" already exists` when a revocation table was
+present without its migration-history entry. Do **not** drop the table
+or blindly insert migration records. First compare the actual columns,
+constraints and indexes against Christian's checked-in migration,
+check for dependent data, and coordinate any history reconciliation
+with the database owner. In Matthew's local development run, the
+existing table matched the SQL (and held zero records), so the missing
+history record was reconciled in that **development database only**;
+the migration runner then applied Favorites and PlaybackEvent normally.
+Do not treat this as a general fix for production or team-shared data.
+
 ---
 
 # 31. Git Workflow
@@ -2949,6 +3216,11 @@ cd ~/Soundwave-Live-Version/server
 
 node --test test/media-access.app.test.js
 node --test test/media-streaming.test.js
+node --test \
+  test/playback-events.repository.test.js \
+  test/playback-events.handler.test.js \
+  test/playback-events.routes.test.js
+npm run test:auth
 npm test
 ```
 
@@ -3334,6 +3606,42 @@ is October 22, immediately after Sprint 3 (October 8-15), so an actual
 playback path must remain demonstrable by October 15 rather than being
 deferred to the dedicated streaming sprint. Use only rights-cleared
 audio in the midterm and final demonstrations.
+
+## Sprint 4 work — Matthew Choi (October 29–November 5, 2026)
+
+Sprint 4 focuses Matthew's authored **database → authenticated API →
+security tests → evidence/documentation** vertical slice, not primary
+ownership of the team's main media-streaming work. Matthew spiked the
+media pipeline earlier and steps back from the largest streaming slice
+this sprint in accordance with the team's spike-then-step-back rule.
+
+- **SCRUM-295:** Authored `playback_events` migration and schema smoke
+  checks; updated Allison's forward-migration approved-list/count logic
+  to accept the new schema without weakening historical preservation.
+  The isolated DB regression suite passed 36/36 locally; migration
+  bootstrap passed locally. PR/CI status must still be verified.
+- **SCRUM-296:** Implemented authenticated POST and principal-scoped GET
+  endpoints, the PostgreSQL repository, and three focused automated
+  suites. Focused tests passed 20/20 and auth regression passed 107/107;
+  live PostgreSQL-backed POST `201`, GET `200`, duplicate retry `200`
+  and anonymous GET `401` were observed locally. Peer-reviewed PR and
+  all CI checks remain to be confirmed.
+- **SCRUM-297:** Connecting the existing shared React player to event
+  submission is **not** demonstrated by these backend tests and remains
+  separate frontend work requiring implementation and review.
+- **SCRUM-299–304 (SOC 2 CC6.1):** Mock-backed negative authorization,
+  JWT revocation and fail-closed tests provide preliminary evidence,
+  but live cross-user isolation, rejected-write row counts, full
+  credential matrix, and approved evidence capture are not yet complete.
+
+The CPSC 490 roadmap presumed a 16-week implementation, whereas the
+CPSC 491 syllabus controls the actual six-sprint course calendar and
+midterm demo (October 22, immediately after Sprint 3). Soundwave's
+usable playback path therefore had to exist before the roadmap's later
+streaming phase. This Sprint 4 slice builds secure history on that
+existing playback path. Graded demonstrations must use documented
+rights-cleared audio; a seed name such as "No Copyright" is not
+by itself evidence of a license.
 
 ---
 
