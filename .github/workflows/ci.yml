@@ -342,9 +342,11 @@ jobs:
         working-directory: client
         run: npm ci
 
-      - name: Run Search-to-Play regression
+      - name: Run Sprint 4 Search-to-Play and Protected-Stream Regression
         working-directory: client
-        run: npm run test:search-to-play
+        env:
+          CI: "true"
+        run: npm run test:sprint4-playback
 
   database-test:
     name: Database Tests
