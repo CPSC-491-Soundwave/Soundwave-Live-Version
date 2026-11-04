@@ -43,6 +43,10 @@ import {
   createAccountProfileRepository
 } from "./data/account-profile.repository.js";
 
+import {
+  createPlaybackEventsRepository
+} from "./data/playback-events.repository.js";
+
 const { Pool } = pg;
 
 const port =
@@ -111,6 +115,11 @@ createAccountProfileRepository(
   database
 );
 
+const playbackEventsRepository =
+createPlaybackEventsRepository(
+  database
+);
+
 /*
  * Create the Soundwave application.
  *
@@ -125,6 +134,8 @@ createApp({
   tokenService,
 
   tokenRevocationRepository,
+
+  playbackEventsRepository,
 
   mediaTicketService,
 

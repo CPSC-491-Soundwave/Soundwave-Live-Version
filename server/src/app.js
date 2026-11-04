@@ -12,6 +12,10 @@ import {
 } from "./auth/request-authorization.js";
 
 import {
+  createPlaybackEventsHandler
+} from "./playback/playback-events.handler.js";
+
+import {
   handleAccountProfile
 } from "./account/profile.js";
 
@@ -92,6 +96,7 @@ async function resolveMediaFile(mediaRoot, mediaPath) {
 export function createApp({
   tokenService,
   tokenRevocationRepository,
+  playbackEventsRepository,
   mediaTicketService,
   findUserByUsername,
   findProfileByUserId,
@@ -110,6 +115,15 @@ export function createApp({
   }
 
   const resolvedMediaRoot = path.resolve(mediaRoot);
+
+  const handlePlaybackEventsRequest = playbackEventsRepository
+  ? createPlaybackEventsHandler({
+    playbackEventsRepository,
+    authorizeRevocableRequest,
+    tokenService,
+    tokenRevocationRepository
+  })
+  : null;
 
   const handleMediaAccessRequest = mediaTicketService
   ? createMediaAccessHandler({
@@ -314,6 +328,13 @@ export function createApp({
       req.url,
       "http://localhost"
     );
+
+    if (
+      handlePlaybackEventsRequest &&
+      await handlePlaybackEventsRequest(req, res)
+    ) {
+      return;
+    }
 
     if (
       handleMediaAccessRequest &&
