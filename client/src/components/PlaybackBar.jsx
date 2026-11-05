@@ -19,6 +19,10 @@ import {
     recordPlaybackDiagnostic
 } from "../playback/playbackDiagnostics.js";
 
+import {
+    reportPlaybackEvent
+} from "../playback/playbackEvents.js";
+
 import "./PlaybackBar.css";
 
 function formatPlaybackTime(seconds) {
@@ -245,12 +249,28 @@ export default function PlaybackBar({
                     },
 
                     onPlay: () => {
-                        if (!cancelled) {
-                            if (pendingTransportCommandRef.current === "play") {
-                                pendingTransportCommandRef.current = null;
-                            }
-                            setPlaybackStatus("playing");
+                        if (cancelled) {
+                            return;
                         }
+
+                        const confirmedUserPlay =
+                        pendingTransportCommandRef.current === "play";
+
+                        if (confirmedUserPlay) {
+                            pendingTransportCommandRef.current = null;
+
+                            // SCRUM-297:
+                            // Record playback only after Howler confirms
+                            // that a user-requested Play action succeeded.
+                            // Reporting failures must not interrupt audio.
+                            void reportPlaybackEvent({
+                                trackId: metadata.id,
+                                accessToken,
+                                eventType: "play"
+                            });
+                        }
+
+                        setPlaybackStatus("playing");
                     },
 
                     onPause: () => {

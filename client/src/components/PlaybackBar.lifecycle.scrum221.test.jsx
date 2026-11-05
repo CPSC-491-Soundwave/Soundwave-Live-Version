@@ -200,7 +200,19 @@ describe("SCRUM-221 playback lifecycle integration", () => {
 
         expect(playMusic).toHaveBeenCalledTimes(3);
         expect(loadTrack).toHaveBeenCalledTimes(1);
-        expect(fetch).toHaveBeenCalledTimes(2);
+        // SCRUM-221: Original playback preparation requests.
+        const originalRequests = fetch.mock.calls.filter(
+            ([url]) => url !== "/api/playback-events"
+        );
+
+        expect(originalRequests).toHaveLength(2);
+
+        // SCRUM-297: Three confirmed playback starts.
+        const playbackEventRequests = fetch.mock.calls.filter(
+            ([url]) => url === "/api/playback-events"
+        );
+
+        expect(playbackEventRequests).toHaveLength(3);
     });
 
     it("B5-T03: late buffering callbacks cannot overwrite Finished", async () => {
