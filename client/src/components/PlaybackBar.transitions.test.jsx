@@ -266,7 +266,19 @@ describe("SCRUM-235 retry and cancellation transitions", () => {
             })
         ).toBeTruthy();
 
-        expect(fetchMock).toHaveBeenCalledTimes(4);
+        // SCRUM-235: Preserve the original request count.
+        const originalRequests = fetchMock.mock.calls.filter(
+            ([url]) => url !== "/api/playback-events"
+        );
+
+        expect(originalRequests).toHaveLength(4);
+
+        // SCRUM-297: One additional playback event request.
+        const playbackEventRequests = fetchMock.mock.calls.filter(
+            ([url]) => url === "/api/playback-events"
+        );
+
+        expect(playbackEventRequests).toHaveLength(1);
         expect(loadTrack).toHaveBeenCalledTimes(1);
     });
 

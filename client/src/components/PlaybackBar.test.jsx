@@ -33,6 +33,21 @@ vi.mock("../playback/playback.js", () => ({
                                           unloadMusic: vi.fn()
 }));
 
+import {
+    reportPlaybackEvent
+} from "../playback/playbackEvents.js";
+
+vi.mock("../playback/playbackEvents.js", () => ({
+    reportPlaybackEvent: vi.fn()
+}));
+
+vi.mock("../playback/playbackEvents.js", () => ({
+    reportPlaybackEvent: vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201
+    })
+}));
+
 const ACCESS_TOKEN = "test-access-token";
 
 const TRACK_METADATA = {
@@ -68,6 +83,7 @@ describe("PlaybackBar", () => {
         globalThis.fetch = vi.fn();
 
         playMusic.mockReturnValue(true);
+        reportPlaybackEvent.mockResolvedValue({ ok: true, status: 201 });
     });
 
     it("renders the empty playback state", () => {
@@ -329,6 +345,126 @@ describe("PlaybackBar", () => {
         }
     );
 
+
+
+    // SCRUM-297: Track a confirmed playback, never an unconfirmed click.
+    it("records one play event only after Howler confirms the request", async () => {
+        queueSuccessfulPlaybackPreparation();
+
+        render(
+            <PlaybackBar
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+            />
+        );
+
+        const playButton = await screen.findByRole("button", { name: "Play" });
+        const callbacks = loadTrack.mock.calls[0][1];
+
+        fireEvent.click(playButton);
+        expect(reportPlaybackEvent).not.toHaveBeenCalled();
+
+        act(() => {
+            callbacks.onPlay();
+        });
+
+        expect(reportPlaybackEvent).toHaveBeenCalledTimes(1);
+        expect(reportPlaybackEvent).toHaveBeenCalledWith({
+            trackId: 3005,
+            accessToken: ACCESS_TOKEN,
+            eventType: "play"
+        });
+
+        // A repeated callback without a new Play command is ignored.
+        act(() => {
+            callbacks.onPlay();
+        });
+
+        expect(reportPlaybackEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not report a play event for an unconfirmed player command", async () => {
+        queueSuccessfulPlaybackPreparation();
+        playMusic.mockReturnValue(false);
+
+        render(
+            <PlaybackBar
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+            />
+        );
+
+        const playButton = await screen.findByRole("button", { name: "Play" });
+        fireEvent.click(playButton);
+
+        expect(reportPlaybackEvent).not.toHaveBeenCalled();
+        expect(screen.getByText("Unable to play this track.")).toBeInTheDocument();
+    });
+
+    it("keeps audio playing when event reporting is unavailable", async () => {
+        queueSuccessfulPlaybackPreparation();
+        reportPlaybackEvent.mockResolvedValue({ ok: false, status: 503 });
+
+        render(
+            <PlaybackBar
+                trackId={3005}
+                accessToken={ACCESS_TOKEN}
+            />
+        );
+
+        const playButton = await screen.findByRole("button", { name: "Play" });
+        const callbacks = loadTrack.mock.calls[0][1];
+
+        fireEvent.click(playButton);
+        act(() => {
+            callbacks.onPlay();
+        });
+
+        expect(reportPlaybackEvent).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("status")).toHaveTextContent("Playing");
+        expect(unloadMusic).not.toHaveBeenCalled();
+    });
+
+    it("reports playback only after confirmed Play", async () => {
+        queueSuccessfulPlaybackPreparation();
+
+        render(
+            <PlaybackBar
+            trackId={3005}
+            accessToken={ACCESS_TOKEN}
+            />
+        );
+
+        const playButton = await screen.findByRole(
+            "button",
+            { name: "Play" }
+        );
+
+        const callbacks = loadTrack.mock.calls[0][1];
+
+        fireEvent.click(playButton);
+
+        // Clicking Play alone must not record an event.
+        expect(reportPlaybackEvent).not.toHaveBeenCalled();
+
+        act(() => {
+            callbacks.onPlay();
+            callbacks.onPlay();
+        });
+
+        // Duplicate callbacks must not create extra events.
+        expect(reportPlaybackEvent).toHaveBeenCalledTimes(1);
+
+        expect(reportPlaybackEvent).toHaveBeenCalledWith({
+            trackId: 3005,
+            accessToken: ACCESS_TOKEN,
+            eventType: "play"
+        });
+
+        expect(
+            screen.getByRole("status")
+        ).toHaveTextContent("Playing");
+    });
 
     it("updates playback volume", async () => {
         queueSuccessfulPlaybackPreparation();
