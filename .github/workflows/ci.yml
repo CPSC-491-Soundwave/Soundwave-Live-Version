@@ -568,7 +568,12 @@ jobs:
           name: scrum-284-sql-performance
           path: ${{ runner.temp }}/scrum-284-sql-performance.json
           if-no-files-found: warn
-
+      
+      - name: SCRUM-292 Catalog-to-Media Read-Model Oracle
+        working-directory: server
+        run: |
+          node --env-file=../database/.env.test --test integration/catalog-media-read-model-oracle.check.mjs
+          
   build-metadata:
     name: Build Metadata
     runs-on: ubuntu-latest
