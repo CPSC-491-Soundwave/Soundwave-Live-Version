@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:search-to-play": "vitest run src/components/PlaybackBar.test.jsx src/App.search-playback.test.jsx",
-    "test:sprint4-playback": "vitest run src/App.search-playback.test.jsx src/App.search-playback.recovery.test.jsx src/components/PlaybackBar.test.jsx src/components/PlaybackBar.status.test.jsx src/components/PlaybackBar.retry.test.jsx src/components/PlaybackBar.taxonomy.test.jsx src/components/PlaybackBar.transitions.test.jsx src/components/PlaybackBar.anomaly-runtime.test.jsx src/components/PlaybackBar.diagnostics.test.jsx src/playback/streamFailure.test.js src/playback/playbackAnomalies.test.js src/playback/playbackDiagnostics.test.js"
+    "test:sprint4-playback": "vitest run src/App.search-playback.test.jsx src/App.search-playback.recovery.test.jsx src/components/PlaybackBar.test.jsx src/components/PlaybackBar.status.test.jsx src/components/PlaybackBar.retry.test.jsx src/components/PlaybackBar.taxonomy.test.jsx src/components/PlaybackBar.transitions.test.jsx src/components/PlaybackBar.anomaly-runtime.test.jsx src/components/PlaybackBar.diagnostics.test.jsx src/playback/streamFailure.test.js src/playback/playbackAnomalies.test.js src/playback/playbackDiagnostics.test.js",
+    "test:playback-seek": "vitest run src/components/PlaybackBar.transport.scrum309.test.jsx src/components/PlaybackBar.seek.scrum310.test.jsx src/components/PlaybackBar.lifecycle.scrum221.test.jsx src/playback/playback.progress.scrum310.test.js"
   },
   "dependencies": {
     "howler": "^2.2.4",

@@ -323,6 +323,32 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  playback-seek-regression:
+    name: Playback and Seek Regression (SCRUM-242)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run playback and seek regression tests
+        working-directory: client
+        env:
+          CI: 'true'
+        run: npm run test:playback-seek
+
   search-to-play-regression:
     name: Search-to-Play Regression
     runs-on: ubuntu-latest
