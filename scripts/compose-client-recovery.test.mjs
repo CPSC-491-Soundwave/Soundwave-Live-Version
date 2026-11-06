@@ -9,12 +9,19 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+import {
+    printResourceDiagnostics
+} from "./compose-resource-diagnostics.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const project = `sw-client-${randomUUID().slice(0, 8)}`;
 const tempDirectory = mkdtempSync(
     join(tmpdir(), "sw-client-")
 );
-const overrideFile = join(tempDirectory, "client-recovery.yml");
+const overrideFile = join(
+    tempDirectory,
+    "client-recovery.yml"
+);
 
 const clientPort = Number(
     process.env.CLIENT_RECOVERY_PORT ?? 15173
@@ -39,7 +46,9 @@ if (
     !Number.isFinite(timeoutMs) ||
     timeoutMs <= 0
 ) {
-    throw new Error("Invalid client recovery configuration.");
+    throw new Error(
+        "Invalid client recovery configuration."
+    );
 }
 
 writeFileSync(
@@ -62,13 +71,20 @@ const composeArgs = [
     "-f", overrideFile
 ];
 
-function docker(args, { allowFailure = false } = {}) {
-    const result = spawnSync("docker", args, {
-        cwd: root,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 180000
-    });
+function docker(
+    args,
+    { allowFailure = false } = {}
+) {
+    const result = spawnSync(
+        "docker",
+        args,
+        {
+            cwd: root,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+            timeout: 180000
+        }
+    );
 
     if (result.stdout) {
         process.stdout.write(result.stdout);
@@ -83,7 +99,9 @@ function docker(args, { allowFailure = false } = {}) {
         (result.status !== 0 && !allowFailure)
     ) {
         throw new Error(
-            `Docker command failed: ${result.error?.message ?? result.status}`
+            `Docker command failed: ${result.error?.message ??
+            result.status
+            }`
         );
     }
 
@@ -94,7 +112,9 @@ const compose = (args, options) =>
     docker([...composeArgs, ...args], options);
 
 const wait = (ms) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
+    new Promise((resolve) =>
+        setTimeout(resolve, ms)
+    );
 
 function inspect(service) {
     const id = compose([
@@ -102,7 +122,9 @@ function inspect(service) {
     ]).stdout.trim();
 
     if (!id) {
-        throw new Error(`Missing container: ${service}`);
+        throw new Error(
+            `Missing container: ${service}`
+        );
     }
 
     const result = docker([
@@ -115,8 +137,13 @@ function inspect(service) {
     return JSON.parse(result.stdout.trim());
 }
 
-async function checkHttp(port, path, expectedText = null) {
+async function checkHttp(
+    port,
+    path,
+    expectedText = null
+) {
     const controller = new AbortController();
+
     const timer = setTimeout(
         () => controller.abort(),
         1500
@@ -160,7 +187,9 @@ async function waitForReady(check, service) {
 
     while (performance.now() - start < timeoutMs) {
         if (await check()) {
-            return Math.round(performance.now() - start);
+            return Math.round(
+                performance.now() - start
+            );
         }
 
         await wait(500);
@@ -197,8 +226,12 @@ async function main() {
     let failed = false;
 
     try {
-        console.log("SCRUM-248 Client Restart Verification");
-        console.log(`Isolated project: ${project}`);
+        console.log(
+            "SCRUM-248 Client Restart Verification"
+        );
+        console.log(
+            `Isolated project: ${project}`
+        );
 
         compose(["config", "--quiet"]);
 
@@ -206,6 +239,7 @@ async function main() {
         compose(["up", "-d", "--build"]);
 
         await waitForReady(backendReady, "Backend");
+
         const initialClientMs = await waitForReady(
             clientReady,
             "Client"
@@ -216,7 +250,9 @@ async function main() {
         console.log(
             `PASS: Initial client available in ${initialClientMs}ms.`
         );
-        console.log("PASS: Backend and database operational.");
+        console.log(
+            "PASS: Backend and database operational."
+        );
 
         const backendBefore = compose([
             "ps", "-q", "server"
@@ -254,7 +290,10 @@ async function main() {
             "PASS: Backend and database remained operational."
         );
 
-        console.log("Restarting client without rebuilding services...");
+        console.log(
+            "Restarting client without rebuilding services..."
+        );
+
         const start = performance.now();
 
         if (forceFailure) {
@@ -298,12 +337,15 @@ async function main() {
         console.log(
             "PASS: Backend and database containers unchanged."
         );
+
         console.log(
             `PASS: Client recovered in ${totalRecoveryMs}ms.`
         );
+
         console.log(
             `Health polling duration: ${recoveryMs}ms`
         );
+
         console.log("SCRUM-248: PASS");
     } catch (error) {
         failed = true;
@@ -311,25 +353,48 @@ async function main() {
         console.error(
             `SCRUM-248: FAIL - ${error.message}`
         );
-        console.error("Collecting Compose diagnostics...");
+
+        console.error(
+            "Collecting resource diagnostics..."
+        );
 
         try {
-            compose(["ps", "-a"], { allowFailure: true });
+            printResourceDiagnostics(project);
+        } catch {
+            console.error(
+                "Resource diagnostics unavailable."
+            );
+        }
+
+        console.error(
+            "Collecting Compose diagnostics..."
+        );
+
+        try {
+            compose(
+                ["ps", "-a"],
+                { allowFailure: true }
+            );
+
             compose(
                 ["logs", "--tail", "60"],
                 { allowFailure: true }
             );
-        } catch (diagnosticError) {
+        } catch {
             console.error(
-                `Diagnostics unavailable: ${diagnosticError.message}`
+                "Compose diagnostics unavailable."
             );
         }
     } finally {
-        console.log("Cleaning up isolated Compose project...");
+        console.log(
+            "Cleaning up isolated Compose project..."
+        );
 
         try {
             compose([
-                "down", "--volumes", "--remove-orphans"
+                "down",
+                "--volumes",
+                "--remove-orphans"
             ]);
         } catch (error) {
             failed = true;
@@ -339,10 +404,13 @@ async function main() {
         }
 
         try {
-            rmSync(tempDirectory, {
-                recursive: true,
-                force: true
-            });
+            rmSync(
+                tempDirectory,
+                {
+                    recursive: true,
+                    force: true
+                }
+            );
         } catch (error) {
             failed = true;
             console.error(
