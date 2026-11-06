@@ -88,8 +88,8 @@ Local targeted tests: PASS — 21/21 tests across 4 files
 Full frontend regression: PASS — 202/202 tests across 39 files
 ESLint: PASS — npm run lint
 Production build: PASS — npm run build
-GitHub Actions CI job: PENDING
-GitHub PR number: PENDING
+GitHub Actions CI job: PASS - PR #163
+GitHub PR number: #163 - merged into main
 
 The GitHub job must pass before SCRUM-242 is
 considered verified in the pull request.

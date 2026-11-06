@@ -9,6 +9,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
+import {
+    printResourceDiagnostics
+} from "./compose-resource-diagnostics.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const project = `sw-recovery-${randomUUID().slice(0, 8)}`;
 const tempDirectory = mkdtempSync(
@@ -42,8 +46,6 @@ if (
     );
 }
 
-// Replace the original host port mapping rather than
-// publishing both 8080 and 18080.
 writeFileSync(
     overrideFile,
     `services:
@@ -71,33 +73,22 @@ function docker(
         {
             cwd: root,
             encoding: "utf8",
-            stdio: [
-                "ignore",
-                "pipe",
-                "pipe"
-            ],
+            stdio: ["ignore", "pipe", "pipe"],
             timeout: 120000
         }
     );
 
     if (result.stdout) {
-        process.stdout.write(
-            result.stdout
-        );
+        process.stdout.write(result.stdout);
     }
 
     if (result.stderr) {
-        process.stderr.write(
-            result.stderr
-        );
+        process.stderr.write(result.stderr);
     }
 
     if (
         result.error ||
-        (
-            result.status !== 0 &&
-            !allowFailure
-        )
+        (result.status !== 0 && !allowFailure)
     ) {
         throw new Error(
             `Docker command failed: ${result.error?.message ??
@@ -110,10 +101,7 @@ function docker(
 }
 
 const compose = (args, options) =>
-    docker(
-        [...composeArgs, ...args],
-        options
-    );
+    docker([...composeArgs, ...args], options);
 
 const wait = (ms) =>
     new Promise((resolve) =>
@@ -121,8 +109,7 @@ const wait = (ms) =>
     );
 
 async function isHealthy() {
-    const controller =
-        new AbortController();
+    const controller = new AbortController();
 
     const timer = setTimeout(
         () => controller.abort(),
@@ -132,9 +119,7 @@ async function isHealthy() {
     try {
         const response = await fetch(
             `http://127.0.0.1:${port}/health`,
-            {
-                signal: controller.signal
-            }
+            { signal: controller.signal }
         );
 
         if (response.status !== 200) {
@@ -154,9 +139,7 @@ async function isHealthy() {
 async function waitForHealth(phase = "recovery") {
     const start = performance.now();
 
-    while (
-        performance.now() - start < timeoutMs
-    ) {
+    while (performance.now() - start < timeoutMs) {
         if (await isHealthy()) {
             return Math.round(
                 performance.now() - start
@@ -178,26 +161,17 @@ async function main() {
         console.log(
             "SCRUM-247 Backend Recovery Test"
         );
-
         console.log(
             `Isolated project: ${project}`
         );
 
-        compose([
-            "config",
-            "--quiet"
-        ]);
+        compose(["config", "--quiet"]);
 
         console.log(
             "Starting isolated database and backend..."
         );
 
-        compose([
-            "up",
-            "-d",
-            "--build",
-            "server"
-        ]);
+        compose(["up", "-d", "--build", "server"]);
 
         await waitForHealth("initial readiness");
 
@@ -205,21 +179,11 @@ async function main() {
             "PASS: Initial backend health verified."
         );
 
-        console.log(
-            "Stopping backend..."
-        );
-
-        compose([
-            "stop",
-            "server"
-        ]);
+        console.log("Stopping backend...");
+        compose(["stop", "server"]);
 
         const stopped = compose([
-            "ps",
-            "-a",
-            "--status",
-            "exited",
-            "--services"
+            "ps", "-a", "--status", "exited", "--services"
         ]);
 
         if (
@@ -242,25 +206,15 @@ async function main() {
             "PASS: Temporary unavailability detected."
         );
 
-        console.log(
-            "Restarting backend..."
-        );
-
+        console.log("Restarting backend...");
         const start = performance.now();
 
         if (forceRecoveryFailure) {
             console.log(
                 "TEST INJECTION: Simulating permanent backend recovery failure."
             );
-
-            // Deliberately leave the isolated backend
-            // stopped so bounded health polling must fail.
-            // This does not modify backend application code.
         } else {
-            compose([
-                "start",
-                "server"
-            ]);
+            compose(["start", "server"]);
         }
 
         const elapsed =
@@ -273,14 +227,10 @@ async function main() {
         console.log(
             `PASS: Backend recovered in ${totalRecoveryMs}ms`
         );
-
         console.log(
             `Health polling duration: ${elapsed}ms`
         );
-
-        console.log(
-            "SCRUM-247: PASS"
-        );
+        console.log("SCRUM-247: PASS");
     } catch (error) {
         failed = true;
 
@@ -289,7 +239,19 @@ async function main() {
         );
 
         console.error(
-            "Collecting diagnostics..."
+            "Collecting resource diagnostics..."
+        );
+
+        try {
+            printResourceDiagnostics(project);
+        } catch {
+            console.error(
+                "Resource diagnostics unavailable."
+            );
+        }
+
+        console.error(
+            "Collecting Compose diagnostics..."
         );
 
         try {
@@ -299,17 +261,12 @@ async function main() {
             );
 
             compose(
-                [
-                    "logs",
-                    "--tail",
-                    "60",
-                    "server"
-                ],
+                ["logs", "--tail", "60", "server"],
                 { allowFailure: true }
             );
-        } catch (diagnosticError) {
+        } catch {
             console.error(
-                `Diagnostics failed: ${diagnosticError.message}`
+                "Compose diagnostics unavailable."
             );
         }
     } finally {
@@ -325,19 +282,15 @@ async function main() {
             ]);
         } catch (error) {
             failed = true;
-
             console.error(
                 `Cleanup failed: ${error.message}`
             );
         }
 
-        rmSync(
-            tempDirectory,
-            {
-                recursive: true,
-                force: true
-            }
-        );
+        rmSync(tempDirectory, {
+            recursive: true,
+            force: true
+        });
 
         if (failed) {
             process.exitCode = 1;
