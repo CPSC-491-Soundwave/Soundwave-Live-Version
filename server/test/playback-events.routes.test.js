@@ -196,3 +196,144 @@ test("invalid track ID and invalid timestamps are rejected before storage", asyn
   assert.equal((await post(base, token, payload({occurredAt: "yesterday"}))).status, 400);
   assert.equal(repository.calls.length, 0);
 });
+
+
+test("SCRUM-275: distinct event UUIDs create separate records", async t => {
+  const repository = makeRepository();
+  const { base } = await start(t, repository);
+  const token = tokenService.create_token({ id: 42, role: "user" });
+
+  const first = await post(base, token, payload({
+    clientEventId: UUID_A
+  }));
+
+  const second = await post(base, token, payload({
+    clientEventId: UUID_B
+  }));
+
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  const response = await history(base, token);
+  assert.equal(response.status, 200);
+
+  const events = (await response.json()).events;
+
+  assert.equal(events.length, 2);
+  assert.deepEqual(
+    events.map(event => event.clientEventId),
+                   [UUID_B, UUID_A]
+  );
+});
+
+test("SCRUM-275: history sorts by occurrence time, not arrival order", async t => {
+  const repository = makeRepository();
+  const { base } = await start(t, repository);
+  const token = tokenService.create_token({ id: 42, role: "user" });
+
+  const thirdId = "00000000-0000-4000-8000-000000000333";
+
+  const inputs = [
+    {
+      clientEventId: UUID_A,
+      occurredAt: "2026-11-03T18:00:00.000Z"
+    },
+    {
+      clientEventId: UUID_B,
+      occurredAt: "2026-11-03T18:02:00.000Z"
+    },
+    {
+      clientEventId: thirdId,
+      occurredAt: "2026-11-03T18:01:00.000Z"
+    }
+  ];
+
+  for (const input of inputs) {
+    const response = await post(base, token, payload(input));
+    assert.equal(response.status, 201);
+  }
+
+  const response = await history(base, token);
+  assert.equal(response.status, 200);
+
+  const events = (await response.json()).events;
+
+  assert.deepEqual(
+    events.map(event => event.clientEventId),
+                   [UUID_B, thirdId, UUID_A]
+  );
+
+  const limitedResponse = await history(base, token, "?limit=2");
+  assert.equal(limitedResponse.status, 200);
+
+  const limitedEvents = (await limitedResponse.json()).events;
+
+  assert.deepEqual(
+    limitedEvents.map(event => event.clientEventId),
+                   [UUID_B, thirdId]
+  );
+});
+
+test("SCRUM-275: repeated retries do not overwrite original event", async t => {
+  const repository = makeRepository();
+  const { base } = await start(t, repository);
+  const token = tokenService.create_token({ id: 42, role: "user" });
+
+  const original = payload();
+
+  const first = await post(base, token, original);
+  assert.equal(first.status, 201);
+  assert.equal((await first.json()).replayed, false);
+
+  for (let i = 0; i < 3; i++) {
+    const retry = await post(base, token, original);
+
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).replayed, true);
+  }
+
+  const conflict = await post(base, token, payload({
+    occurredAt: "2026-11-03T19:00:00.000Z"
+  }));
+
+  assert.equal(conflict.status, 409);
+
+  const response = await history(base, token);
+  assert.equal(response.status, 200);
+
+  const events = (await response.json()).events;
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].clientEventId, UUID_A);
+  assert.equal(events[0].occurredAt, original.occurredAt);
+});
+
+test("SCRUM-275: identical event UUIDs are scoped independently by user", async t => {
+  const repository = makeRepository();
+  const { base } = await start(t, repository);
+
+  const userA = tokenService.create_token({ id: 42, role: "user" });
+  const userB = tokenService.create_token({ id: 99, role: "user" });
+
+  const event = payload({ clientEventId: UUID_A });
+
+  assert.equal((await post(base, userA, event)).status, 201);
+  assert.equal((await post(base, userB, event)).status, 201);
+
+  const retryA = await post(base, userA, event);
+  const retryB = await post(base, userB, event);
+
+  assert.equal(retryA.status, 200);
+  assert.equal(retryB.status, 200);
+
+  assert.equal((await retryA.json()).replayed, true);
+  assert.equal((await retryB.json()).replayed, true);
+
+  const historyA = (await (await history(base, userA)).json()).events;
+  const historyB = (await (await history(base, userB)).json()).events;
+
+  assert.equal(historyA.length, 1);
+  assert.equal(historyB.length, 1);
+  assert.equal(historyA[0].clientEventId, UUID_A);
+  assert.equal(historyB[0].clientEventId, UUID_A);
+});
