@@ -40,7 +40,11 @@ function formatPlaybackTime(seconds) {
 export default function PlaybackBar({
     trackId = null,
     accessToken = "",
-    onSessionInvalidated
+    onSessionInvalidated,
+    onNextTrack,
+    onPreviousTrack,
+    canGoNext = false,
+    canGoPrevious = false
 }) {
     const [track, setTrack] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -569,7 +573,9 @@ export default function PlaybackBar({
             <div className="playback-center">
                 <div className="playback-controls">
                 <button
-                    disabled
+                    type="button"
+                    onClick={onPreviousTrack}
+                    disabled={!canGoPrevious || !onPreviousTrack}
                     aria-label="Previous track"
                 >
                     ⏮
@@ -583,7 +589,9 @@ export default function PlaybackBar({
                 </button>
 
                 <button
-                    disabled
+                    type="button"
+                    onClick={onNextTrack}
+                    disabled={!canGoNext || !onNextTrack}
                     aria-label="Next track"
                 >
                     ⏭
