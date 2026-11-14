@@ -15,7 +15,10 @@ import PlaybackBar from "./components/PlaybackBar";
 
 import {
   createQueue,
-  getCurrentQueueTrack
+  selectQueueTrack,
+  getCurrentQueueTrack,
+  getNextQueueTrack,
+  getPreviousQueueTrack
 } from "./playback/queue.js";
 
 import Home from "./pages/Home";
@@ -75,35 +78,47 @@ export default function App() {
   );
 
   /*
-   * Existing pages select individual track IDs.
-   * Establish a single-track queue for each selection.
-   *
-   * Multi-track queue population and Next/Previous
-   * controls will be integrated separately.
+   * SCRUM-323: Keep selected tracks in a stable queue.
+   * Re-selecting an existing track does not duplicate it.
    */
-  const handleSelectTrack = useCallback(
-    (trackId) => {
-      if (
-        !Number.isInteger(trackId) ||
-        trackId <= 0
-      ) {
-        return;
+  const handleSelectTrack = useCallback((trackId) => {
+    if (!Number.isInteger(trackId) || trackId <= 0) {
+      return;
+    }
+
+    setQueue((current) => {
+      if (current.trackIds.includes(trackId)) {
+        return selectQueueTrack(current, trackId);
       }
 
-      setQueue(
-        createQueue([trackId], trackId)
+      return createQueue(
+        [...current.trackIds, trackId],
+        trackId
       );
-    },
-    []
-  );
+    });
+  }, []);
 
-  /*
-   * Derive the active track from queue state.
-   * PlaybackBar continues receiving the same
-   * trackId interface as before.
-   */
-  const selectedTrackId =
-    getCurrentQueueTrack(queue);
+  const handleNextTrack = useCallback(() => {
+    setQueue((current) => {
+      const next = getNextQueueTrack(current);
+      return next === null
+        ? current
+        : selectQueueTrack(current, next);
+    });
+  }, []);
+
+  const handlePreviousTrack = useCallback(() => {
+    setQueue((current) => {
+      const previous = getPreviousQueueTrack(current);
+      return previous === null
+        ? current
+        : selectQueueTrack(current, previous);
+    });
+  }, []);
+
+  const selectedTrackId = getCurrentQueueTrack(queue);
+  const canGoNext = getNextQueueTrack(queue) !== null;
+  const canGoPrevious = getPreviousQueueTrack(queue) !== null;
 
   return (
     <div className="app-shell">
@@ -218,6 +233,10 @@ export default function App() {
         trackId={
           selectedTrackId
         }
+        onNextTrack={handleNextTrack}
+        onPreviousTrack={handlePreviousTrack}
+        canGoNext={canGoNext}
+        canGoPrevious={canGoPrevious}
         accessToken={
           accessToken
         }
