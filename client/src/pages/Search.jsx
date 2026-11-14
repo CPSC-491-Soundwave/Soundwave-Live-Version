@@ -1,7 +1,4 @@
-import {
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import AlbumCard from "../components/AlbumCard";
@@ -9,22 +6,10 @@ import ArtistCard from "../components/ArtistCard";
 import "./Search.css";
 
 const SEARCH_TYPES = [
-  {
-    value: "all",
-    label: "All",
-  },
-  {
-    value: "track",
-    label: "Tracks",
-  },
-  {
-    value: "artist",
-    label: "Artists",
-  },
-  {
-    value: "album",
-    label: "Albums",
-  },
+  { value: "all", label: "All" },
+  { value: "track", label: "Tracks" },
+  { value: "artist", label: "Artists" },
+  { value: "album", label: "Albums" },
 ];
 
 const EMPTY_RESULTS = {
@@ -35,102 +20,98 @@ const EMPTY_RESULTS = {
 };
 
 function formatDuration(durationMs) {
-  const numericDuration =
-    Number(durationMs);
+  const value = Number(durationMs);
 
-  if (
-    !Number.isFinite(numericDuration) ||
-    numericDuration < 0
-  ) {
+  if (!Number.isFinite(value) || value < 0) {
     return "--:--";
   }
 
-  const totalSeconds =
-    Math.floor(numericDuration / 1000);
+  const seconds = Math.floor(value / 1000);
 
-  const minutes =
-    Math.floor(totalSeconds / 60);
-
-  const seconds =
-    totalSeconds % 60;
-
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return `${Math.floor(seconds / 60)}:${String(
+    seconds % 60
+  ).padStart(2, "0")}`;
 }
 
 function isSearchResponse(data) {
-  return (
+  return Boolean(
     data &&
-    typeof data === "object" &&
-    typeof data.query === "string" &&
-    Array.isArray(data.tracks) &&
-    Array.isArray(data.artists) &&
-    Array.isArray(data.albums)
+      typeof data === "object" &&
+      typeof data.query === "string" &&
+      Array.isArray(data.tracks) &&
+      Array.isArray(data.artists) &&
+      Array.isArray(data.albums)
   );
 }
 
-export default function Search({
-  onSelectTrack
-}) {
+export default function Search({ onSelectTrack }) {
   const [query, setQuery] = useState("");
-  const [searchType, setSearchType] =
-    useState("all");
-  const [results, setResults] =
-    useState(EMPTY_RESULTS);
-  const [hasSearched, setHasSearched] =
-    useState(false);
-  const [loading, setLoading] =
-    useState(false);
-  const [error, setError] =
-    useState("");
+  const [searchType, setSearchType] = useState("all");
+  const [results, setResults] = useState(EMPTY_RESULTS);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const requestControllerRef =
-    useRef(null);
+  const inputRef = useRef(null);
+  const requestControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    const normalizedQuery =
-      query.trim();
-
-    if (!normalizedQuery) {
-      setError(
-        "Enter a search term before searching."
-      );
-      return;
-    }
-
-    if (normalizedQuery.length > 100) {
-      setError(
-        "Search terms must be 100 characters or fewer."
-      );
-      return;
-    }
+  // Invalidate aborted requests and responses that arrive
+  // after a newer request has already been started.
+  function cancelPendingSearch() {
+    requestIdRef.current += 1;
 
     requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+  }
 
-    const controller =
-      new AbortController();
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+      requestControllerRef.current?.abort();
+    };
+  }, []);
 
-    requestControllerRef.current =
-      controller;
+  async function runSearch(rawQuery, type) {
+    const normalizedQuery = rawQuery.trim();
+
+    if (!normalizedQuery || normalizedQuery.length > 100) {
+      cancelPendingSearch();
+
+      setLoading(false);
+      setHasSearched(false);
+      setResults(EMPTY_RESULTS);
+
+      setError(
+        !normalizedQuery
+          ? "Enter a search term before searching."
+          : "Search terms must be 100 characters or fewer."
+      );
+
+      return;
+    }
+
+    cancelPendingSearch();
+
+    const requestId = requestIdRef.current;
+    const controller = new AbortController();
+
+    requestControllerRef.current = controller;
 
     setLoading(true);
     setError("");
+    setHasSearched(false);
+    setResults(EMPTY_RESULTS);
 
     try {
-      const searchParams =
-        new URLSearchParams({
-          q: normalizedQuery,
-          type: searchType,
-        });
+      const params = new URLSearchParams({
+        q: normalizedQuery,
+        type,
+      });
 
-      const response =
-        await fetch(
-          `/api/search?${searchParams.toString()}`,
-          {
-            signal: controller.signal,
-          }
-        );
+      const response = await fetch(`/api/search?${params}`, {
+        signal: controller.signal,
+      });
 
       if (!response.ok) {
         throw new Error(
@@ -138,8 +119,7 @@ export default function Search({
         );
       }
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!isSearchResponse(data)) {
         throw new Error(
@@ -147,12 +127,19 @@ export default function Search({
         );
       }
 
+      if (
+        requestId !== requestIdRef.current ||
+        controller.signal.aborted
+      ) {
+        return;
+      }
+
       setResults(data);
       setHasSearched(true);
     } catch (searchError) {
       if (
-        searchError instanceof DOMException &&
-        searchError.name === "AbortError"
+        requestId !== requestIdRef.current ||
+        controller.signal.aborted
       ) {
         return;
       }
@@ -160,28 +147,87 @@ export default function Search({
       setResults(EMPTY_RESULTS);
       setHasSearched(true);
 
+      // Preserve controlled HTTP/response errors.
+      // Do not expose raw fetch exceptions or private URLs.
+      const knownError =
+        searchError instanceof Error &&
+        (searchError.message.startsWith(
+          "Search request failed with HTTP "
+        ) ||
+          searchError.message ===
+            "Search response had an unexpected format.");
+
       setError(
-        searchError instanceof Error
+        knownError
           ? searchError.message
-          : "Unknown search error"
+          : "Unable to search the catalog right now. Please try again."
       );
     } finally {
-      if (
-        requestControllerRef.current ===
-        controller
-      ) {
-        requestControllerRef.current =
-          null;
-
+      if (requestId === requestIdRef.current) {
+        requestControllerRef.current = null;
         setLoading(false);
       }
     }
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+
+    void runSearch(query, searchType);
+  }
+
+  function handleQueryChange(event) {
+    // A changed query invalidates results from the old query.
+    cancelPendingSearch();
+
+    setQuery(event.target.value);
+    setLoading(false);
+    setError("");
+    setResults(EMPTY_RESULTS);
+    setHasSearched(false);
+  }
+
+  function handleTypeChange(event) {
+    const nextType = event.target.value;
+
+    setSearchType(nextType);
+
+    // Sprint 5 Discovery enhancement:
+    // After a search, changing the category refreshes
+    // results without requiring another Search click.
+    //
+    // Before the first search, changing the dropdown
+    // only selects the desired category.
+    if (hasSearched || loading) {
+      void runSearch(query, nextType);
+    }
+  }
+
+  function handleClear() {
+    cancelPendingSearch();
+
+    setQuery("");
+    setSearchType("all");
+    setResults(EMPTY_RESULTS);
+    setHasSearched(false);
+    setLoading(false);
+    setError("");
+
+    inputRef.current?.focus();
   }
 
   const totalResults =
     results.tracks.length +
     results.artists.length +
     results.albums.length;
+
+  const currentTypeLabel = SEARCH_TYPES.find(
+    (type) => type.value === searchType
+  )?.label;
+
+  const canClear = Boolean(
+    query || searchType !== "all" || hasSearched || error
+  );
 
   return (
     <section className="search-page">
@@ -196,6 +242,7 @@ export default function Search({
       <form
         className="search-form"
         onSubmit={handleSubmit}
+        role="search"
       >
         <div className="search-form__field">
           <label htmlFor="catalog-search">
@@ -204,16 +251,11 @@ export default function Search({
 
           <input
             id="catalog-search"
+            ref={inputRef}
             type="search"
             value={query}
             maxLength={100}
-            onChange={(event) => {
-              setQuery(event.target.value);
-
-              if (error) {
-                setError("");
-              }
-            }}
+            onChange={handleQueryChange}
             placeholder="Track, artist, or album"
             autoComplete="off"
           />
@@ -227,11 +269,7 @@ export default function Search({
           <select
             id="search-type"
             value={searchType}
-            onChange={(event) => {
-              setSearchType(
-                event.target.value
-              );
-            }}
+            onChange={handleTypeChange}
           >
             {SEARCH_TYPES.map((type) => (
               <option
@@ -249,11 +287,30 @@ export default function Search({
           type="submit"
           disabled={loading}
         >
-          {loading
-            ? "Searching..."
-            : "Search"}
+          {loading ? "Searching..." : "Search"}
         </button>
       </form>
+
+      {canClear && (
+        <p className="search-page__status">
+          <button
+            type="button"
+            onClick={handleClear}
+          >
+            Clear search and filters
+          </button>
+        </p>
+      )}
+
+      {loading && (
+        <p
+          className="search-page__status"
+          role="status"
+        >
+          Searching {currentTypeLabel?.toLowerCase()} for
+          {" "}“{query.trim()}”...
+        </p>
+      )}
 
       {error && (
         <p
@@ -264,20 +321,21 @@ export default function Search({
         </p>
       )}
 
-      {!error &&
-        !loading &&
-        !hasSearched && (
-          <p className="search-page__status">
-            Enter a search term to explore the catalog.
-          </p>
-        )}
+      {!error && !loading && !hasSearched && (
+        <p className="search-page__status">
+          Enter a search term to explore the catalog.
+        </p>
+      )}
 
       {!error &&
         !loading &&
         hasSearched &&
         totalResults === 0 && (
-          <p className="search-page__status">
-            No results found for &ldquo;{results.query}&rdquo;.
+          <p
+            className="search-page__status"
+            role="status"
+          >
+            No results found for “{results.query}”.
           </p>
         )}
 
@@ -286,12 +344,18 @@ export default function Search({
         hasSearched &&
         totalResults > 0 && (
           <div className="search-results">
-            <p className="search-results__summary">
+            <p
+              className="search-results__summary"
+              role="status"
+            >
               {totalResults}{" "}
               {totalResults === 1
                 ? "result"
                 : "results"}{" "}
-              for &ldquo;{results.query}&rdquo;
+              for “{results.query}”
+              {searchType === "all"
+                ? ""
+                : ` in ${currentTypeLabel}`}
             </p>
 
             {results.tracks.length > 0 && (
@@ -313,61 +377,52 @@ export default function Search({
                   className="search-track-list"
                   aria-label="Track search results"
                 >
-                  {results.tracks.map(
-                    (track) => (
-                      <article
-                        className="search-track"
-                        key={track.id}
-                      >
-                        <div className="search-track__identity">
-                          <strong className="search-track__title">
-                            {track.title}
-                          </strong>
+                  {results.tracks.map((track) => (
+                    <article
+                      className="search-track"
+                      key={track.id}
+                    >
+                      <div className="search-track__identity">
+                        <strong className="search-track__title">
+                          {track.title}
+                        </strong>
 
-                          <span className="search-track__metadata">
-                            <Link
-                              to={`/artists/${track.artist.id}`}
-                            >
-                              {track.artist.name}
-                            </Link>
+                        <span className="search-track__metadata">
+                          <Link
+                            to={`/artists/${track.artist.id}`}
+                          >
+                            {track.artist.name}
+                          </Link>
 
-                            <span
-                              aria-hidden="true"
-                            >
-                              {" "}
-                              •{" "}
-                            </span>
-
-                            <Link
-                              to={`/albums/${track.album.id}`}
-                            >
-                              {track.album.title}
-                            </Link>
+                          <span aria-hidden="true">
+                            {" • "}
                           </span>
-                        </div>
 
-                        <button
-                          type="button"
-                          aria-label={
-                            `Play ${track.title}`
-                          }
-                          onClick={() => {
-                            onSelectTrack?.(
-                              track.id
-                            );
-                          }}
-                        >
-                          Play
-                        </button>
-
-                        <span className="search-track__duration">
-                          {formatDuration(
-                            track.durationMs
-                          )}
+                          <Link
+                            to={`/albums/${track.album.id}`}
+                          >
+                            {track.album.title}
+                          </Link>
                         </span>
-                      </article>
-                    )
-                  )}
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label={`Play ${track.title}`}
+                        onClick={() =>
+                          onSelectTrack?.(track.id)
+                        }
+                      >
+                        Play
+                      </button>
+
+                      <span className="search-track__duration">
+                        {formatDuration(
+                          track.durationMs
+                        )}
+                      </span>
+                    </article>
+                  ))}
                 </div>
               </section>
             )}
@@ -391,18 +446,14 @@ export default function Search({
                   className="catalog-browse-grid"
                   aria-label="Artist search results"
                 >
-                  {results.artists.map(
-                    (artist) => (
-                      <ArtistCard
-                        key={artist.id}
-                        id={artist.id}
-                        name={artist.name}
-                        artworkUrl={
-                          artist.artworkUrl
-                        }
-                      />
-                    )
-                  )}
+                  {results.artists.map((artist) => (
+                    <ArtistCard
+                      key={artist.id}
+                      id={artist.id}
+                      name={artist.name}
+                      artworkUrl={artist.artworkUrl}
+                    />
+                  ))}
                 </div>
               </section>
             )}
@@ -426,21 +477,15 @@ export default function Search({
                   className="catalog-browse-grid"
                   aria-label="Album search results"
                 >
-                  {results.albums.map(
-                    (album) => (
-                      <AlbumCard
-                        key={album.id}
-                        id={album.id}
-                        title={album.title}
-                        artistName={
-                          album.artist?.name
-                        }
-                        artworkUrl={
-                          album.artworkUrl
-                        }
-                      />
-                    )
-                  )}
+                  {results.albums.map((album) => (
+                    <AlbumCard
+                      key={album.id}
+                      id={album.id}
+                      title={album.title}
+                      artistName={album.artist?.name}
+                      artworkUrl={album.artworkUrl}
+                    />
+                  ))}
                 </div>
               </section>
             )}
