@@ -18,6 +18,7 @@ import {
 import {
   handleAccountProfile
 } from "./account/profile.js";
+import { handleAccountProfileUpdate } from "./account/profile-update.js";
 
 import {
   streamTrackFile
@@ -100,6 +101,7 @@ export function createApp({
   mediaTicketService,
   findUserByUsername,
   findProfileByUserId,
+  updateProfileByUserId,
   findTrackById,
   handleCatalogRequest,
   handleSearchRequest,
@@ -144,27 +146,23 @@ export function createApp({
      * inside its dynamic route below.
      */
     const isProtectedRoute =
-    req.method === "GET" &&
-    (
-      req.url === "/auth/me" ||
-      req.url === "/account/profile" ||
-      req.url === "/api/library/recently-added" ||
-      req.url === "/api/library/favorites"
-    );
+      (req.method === "GET" && (
+        req.url === "/auth/me" ||
+        req.url === "/account/profile" ||
+        req.url === "/api/library/recently-added" ||
+        req.url === "/api/library/favorites"
+      )) ||
+      (req.method === "PATCH" && req.url === "/account/profile");
 
+    // Reuse the already-verified, revocation-checked principal for updates.
+    let requestPrincipal = null;
     if (isProtectedRoute) {
-      const principal =
-      await authorizeRevocableRequest(
-        req,
-        res,
-        {
-          tokenService,
-          tokenRevocationRepository,
-          allowedRoles: ["user", "admin"]
-        }
-      );
-
-      if (!principal) {
+      requestPrincipal = await authorizeRevocableRequest(req, res, {
+        tokenService,
+        tokenRevocationRepository,
+        allowedRoles: ["user", "admin"]
+      });
+      if (!requestPrincipal) {
         return;
       }
     }
@@ -310,6 +308,30 @@ export function createApp({
         );
       }
 
+      return;
+    }
+
+    /*
+     * Authenticated self-service account update.
+     * The pre-handler above has already verified persistent token revocation.
+     */
+    if (req.method === "PATCH" && req.url === "/account/profile") {
+      try {
+        await handleAccountProfileUpdate(req, res, {
+          principal: requestPrincipal,
+          updateProfileByUserId
+        });
+      } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store"
+          });
+          res.end(JSON.stringify({ error: "internal_error" }));
+        } else {
+          res.destroy();
+        }
+      }
       return;
     }
 
