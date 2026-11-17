@@ -1,4 +1,3 @@
-
 export const LIST_USER_FAVORITES_SQL = `
   SELECT
     t.id AS track_id,
@@ -16,6 +15,30 @@ export const LIST_USER_FAVORITES_SQL = `
   WHERE f.user_id = $1
   ORDER BY f.created_at DESC, t.id ASC
 `;
+
+export const ADD_USER_FAVORITE_SQL = `
+  WITH target_track AS (
+    SELECT id FROM tracks WHERE id = $2
+  ), inserted_favorite AS (
+    INSERT INTO favorites (user_id, track_id)
+    SELECT $1, id FROM target_track WHERE TRUE
+    ON CONFLICT (user_id, track_id) DO NOTHING
+    RETURNING track_id
+  )
+  SELECT EXISTS (SELECT 1 FROM target_track) AS track_exists
+`;
+
+export const REMOVE_USER_FAVORITE_SQL = `
+  DELETE FROM favorites
+  WHERE user_id = $1 AND track_id = $2
+`;
+
+function normalizeTrackId(trackId) {
+  if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+    throw new TypeError("Invalid track ID");
+  }
+  return String(trackId);
+}
 
 function normalizePrincipalId(principalId) {
   if (
@@ -62,6 +85,26 @@ export function createFavoritesRepository(database) {
       );
 
       return result.rows;
+    },
+
+    async addForPrincipal(principalId, trackId) {
+      const userId = normalizePrincipalId(principalId);
+      const validTrackId = normalizeTrackId(trackId);
+      const result = await database.query(ADD_USER_FAVORITE_SQL, [
+        userId,
+        validTrackId
+      ]);
+
+      return { trackExists: result.rows[0]?.track_exists === true };
+    },
+
+    async removeForPrincipal(principalId, trackId) {
+      const userId = normalizePrincipalId(principalId);
+      const validTrackId = normalizeTrackId(trackId);
+      await database.query(REMOVE_USER_FAVORITE_SQL, [
+        userId,
+        validTrackId
+      ]);
     }
   };
 }
