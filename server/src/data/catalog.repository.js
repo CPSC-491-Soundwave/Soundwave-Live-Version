@@ -135,6 +135,14 @@ export function createCatalogRepository(database) {
       );
     },
 
+    async addFavoriteForPrincipal(principalId, trackId) {
+      return favoritesRepository.addForPrincipal(principalId, trackId);
+    },
+
+    async removeFavoriteForPrincipal(principalId, trackId) {
+      return favoritesRepository.removeForPrincipal(principalId, trackId);
+    },
+
     async listTracks() {
       const result = await database.query(
         LIST_TRACKS_SQL
