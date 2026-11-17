@@ -1,0 +1,119 @@
+.profile-editor {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.profile-editor h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.profile-editor-intro {
+  margin: 0.65rem 0 1.5rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.profile-editor-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-editor-field label {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.profile-editor-field input,
+.profile-editor-field select {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 9px;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.profile-editor-field input:focus-visible,
+.profile-editor-field select:focus-visible,
+.profile-editor button:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.profile-editor-field small {
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.profile-editor-field input:disabled,
+.profile-editor-field select:disabled,
+.profile-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.profile-editor-error,
+.profile-editor-success {
+  margin: 0 0 1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 9px;
+  line-height: 1.45;
+}
+
+.profile-editor-error {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.32);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+}
+
+.profile-editor-success {
+  color: #bbf7d0;
+  background: rgba(21, 128, 61, 0.24);
+  border: 1px solid rgba(74, 222, 128, 0.5);
+}
+
+.profile-editor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.profile-editor button {
+  min-height: 44px;
+  padding: 0.65rem 1.1rem;
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-save-button {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: #fff;
+}
+
+.profile-cancel-button {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 600px) {
+  .profile-editor-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .profile-editor-actions button {
+    width: 100%;
+  }
+}
