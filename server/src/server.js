@@ -144,6 +144,8 @@ createApp({
 
   findProfileByUserId:
   accountProfileRepository.findProfileByUserId,
+  updateProfileByUserId:
+  accountProfileRepository.updateProfileByUserId,
 
   findTrackById:
   catalogRepository.findTrackById,
