@@ -128,6 +128,79 @@
   white-space: nowrap;
 }
 
+/* Allison Yu — Sprint 5 album song-row Favorites */
+.album-track-list__item .album-track-list__actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Match the existing Library heart's size, shape, and colors. */
+.album-track-list__favorite {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 42px;
+  flex: 0 0 40px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #94A3B8;
+  cursor: pointer;
+}
+
+.album-track-list__favorite svg {
+  width: 22px;
+  height: 22px;
+}
+
+.album-track-list__favorite[data-saved="true"] {
+  color: #A5B4FC;
+}
+
+.album-track-list__favorite:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.album-track-list__favorite:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 3px;
+}
+
+.album-track-list__favorite:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.album-track-list__feedback {
+  margin: 0 0 14px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.album-track-list__feedback p {
+  margin: 0 0 8px;
+}
+
+.album-track-list__feedback[role="alert"],
+.album-track-list__feedback [role="alert"] {
+  color: #F8FAFC;
+}
+
+.album-track-list__feedback button {
+  padding: 6px 10px;
+  border: 1px solid #6366F1;
+  border-radius: 6px;
+  background: transparent;
+  color: #F8FAFC;
+  cursor: pointer;
+}
+
 @media (max-width: 700px) {
   .catalog-detail-header {
     align-items: flex-start;
@@ -142,5 +215,20 @@
     grid-template-columns:
       repeat(auto-fill, minmax(130px, 1fr));
     gap: 14px;
+  }
+
+  .album-track-list__item {
+    gap: 10px;
+    padding-inline: 4px;
+  }
+
+  .album-track-list__item .album-track-list__actions {
+    gap: 6px;
+  }
+
+  .album-track-list__favorite {
+    width: 36px;
+    height: 40px;
+    flex-basis: 36px;
   }
 }

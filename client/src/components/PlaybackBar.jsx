@@ -23,6 +23,8 @@ import {
     reportPlaybackEvent
 } from "../playback/playbackEvents.js";
 
+import PlaybackFavoriteButton from "./PlaybackFavoriteButton.jsx";
+
 import "./PlaybackBar.css";
 
 function formatPlaybackTime(seconds) {
@@ -44,7 +46,10 @@ export default function PlaybackBar({
     onNextTrack,
     onPreviousTrack,
     canGoNext = false,
-    canGoPrevious = false
+    canGoPrevious = false,
+    enableFavoriteControl = false,
+    favoritesVersion = 0,
+    onFavoritesChanged
 }) {
     const [track, setTrack] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -57,6 +62,7 @@ export default function PlaybackBar({
     // SCRUM-310: Position and duration come from the actual media.
     const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
     const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
+
     // SCRUM-309: Block duplicate unconfirmed transport commands.
     const pendingTransportCommandRef = useRef(null);
 
@@ -258,7 +264,7 @@ export default function PlaybackBar({
                         }
 
                         const confirmedUserPlay =
-                        pendingTransportCommandRef.current === "play";
+                            pendingTransportCommandRef.current === "play";
 
                         if (confirmedUserPlay) {
                             pendingTransportCommandRef.current = null;
@@ -279,9 +285,12 @@ export default function PlaybackBar({
 
                     onPause: () => {
                         if (!cancelled) {
-                            if (pendingTransportCommandRef.current === "pause") {
+                            if (
+                                pendingTransportCommandRef.current === "pause"
+                            ) {
                                 pendingTransportCommandRef.current = null;
                             }
+
                             setPlaybackStatus("paused");
                         }
                     },
@@ -397,14 +406,17 @@ export default function PlaybackBar({
         if (isPlaying) {
             pendingTransportCommandRef.current = "pause";
             const paused = pauseMusic();
+
             if (paused === false) {
                 pendingTransportCommandRef.current = null;
             }
+
             return;
         }
 
         pendingTransportCommandRef.current = "play";
         const started = playMusic();
+
         if (!started) {
             pendingTransportCommandRef.current = null;
             setPlaybackStatus("ready");
@@ -545,7 +557,7 @@ export default function PlaybackBar({
             <div className="track-info">
                 <div className="track-placeholder" />
 
-                <div>
+                <div className="playback-track-copy">
                     <strong>{track.title}</strong>
 
                     <p>
@@ -568,34 +580,44 @@ export default function PlaybackBar({
                             : "Ready to play"}
                     </p>
                 </div>
+
+                {enableFavoriteControl && (
+                    <PlaybackFavoriteButton
+                        trackId={track.id}
+                        trackTitle={track.title}
+                        accessToken={accessToken}
+                        favoritesVersion={favoritesVersion}
+                        onFavoritesChanged={onFavoritesChanged}
+                    />
+                )}
             </div>
 
             <div className="playback-center">
                 <div className="playback-controls">
-                <button
-                    type="button"
-                    onClick={onPreviousTrack}
-                    disabled={!canGoPrevious || !onPreviousTrack}
-                    aria-label="Previous track"
-                >
-                    ⏮
-                </button>
+                    <button
+                        type="button"
+                        onClick={onPreviousTrack}
+                        disabled={!canGoPrevious || !onPreviousTrack}
+                        aria-label="Previous track"
+                    >
+                        ⏮
+                    </button>
 
-                <button
-                    onClick={handlePlayPause}
-                    aria-label={isPlaying ? "Pause" : "Play"}
-                >
-                    {isPlaying ? "⏸" : "▶"}
-                </button>
+                    <button
+                        onClick={handlePlayPause}
+                        aria-label={isPlaying ? "Pause" : "Play"}
+                    >
+                        {isPlaying ? "⏸" : "▶"}
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={onNextTrack}
-                    disabled={!canGoNext || !onNextTrack}
-                    aria-label="Next track"
-                >
-                    ⏭
-                </button>
+                    <button
+                        type="button"
+                        onClick={onNextTrack}
+                        disabled={!canGoNext || !onNextTrack}
+                        aria-label="Next track"
+                    >
+                        ⏭
+                    </button>
                 </div>
 
                 <div className="playback-timeline">

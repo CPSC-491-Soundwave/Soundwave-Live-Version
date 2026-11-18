@@ -123,8 +123,9 @@ async function selectTrackFour() {
         "Recently added tracks"
     );
 
+    // SCRUM-362: Only click the track-selection button.
     fireEvent.click(within(recent).getByRole("button", {
-        name: /Fixture Track Four/i
+        name: /^Select Fixture Track Four$/i
     }));
 
     await screen.findByText("Fixture Track Four", {
@@ -232,8 +233,10 @@ describe("SCRUM-323 queue navigation", () => {
             "Recently added tracks"
         );
 
+        // SCRUM-362: The Add to Favorites action must
+        // never be mistaken for a queue selection.
         fireEvent.click(within(recent).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         await screen.findByText("Fixture Track Four", {

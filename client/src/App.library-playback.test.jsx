@@ -72,21 +72,26 @@ function mockRequests() {
         if (url === "/api/library/recently-added") {
             return response(200, [TRACK_TWO]);
         }
+
         if (url === "/api/library/favorites") {
             return response(200, [TRACK_ONE]);
         }
+
         if (url === "/api/catalog/tracks/3001") {
             return response(200, TRACK_ONE);
         }
+
         if (url === "/api/catalog/tracks/3004") {
             return response(200, TRACK_TWO);
         }
+
         if (
             url === "/api/tracks/3001/media-access" ||
             url === "/api/tracks/3004/media-access"
         ) {
             return response(204, null);
         }
+
         throw new Error(`Unexpected request: ${url}`);
     }));
 }
@@ -121,14 +126,19 @@ describe("SCRUM-178 Library-to-Playback integration", () => {
     test("recently-added track selection updates shared playback", async () => {
         renderAuthenticatedLibrary();
 
-        const list = await screen.findByLabelText("Recently added tracks");
+        const list = await screen.findByLabelText(
+            "Recently added tracks"
+        );
 
+        // SCRUM-362: Target playback selection, not Add to Favorites.
         fireEvent.click(within(list).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         await waitFor(() => {
-            expect(fetch).toHaveBeenCalledWith("/api/catalog/tracks/3004");
+            expect(fetch).toHaveBeenCalledWith(
+                "/api/catalog/tracks/3004"
+            );
         });
 
         expect(await screen.findByText("Fixture Track Four", {
@@ -139,14 +149,19 @@ describe("SCRUM-178 Library-to-Playback integration", () => {
     test("favorite selection replaces the selected track", async () => {
         renderAuthenticatedLibrary();
 
-        const list = await screen.findByLabelText("Recently added tracks");
+        const list = await screen.findByLabelText(
+            "Recently added tracks"
+        );
 
+        // SCRUM-362: Use the dedicated track-selection button.
         fireEvent.click(within(list).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         await waitFor(() => {
-            expect(fetch).toHaveBeenCalledWith("/api/catalog/tracks/3004");
+            expect(fetch).toHaveBeenCalledWith(
+                "/api/catalog/tracks/3004"
+            );
         });
 
         const favorites = await screen.findByRole("region", {
@@ -158,7 +173,9 @@ describe("SCRUM-178 Library-to-Playback integration", () => {
         }));
 
         await waitFor(() => {
-            expect(fetch).toHaveBeenCalledWith("/api/catalog/tracks/3001");
+            expect(fetch).toHaveBeenCalledWith(
+                "/api/catalog/tracks/3001"
+            );
         });
 
         expect(await screen.findByText("Fixture Track One", {
@@ -169,14 +186,19 @@ describe("SCRUM-178 Library-to-Playback integration", () => {
     test("navigation preserves selected Library track", async () => {
         renderAuthenticatedLibrary();
 
-        const list = await screen.findByLabelText("Recently added tracks");
+        const list = await screen.findByLabelText(
+            "Recently added tracks"
+        );
 
+        // SCRUM-362: Do not confuse Add with Select.
         fireEvent.click(within(list).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         await waitFor(() => {
-            expect(fetch).toHaveBeenCalledWith("/api/catalog/tracks/3004");
+            expect(fetch).toHaveBeenCalledWith(
+                "/api/catalog/tracks/3004"
+            );
         });
 
         fireEvent.click(screen.getByRole("link", {

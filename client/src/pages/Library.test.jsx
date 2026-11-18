@@ -14,7 +14,6 @@ import {
     vi
 } from "vitest";
 
-
 import Library from "./Library";
 
 vi.mock("../components/FavoritesSection.jsx", () => ({
@@ -26,7 +25,6 @@ afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
 });
-
 
 describe("Library recently-added browse", () => {
     beforeEach(() => {
@@ -77,14 +75,18 @@ describe("Library recently-added browse", () => {
                 )
             ).toBeInTheDocument();
 
+            // SCRUM-362:
+            // The Library now supplies an AbortSignal so
+            // outdated requests can be canceled safely.
             expect(fetch).toHaveBeenCalledWith(
                 "/api/library/recently-added",
-                {
+                expect.objectContaining({
                     headers: {
                         Authorization:
                             "Bearer test-token"
-                    }
-                }
+                    },
+                    signal: expect.any(AbortSignal)
+                })
             );
         }
     );
@@ -286,12 +288,16 @@ describe("Library recently-added browse", () => {
                 />
             );
 
+            // SCRUM-362:
+            // Match only the playback-selection button.
+            // The new Add to Favorites button also
+            // includes the Track title in its name.
             const track =
                 await screen.findByRole(
                     "button",
                     {
                         name:
-                            /Fixture Track Four/i
+                            /^Select Fixture Track Four$/i
                     }
                 );
 
