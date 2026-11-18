@@ -1,26 +1,35 @@
-
 .favorites-section {
-    margin-top: 32px;
+    --sw-surface: #1E293B;
+    --sw-accent: #6366F1;
+    --sw-primary: #F8FAFC;
+    --sw-secondary: #94A3B8;
+
+    margin-top: 34px;
     padding-top: 24px;
-    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+
     font-family: Inter, system-ui, sans-serif;
 }
 
+/* Section heading */
+
 .favorites-section > h2 {
-    margin: 0 0 20px;
-    color: #F8FAFC;
-    font-size: 1.2rem;
+    margin: 0 0 18px;
+    color: var(--sw-primary);
+    font-size: 1.25rem;
     font-weight: 700;
+    line-height: 1.3;
 }
 
-/* Two-column Songs-style card grid */
+/* Three-column Library-style layout */
 
 .favorites-section__list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    padding: 0;
+
     margin: 0;
+    padding: 0;
     list-style: none;
 }
 
@@ -28,157 +37,222 @@
     min-width: 0;
 }
 
-/* Entire card selects a track */
+/* Card containing separate Select and Remove buttons */
 
 .favorites-section__track {
     display: grid;
-    grid-template-columns: 76px minmax(0, 1fr) 38px;
+    grid-template-columns: minmax(0, 1fr) 42px;
     align-items: center;
-    gap: 12px;
+    gap: 4px;
+
+    min-width: 0;
+    min-height: 96px;
+    padding: 8px;
+
+    background: var(--sw-surface);
+    color: var(--sw-primary);
+
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 10px;
+
+    transition:
+        border-color 160ms ease,
+        background-color 160ms ease;
+}
+
+.favorites-section__track:hover,
+.favorites-section__track:focus-within {
+    border-color: rgba(99, 102, 241, 0.65);
+    background: #253248;
+}
+
+/* Existing track-selection button */
+
+.favorites-section__select {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 11px;
+    align-items: center;
 
     width: 100%;
-    min-height: 76px;
-    padding: 0 12px 0 0;
+    min-width: 0;
+    padding: 0;
 
-    background: #1E293B;
-    color: #F8FAFC;
-
-    border: 1px solid transparent;
-    border-radius: 6px;
+    background: transparent;
+    color: var(--sw-primary);
+    border: 0;
 
     text-align: left;
     font: inherit;
     cursor: pointer;
-
-    overflow: hidden;
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease;
 }
 
-.favorites-section__track:hover:not(:disabled) {
-    background: color-mix(
-        in srgb,
-        #1E293B 88%,
-        #6366F1
-    );
-    border-color: #6366F1;
-}
-
-.favorites-section__track:focus-visible {
-    outline: 2px solid #6366F1;
-    outline-offset: 3px;
-}
-
-.favorites-section__track:disabled {
+.favorites-section__select:disabled {
     cursor: default;
 }
 
-/* Artwork placeholder until the API provides artwork */
+.favorites-section__select:focus-visible,
+.favorites-section__remove:focus-visible,
+.favorites-section > div[role="alert"]
+button:focus-visible {
+    outline: 2px solid var(--sw-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* Decorative placeholder artwork */
 
 .favorites-section__artwork {
     display: grid;
     place-items: center;
-    align-self: stretch;
 
-    min-height: 76px;
-    background: #6366F1;
-    color: #F8FAFC;
+    width: 72px;
+    height: 76px;
+    min-width: 0;
+    border-radius: 6px;
 
+    background: linear-gradient(
+        145deg,
+        #312E81,
+        #6366F1 72%,
+        #8B5CF6
+    );
+
+    color: var(--sw-primary);
     font-size: 2rem;
-    font-weight: 600;
+    font-weight: 500;
 }
 
-/* Song title, artist, album */
+.favorites-section__list > li:nth-child(3n + 2)
+.favorites-section__artwork {
+    background: linear-gradient(
+        145deg,
+        #164E63,
+        #2563EB,
+        #6366F1
+    );
+}
+
+.favorites-section__list > li:nth-child(3n + 3)
+.favorites-section__artwork {
+    background: linear-gradient(
+        145deg,
+        #581C87,
+        #7C3AED,
+        #4338CA
+    );
+}
+
+/* Track information */
 
 .favorites-section__details {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 5px;
+    justify-content: center;
     min-width: 0;
 }
 
+.favorites-section__details strong,
+.favorites-section__details span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .favorites-section__details strong {
-    color: #F8FAFC;
+    color: var(--sw-primary);
     font-size: 0.9rem;
-    font-weight: 600;
-
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    font-weight: 650;
 }
 
-.favorites-section__details p {
-    margin: 0;
-    color: #94A3B8;
+.favorites-section__details span {
+    color: var(--sw-secondary);
     font-size: 0.75rem;
-    line-height: 1.4;
-
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    line-height: 1.35;
 }
 
-/* Saved heart and duration on the right */
+.favorites-section__select:hover:not(:disabled)
+.favorites-section__details strong {
+    color: #C7D2FE;
+}
+
+/* Saved Favorite heart and duration */
 
 .favorites-section__aside {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
     align-items: center;
-    align-self: stretch;
+    justify-content: center;
     gap: 6px;
-    padding: 10px 0;
+    min-width: 0;
 }
 
-.favorites-section__heart {
-    display: flex;
-    color: #94A3B8;
+.favorites-section__remove {
+    display: grid;
+    place-items: center;
+
+    width: 40px;
+    height: 42px;
+    padding: 0;
+
+    background: transparent;
+    color: #A5B4FC;
+    border: 1px solid transparent;
+    border-radius: 6px;
+
+    cursor: pointer;
 }
 
-.favorites-section__heart svg {
+.favorites-section__remove svg {
     width: 22px;
     height: 22px;
 }
 
+.favorites-section__remove:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.45);
+}
+
+.favorites-section__remove:disabled {
+    opacity: 0.45;
+    cursor: wait;
+}
+
 .favorites-section__duration {
-    color: #94A3B8;
+    color: var(--sw-secondary);
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
 }
 
-/* Loading, empty, and login states */
+/* Loading, empty, and sign-in states */
 
 .favorites-section > p {
-    margin: 16px 0;
-    color: #94A3B8;
+    margin: 14px 0;
+    color: var(--sw-secondary);
     font-size: 0.9rem;
     line-height: 1.5;
 }
 
-/* Authentication and access errors */
+/* Controlled errors */
 
-.favorites-section > p[role="alert"] {
-    padding: 14px 16px;
-    background: #1E293B;
-    border-left: 3px solid #6366F1;
+.favorites-section > p[role="alert"],
+.favorites-section > div[role="alert"] {
+    padding: 12px 14px;
+
+    border-left: 3px solid var(--sw-accent);
     border-radius: 6px;
-    color: #F8FAFC;
-}
 
-/* Network errors and retry */
+    background: var(--sw-surface);
+    color: var(--sw-primary);
+}
 
 .favorites-section > div[role="alert"] {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-
-    background: #1E293B;
-    color: #F8FAFC;
-    border-radius: 6px;
+    gap: 10px;
 }
 
 .favorites-section > div[role="alert"] p {
@@ -186,9 +260,10 @@
 }
 
 .favorites-section > div[role="alert"] button {
-    padding: 9px 16px;
-    background: #6366F1;
-    color: #F8FAFC;
+    padding: 8px 14px;
+
+    background: var(--sw-accent);
+    color: var(--sw-primary);
 
     border: 0;
     border-radius: 6px;
@@ -197,34 +272,28 @@
     cursor: pointer;
 }
 
-.favorites-section > div[role="alert"] button:focus-visible {
-    outline: 2px solid #F8FAFC;
-    outline-offset: 3px;
-}
-
 /* Responsive layout */
 
-@media (max-width: 950px) {
+@media (max-width: 1200px) {
+    .favorites-section__list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
     .favorites-section__list {
         grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 480px) {
-    .favorites-section {
-        margin-top: 24px;
-        padding-top: 20px;
-    }
-
-    .favorites-section__track {
-        grid-template-columns: 64px minmax(0, 1fr) 34px;
-        gap: 10px;
-        min-height: 70px;
-        padding-right: 8px;
+@media (max-width: 440px) {
+    .favorites-section__select {
+        grid-template-columns: 60px minmax(0, 1fr);
     }
 
     .favorites-section__artwork {
-        min-height: 70px;
+        width: 60px;
+        height: 70px;
     }
 }
 

@@ -1,4 +1,3 @@
-
 import {
     cleanup,
     fireEvent,
@@ -109,10 +108,16 @@ test(
                 "Recently added tracks"
             );
 
+        // SCRUM-362:
+        // Select the playback button specifically.
+        // The new Add to Favorites button also
+        // includes the Track title in its name.
         expect(
             within(recentlyAddedList).getByRole(
                 "button",
-                { name: /Fixture Track Four/i }
+                {
+                    name: /^Select Fixture Track Four$/i
+                }
             )
         ).toBeInTheDocument();
 
@@ -127,16 +132,22 @@ test(
             )
         ).toBeInTheDocument();
 
+        // SCRUM-362:
+        // Recently Added uses an AbortSignal to
+        // cancel obsolete requests safely.
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/library/recently-added",
-            {
+            expect.objectContaining({
                 headers: {
                     Authorization:
                         "Bearer integration-test-token"
-                }
-            }
+                },
+                signal: expect.any(AbortSignal)
+            })
         );
 
+        // Favorites continues using the same
+        // authenticated session and GET contract.
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/library/favorites",
             expect.objectContaining({
@@ -148,26 +159,44 @@ test(
             })
         );
 
+        // Initial Library and Favorites reads
+        // should each execute once.
         expect(fetchMock).toHaveBeenCalledTimes(2);
 
+        // Selecting a saved Favorite still forwards
+        // its canonical Track ID to the shared player.
         fireEvent.click(
             within(favoritesSection).getByRole(
                 "button",
-                { name: "Select Fixture Track One" }
+                {
+                    name: "Select Fixture Track One"
+                }
             )
         );
 
-        expect(onSelectTrack).toHaveBeenCalledWith(3001);
+        expect(onSelectTrack).toHaveBeenCalledWith(
+            3001
+        );
 
+        // SCRUM-362:
+        // Use the dedicated track-selection action,
+        // not the new Add to Favorites action.
         fireEvent.click(
             within(recentlyAddedList).getByRole(
                 "button",
-                { name: /Fixture Track Four/i }
+                {
+                    name: /^Select Fixture Track Four$/i
+                }
             )
         );
 
-        expect(onSelectTrack).toHaveBeenCalledWith(3004);
-        expect(onSelectTrack).toHaveBeenCalledTimes(2);
+        expect(onSelectTrack).toHaveBeenCalledWith(
+            3004
+        );
+
+        expect(onSelectTrack).toHaveBeenCalledTimes(
+            2
+        );
     }
 );
 
@@ -202,7 +231,9 @@ test(
         expect(
             within(favoritesSection).getByRole(
                 "button",
-                { name: "Retry" }
+                {
+                    name: "Retry"
+                }
             )
         ).toBeInTheDocument();
     }
