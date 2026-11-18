@@ -1576,7 +1576,11 @@ application access token.
 
 # 23. Library — Recently Added and Favorites
 
-The current Library flow uses:
+The Library preserves its authenticated Recently Added flow and,
+as of Sprint 5, supports interactive Favorites synchronized with the
+Playback Bar and Album Detail (Section 23.10).
+
+The Recently Added read path uses:
 
 ```text
 GET /api/library/recently-added
@@ -1933,27 +1937,28 @@ Library/Songs page mockups). It uses a navy/slate surface with purple
 accent, Inter/sans-serif text, compact cards, a responsive two-column
 layout on wider screens, and a single-column layout on narrow screens.
 The track title, artist, album, and duration are drawn from the read
-API. The card selects the track; the heart graphic is currently only
-presentational and does not make a write request. Where artwork is not
+API. At the Sprint 3 checkpoint, the card selected the track, and its heart
+graphic was presentational. Sprint 5 SCRUM-362 later added functional
+heart controls; see Section 23.10. Where artwork is not
 in the API payload, the component shows a placeholder rather than
 inventing a cover URL.
 
-**Decisions recorded for future implementation only (not implemented
-in this PR):**
+**Decisions recorded during the Sprint 3 read-only PR (historical):**
 
 1. Some tracks will have album artwork; display it where a safe artwork
    URL is actually returned, retaining a fallback for other tracks.
 2. Favorites will eventually be navigable under its own Library tab;
    it currently remains a section inside Library.
-3. A favorited track should show a **filled heart**; the current
-   implementation has not yet made this state-indicator update.
+3. A favorited track should show a **filled heart**; this was later
+   implemented for track Favorites in Sprint 5 (Section 23.10).
 
-**Sprint 3 frontend scope:** the Library Favorites section remains a
-read/display interface with no working add/remove heart control. The
-Sprint 5 backend now supports Favorites writes (Section 23.9), but
-that alone does not implement the React write interaction.
-The PDF's larger tabbed Library search and playlist UI is future work,
-not part of this focused Favorites integration.
+**Sprint 3 frontend scope (historical):** the Library Favorites
+section was originally a read/display interface with no working
+add/remove heart control. Sprint 5 SCRUM-355 supplied the authenticated
+backend write operations (Section 23.9), and SCRUM-362 subsequently
+implemented the React write interactions and cross-view synchronization
+(Section 23.10). The PDF's larger tabbed Library search and playlist UI
+remains outside this focused Favorites integration.
 
 ### React verification
 
@@ -2041,6 +2046,7 @@ workflow.
 | S3 | SCRUM-211 | Real HTTP cross-user Favorites isolation matrix | [#131](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/131) |
 | S3 | SCRUM-283 | Populated-schema upgrade and preservation rehearsal | [#136](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/136) |
 | S5 | [SCRUM-355](https://491group1.atlassian.net/browse/SCRUM-355) | Authenticated Favorites PUT/DELETE API, PostgreSQL persistence, regression tests, manual live evidence | **PR pending peer review; number not yet recorded** |
+| S5 | [SCRUM-362](https://491group1.atlassian.net/browse/SCRUM-362) | React Favorites hearts for Library, Playback Bar and Album Detail; cross-view refresh, regression tests and docs | **PR number not yet recorded** |
 
 Supplementary README/evidence changes include PRs [#99](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/99) and [#44](https://github.com/CPSC-491-Soundwave/Soundwave-Live-Version/pull/44).
 
@@ -2099,9 +2105,10 @@ this work as merged or deployed until that evidence exists.
 A service/storage error is intentionally not presented as a successful
 write. The generic `500` contract is not proof that production logging
 cannot contain sensitive exception details; review logging separately.
-This feature does **not** create a new write button in the React
-Favorites section. The existing heart artwork is still presentational;
-frontend write controls require a separate implementation and tests.
+SCRUM-355 itself does **not** create React write controls. Those
+controls and synchronized track hearts were subsequently implemented
+under SCRUM-362 (Section 23.10); do not attribute that client code
+to the backend-only ticket.
 
 ### Files affected by SCRUM-355
 
@@ -2359,80 +2366,120 @@ implemented subset, **not** evidence of complete playlist creation.
 
 ---
 
-## 23.10 Sprint 5 Favorites UI and synchronized track hearts — Allison Yu (SCRUM-362)
+## 23.10 Sprint 5 Favorites UI and cross-view synchronization — Allison Yu (SCRUM-362)
 
-**Local verification checkpoint: November 17, 2026 (Pacific time).**
+**Local implementation and verification checkpoint: November 17, 2026
+(Pacific time).** This section documents the newer interactive Favorites
+frontend without rewriting the historical Sprint 3 read-only checkpoint in
+Section 23.6 or claiming that backend work under SCRUM-355 included the UI.
 
-SCRUM-362 adds interactive track Favorites in three existing client surfaces:
+SCRUM-362 introduces interactive, track-scoped Favorites controls in three
+existing client surfaces:
 
-- **Library:** Recently Added hearts and the Favorite Tracks section.
-- **Playback Bar:** a heart beside the selected playable Track.
-- **Album Detail:** a heart for every song in an album's track list.
+1. **Library:** Recently Added track hearts and the Favorite Tracks section.
+2. **Playback Bar:** a heart next to the currently selected playable Track.
+3. **Album Detail:** a heart beside each individual song in the album.
 
-Filled purple hearts indicate saved tracks; outlined hearts indicate unsaved
-tracks. All views use canonical catalog `tracks.id` values. Saved state comes
-from the authenticated backend, not from speculative local storage.
+An **outlined** heart indicates that the track is not saved. A **filled
+purple** heart indicates that it is saved. These are representations of
+server-confirmed state, not separate browser-side persistence.
 
-### Authenticated Favorites contract
+### Existing Favorites API contract
 
-| Method and endpoint | Purpose | Success |
+| Method / endpoint | Purpose | Success |
 |---|---|---|
-| `GET /api/library/favorites` | List the principal's saved tracks | `200` with JSON array |
-| `PUT /api/library/favorites/:trackId` | Save an individual track | `204 No Content` |
-| `DELETE /api/library/favorites/:trackId` | Remove an individual track | `204 No Content` |
+| `GET /api/library/favorites` | Read the current user's saved Tracks | `200 OK`, JSON array |
+| `PUT /api/library/favorites/:trackId` | Add a Track to Favorites | `204 No Content` |
+| `DELETE /api/library/favorites/:trackId` | Remove a Track from Favorites | `204 No Content` |
 
-All requests pass `Authorization: Bearer <access token>`. The client neither
-submits an owner user ID nor connects to PostgreSQL directly. SCRUM-362
-**consumes** the authenticated write API from SCRUM-355; it does not add
-backend routes or schema migrations.
+Protected requests use the current in-memory session token through the
+`Authorization: Bearer <access-token>` header. The canonical track key
+is `tracks.id`. The client does not supply an arbitrary owner user ID,
+query PostgreSQL, or expose internal media paths.
+
+The database table, principal-scoped persistence, authentication guard,
+and write API were implemented and tested separately (SCRUM-355; Section
+23.9). **SCRUM-362 makes no server route, SQL migration, or JWT middleware
+change.**
 
 ### Shared refresh contract
 
 ```text
 App.jsx
-  favoritesVersion (incrementing revision)
+  accessToken
+  favoritesVersion
   handleFavoritesChanged()
-       |---- Library.jsx ---> Recently Added + FavoritesSection.jsx
-       |---- PlaybackBar.jsx ---> PlaybackFavoriteButton.jsx
-       `---- AlbumDetail.jsx ---> album song-row hearts
+       |
+       +--> Library.jsx
+       |      +--> Recently Added hearts
+       |      +--> FavoritesSection.jsx (Favorite Tracks)
+       |
+       +--> PlaybackBar.jsx
+       |      +--> PlaybackFavoriteButton.jsx
+       |
+       +--> AlbumDetail.jsx
+              +--> album song-row hearts
 ```
 
-A successful PUT or DELETE notifies App via `onFavoritesChanged`, increments
-`favoritesVersion`, and makes mounted views re-request Favorites. Each view
-also maintains a local read revision for its own refresh/retry flow. A GET
-never triggers the callback, so notifications do not cause an infinite
-refresh loop. No route navigation is required to update the visible hearts.
+A successful PUT or DELETE triggers a new Favorites read and calls
+`onFavoritesChanged`. `App.jsx` increments `favoritesVersion`, which
+invalidates the saved-state snapshot in other mounted Favorites views;
+those views re-read `GET /api/library/favorites` and render the updated
+saved-track IDs. A GET never invokes `onFavoritesChanged`, avoiding
+recursive refresh loops. Each view also has a local revision for its
+own refresh/retry behavior.
+
+This keeps Library, the selected Track's Playback Bar heart, and Album
+Detail in sync **without a route change or full page refresh**. The API
+remains the source of truth; the change does not introduce a new global
+Favorites store or browser token storage.
 
 ### Library and Playback Bar
 
-Library's Recently Added and Favorite Tracks controls remain independent of
-Track selection. The Playback Bar renders `PlaybackFavoriteButton.jsx` only
-when `enableFavoriteControl` is enabled and a playable Track has loaded.
-The optional prop keeps direct player tests' preexisting API request counts.
-Favorites writes do not call play/pause, seeking, queue navigation, audio
-load, or transport diagnostics. The shared player and queue contracts are
-preserved.
+- Recently Added exposes independent controls for selecting a Track and
+  adding/removing its Favorite association. The existing Favorite Tracks
+  list updates when another mounted view changes the association.
+- `PlaybackFavoriteButton.jsx` encapsulates the player's Favorite
+  read/write UI. `PlaybackBar.jsx` takes an optional
+  `enableFavoriteControl` prop; the actual application enables it,
+  while pre-existing direct player tests retain their original request
+  counts unless they opt in.
+- The Playback Bar heart uses the current Track ID and reads that Track's
+  saved state. It is not shown when no Track has loaded successfully.
+- Favorite actions do **not** invoke `playMusic`, `pauseMusic`,
+  `loadTrack`, `onSelectTrack`, seeking, volume, or queue navigation.
+  Existing audio authorization, buffering, retry, and diagnostics remain
+  part of the teammate-maintained playback implementation.
 
 ### Album Detail
 
-Each album song row has a Favorite heart beside its separate Play button.
-The view requests the Favorites collection **once per refresh**, not once per
-song. Heart clicks use the song's canonical Track ID and do not select or
-play that song. `AlbumCard.jsx` and Artist/Album browse card components are
-unchanged: the existing Favorites API represents **tracks**, not albums.
+- Each song row has a Favorite heart separate from its existing Play
+  button, preserving `onSelectTrack(track.id)` behavior.
+- Album Detail reads the current Favorites collection **once per
+  refresh**, not once per song. Each write targets its song's canonical
+  Track ID, then refreshes from the API.
+- The view receives `accessToken`, `favoritesVersion`, and
+  `onFavoritesChanged` from App. Changes made through the Playback Bar
+  refresh the album's hearts while the user remains on that page.
+- `AlbumCard.jsx`, `Albums.jsx`, and the artist browsing components are
+  not modified by this track-level change. Album-wide Favoriting is not
+  part of the existing API contract.
 
-### Authentication, errors, and concurrency
+### Authentication, errors, and concurrent operations
 
-- Guest Album Detail hearts are disabled; the guest view does not issue a
-  protected Favorites GET.
-- GET, PUT and DELETE include the current access token in Bearer headers.
-- Failed writes show controlled feedback without claiming a successful
-  state change; a fresh GET confirms a successful mutation.
-- Pending writes block duplicate heart clicks.
-- In-flight requests use AbortController and stale-response safeguards.
-- A Favorite toggle does not modify playback or queue state.
+- Guests may browse Album Detail but cannot write Favorites. Guest song
+  hearts are disabled and no protected Favorites GET is requested by the
+  album view without an access token.
+- Authenticated GET, PUT, and DELETE requests use the current Bearer
+  token and canonical Track ID.
+- Failed reads/writes display controlled error feedback rather than
+  showing an unverified successful toggle.
+- The controls prevent duplicate clicks while a write is pending.
+- Requests use `AbortController` and stale-response protection so an
+  obsolete account or Track request cannot update the current view.
+- Favorite changes do not replace the player or modify the queue.
 
-### Client files added or modified by SCRUM-362
+### Files added or updated for SCRUM-362
 
 ```text
 client/src/App.jsx
@@ -2448,12 +2495,13 @@ client/src/pages/ArtistAlbumDetail.css
 README.md
 ```
 
-No Favorite-specific changes are required in `FavoritesSection.jsx`, server
-route handlers, PostgreSQL migrations, the streaming engine, or the queue.
+The existing `FavoritesSection.jsx`, backend Favorites handlers,
+PostgreSQL migrations, player engine, and queue implementation retain
+their existing contracts.
 
-### Automated verification (local checkpoint)
+### Automated verification
 
-From `client/`:
+Run from the repository's `client/` directory:
 
 ```bash
 npx vitest run src/components/PlaybackBar.favorite.test.jsx
@@ -2465,48 +2513,58 @@ npm run lint
 npm run build
 ```
 
-| Verification | Recorded result |
+| Check | Verified local result |
 |---|---|
-| Playback Bar Favorites | 4/4 passed |
-| App cross-view synchronization | 2/2 passed |
-| Album Detail Favorites | 6/6 passed |
-| Existing Album Detail regression | 4/4 passed |
-| Full client suite | **244/244**, 46/46 files passed |
-| ESLint | Passed, zero errors |
-| Vite production build | Passed |
+| Playback Bar Favorites tests | **4/4 passed** |
+| Cross-view synchronization tests | **2/2 passed** |
+| Album Detail Favorites tests | **6/6 passed** |
+| Existing Album Detail tests | **4/4 passed** |
+| Complete client suite | **244/244 passed across 46 files** |
+| ESLint | **Passed, zero errors** |
+| Vite production build | **Passed** |
 
-These are **local working-tree** results, not claims of hosted GitHub
-Actions, peer-reviewed approval, deployment, or merge.
+The full suite includes existing playback, navigation, account/session,
+Library, Search, and catalog regression checks. These counts reflect a
+**local working-tree** run, not hosted CI or reviewed/merged PR results.
 
 ### Manual browser verification
 
-The following behavior was confirmed in local browser testing:
+Confirmed in the local browser:
 
-1. Favorite and unfavorite a selected Track from the Playback Bar.
-2. While Library stays open, both Recently Added hearts and the Favorite
-   Tracks list update after Playback Bar changes.
-3. Favorite and unfavorite a song in Album Detail.
-4. Album Detail and the Playback Bar synchronize their hearts without
+1. The Playback Bar heart adds and removes Favorites.
+2. While Library remains open, changes from the Playback Bar update
+   Recently Added hearts and the Favorite Tracks list without navigation.
+3. Album Detail song-row hearts add/remove Favorites.
+4. Album Detail and the Playback Bar update each other's hearts without
    leaving the album page.
-5. Favorite and Play buttons remain separate controls.
+5. Play and Favorite controls remain separate.
 
-To reproduce, sign in, select a Track from Library, and toggle the Playback
-Bar heart while Library remains open. Open the Track's album and repeat from
-the Album Detail song row. Use Network inspection to check GET/PUT/DELETE;
-never expose the Bearer token in screenshots, Jira tickets, or logs.
+To reproduce: sign in, open Library, select a playable Track, and use
+its Playback Bar heart while Library stays open. Open the Track's Album
+Detail page and repeat with a song-row heart. The authenticated GET,
+PUT, and DELETE responses can be inspected in browser Network tools.
+Do not copy JWTs, cookie contents, or other secrets into test evidence.
 
-### Ownership, scope, and status
+### Ownership and outstanding verification
 
-**Primary author:** Allison Yu. SCRUM-362 covers her authored Favorites UI,
-synchronization tests, and documentation. It consumes SCRUM-355 backend
-operations, existing shared player/transport behavior, media authorization,
-and App-level queue navigation without claiming ownership of those other
-areas. It does not implement album-wide Favorites or playlist management.
+**Primary author:** Allison Yu. SCRUM-362 is an authored frontend
+Favorites vertical integration slice with tests and documentation. It
+consumes the existing Favorites backend from Allison's SCRUM-355 work,
+team-maintained player and streaming interfaces, and shared queue
+navigation without reimplementing or claiming ownership of those
+components. Do not treat the team-wide 244 tests as 244 Allison-authored
+tests; they are repository-wide regression coverage.
 
-Sprint 5 ends **November 19, 2026** under the CPSC 491 six-sprint syllabus,
-which overrides the CPSC 490 roadmap for schedule and course process. The
-roadmap continues to define product scope. The historical Sprint 3 notes
-above remain historical checkpoints; this section records newer UI behavior.
+Local implementation, tests, lint/build, and the browser-synchronization
+behavior above are confirmed. **Not established by these records:**
+branch synchronization, staged-diff review, peer approval, GitHub
+Actions completion, merge status, or deployment verification.
+
+The CPSC 491 syllabus provides **six sprints** and governs course
+delivery; Sprint 5 closes **November 19, 2026**. The CPSC 490
+sixteen-week roadmap still defines product scope but does not extend
+the syllabus deadline. Album-card Favorites, playlist editing, and a
+dedicated Favorites tab remain outside this focused slice.
 
 ---
 
@@ -2539,60 +2597,44 @@ playback seam.
 
 # 25. Client Verification
 
-From:
+From the repository's client directory:
 
 ```bash
 cd ~/Soundwave-Live-Version/client
-```
-
-run:
-
-```bash
-npm test -- --run
+npm run test:run
 npm run lint
 npm run build
 ```
 
-Last fully pasted local frontend regression result (before the
-subsequent PDF-inspired CSS/JSX styling change):
+**Latest supplied local checkpoint (November 17, 2026):**
 
 ```text
-Test Files: 15 passed
-Tests:      63 passed
-Failures:   0
-ESLint:     PASS
-Build:      PASS
+Test Files: 46 passed (46)
+Tests:      244 passed (244)
+ESLint:     PASS, zero errors
+Vite Build: PASS
 ```
 
-Rerun all three commands on the final working tree before its PR; the
-numbers above are a recorded checkpoint, not a promise of a newer run.
+Focused coverage for SCRUM-362 is documented in Section 23.10: four
+Playback Bar Favorites tests, two mounted-view synchronization tests,
+six Album Detail Favorites tests, and four existing Album Detail
+regression tests. The full run covers additional existing features,
+including:
 
-Current client coverage includes:
-- Search;
-- Search Track selection;
-- Search → App → PlaybackBar integration;
-- Library and authenticated Favorites read states;
-- cross-component Library/Favorites loading and selection;
-- authenticated Favorites navigation token propagation;
-- Profile;
-- Artist browse/detail;
-- Album browse/detail;
-- ArtistCard;
-- AlbumCard;
-- Sidebar;
-- PlaybackBar.
+- Search and Search-to-Playback integration;
+- Library Recently Added and Favorite Tracks;
+- authenticated Favorites actions and cross-view refreshes;
+- Album Detail Favorites with guest, error, and duplicate-click cases;
+- Profile and login/session behavior;
+- Artist and Album catalog browse/detail;
+- shared queue/navigation behavior;
+- PlaybackBar loading, retry, buffering, transport, seek, and diagnostics;
+- playback-event reporting and protected media regressions.
 
-Playback coverage includes:
-
-- empty state;
-- metadata retrieval;
-- metadata display;
-- Play/Pause;
-- volume;
-- controlled metadata failure;
-- unloading/cleanup.
-
----
+The repository-wide total includes teammate-authored tests and must
+not be presented as tests individually authored by Allison. Rerun all
+checks on the final PR commit; local passing results are not proof of
+GitHub Actions approval, peer review, or deployment.
 
 # 26. Server Verification
 
@@ -3077,6 +3119,7 @@ lookup failed; check the server log and PostgreSQL configuration before
 investigating audio playback.
 
 ## Browser happy-path checks
+
 Verify:
 
 ```text
@@ -3130,6 +3173,7 @@ omitted below.
 │       ├── App.css
 │       ├── App.jsx
 │       ├── App.search-playback.test.jsx
+│       ├── App.favorites-sync.test.jsx
 │       ├── App.navigation.test.jsx
 │       ├── components
 │       │   ├── AlbumCard.jsx
@@ -3141,6 +3185,8 @@ omitted below.
 │       │   ├── FavoritesSection.test.jsx
 │       │   ├── PlaybackBar.css
 │       │   ├── PlaybackBar.jsx
+│       │   ├── PlaybackFavoriteButton.jsx
+│       │   ├── PlaybackBar.favorite.test.jsx
 │       │   ├── PlaybackBar.test.jsx
 │       │   ├── Sidebar.css
 │       │   ├── Sidebar.jsx
@@ -3148,6 +3194,7 @@ omitted below.
 │       ├── pages
 │       │   ├── AlbumDetail.jsx
 │       │   ├── AlbumDetail.test.jsx
+│       │   ├── AlbumDetail.favorites.test.jsx
 │       │   ├── Albums.jsx
 │       │   ├── Albums.test.jsx
 │       │   ├── ArtistDetail.jsx
@@ -3251,3 +3298,1012 @@ the HTTP response alone.
   `database/.env` use valid credentials. An example database name from a
   teammate's README does not copy their database to this machine.
 - `relation "tracks" does not exist`: the configured development database
+  lacks the schema. Run `npm run db:migrate` and then `npm run db:seed`
+  from `database/`; do not hand-create the catalog tables.
+- `database "..." does not exist` or `password authentication failed`:
+  verify the actual local database, account, and environment values.
+
+Validate Track 3005 without exposing credentials:
+
+```bash
+psql -h localhost -U soundwave_app -d <your-development-database> \
+  -c "SELECT id, title, media_path FROM tracks WHERE id = 3005;"
+```
+
+Replace the placeholder before running it. Keep credentials and JWT
+secrets out of logs, chat, screenshots, and committed files; rotate any
+secret that has been exposed.
+
+---
+
+## 30.1 JWT secret missing
+
+Error:
+
+```text
+A valid secretKey string is required to initialize the token service.
+```
+
+Fix:
+
+```bash
+set -a
+source server/.env
+set +a
+```
+
+or set a development-only JWT secret before starting the server.
+
+---
+
+## 30.2 PostgreSQL SCRAM password error
+
+Example:
+
+```text
+SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+```
+
+The server does not have a usable PostgreSQL password in its environment.
+
+Verified local startup:
+
+```bash
+cd ~/Soundwave-Live-Version
+
+set -a
+source database/.env
+source server/.env
+set +a
+
+cd server
+npm start
+```
+
+---
+
+## 30.3 `media_path` column does not exist
+
+Example backend error:
+
+```text
+column t.media_path does not exist
+```
+
+The local database schema is behind the current repository.
+
+Run:
+
+```bash
+cd ~/Soundwave-Live-Version/database
+
+npm run db:migrate
+npm run db:seed
+```
+
+Verify:
+
+```bash
+psql -c '\d tracks'
+```
+
+The table should contain:
+
+```text
+media_path
+```
+
+Then verify:
+
+```bash
+psql -c \
+  "SELECT id, title, media_path
+   FROM tracks
+   ORDER BY id;"
+```
+
+Track `3005` should contain:
+
+```text
+mediaFiles/test.mp3
+```
+
+Do not remove `t.media_path` from the catalog repository to hide a stale
+local schema problem.
+
+---
+
+## 30.4 Search returns no results
+
+A valid empty result is not an API error.
+
+Example:
+
+```json
+{
+  "query": "unknown",
+  "tracks": [],
+  "artists": [],
+  "albums": []
+}
+```
+
+If the seeded `Kontekst` Track is unexpectedly missing:
+
+1. verify PostgreSQL is running;
+2. run current migrations;
+3. rerun the catalog seed;
+4. verify `/api/catalog/tracks`;
+5. retry `/api/search?q=Kontekst&type=track`.
+
+---
+
+## 30.5 Vite cannot resolve `howler`
+
+If the repository already declares Howler but local `node_modules` is
+stale:
+
+```bash
+cd client
+npm install
+npm run build
+```
+
+For a fresh clone, prefer:
+
+```bash
+npm ci
+```
+
+Do not add or remove package declarations unless the tracked
+`package.json` actually requires a dependency change.
+
+---
+
+## 30.6 Port 8080 already in use
+
+Check:
+
+```bash
+ps aux | grep "[n]ode"
+```
+
+Stop the old backend process with:
+
+```text
+Ctrl+C
+```
+
+or run on another port if needed.
+
+---
+
+## 30.7 `npm` cannot find `package.json`
+
+Check:
+
+```bash
+pwd
+```
+
+Commands must be executed from the correct package directory:
+
+```text
+Soundwave-Live-Version/client
+Soundwave-Live-Version/server
+Soundwave-Live-Version/database
+```
+
+---
+
+
+## 30.8 Favorites reports `relation "favorites" does not exist`
+
+The error means the backend's connected database cannot find the
+`favorites` relation in its search path. It is a **database schema
+prerequisite**, not evidence that the `SELECT` syntax or the Bearer
+identity filter is wrong.
+
+Check the local checkout for
+`database/migrations/20261011_ayu_003_user_favorites.sql` and ensure it
+is committed through the reviewed migration PR. Confirm the intended
+development DB in `database/.env`, then run from `database/`:
+
+```bash
+npm run db:migrate
+```
+
+In `psql`, using that same database:
+
+```sql
+SELECT current_database(), current_schema(), current_setting('search_path');
+SELECT to_regclass('public.favorites');
+SELECT * FROM schema_migrations ORDER BY 1;
+```
+
+If the file is not present in the repo, create/review the missing
+migration in source control first. **Do not** hand-create the table,
+remove migration-history rows, or claim that a successful
+`db:migrate:test` also migrated the development database. A correctly
+migrated but empty table returns `(0 rows)` instead of a relation error;
+Section 23.3 shows how to add one local-only Favorites association.
+
+## 30.9 Favorites authentication errors after session hardening
+
+- `401` without a token is expected; obtain a new JWT from `/auth/login`.
+- Legacy JWTs without a valid signed UUID `jti`, expired JWTs, and
+  revoked JWTs also receive `401` on protected routes.
+- `503` can mean a required PostgreSQL revocation lookup failed and the
+  shared guard correctly failed closed. Inspect the server logs and
+  test-database configuration; do not bypass the revocation guard.
+- `500` with `{"error":"library_unavailable"}` after successful
+  authorization may indicate a Favorites schema, connection, or query
+  failure. Compare the backend's active `PGDATABASE` with the database
+  migrated and inspected in `psql`.
+
+## 30.9a Sprint 5 Favorites write and UI troubleshooting (SCRUM-355 / SCRUM-362)
+
+- `PUT /api/library/favorites/0` returns `400 invalid_track_id`
+  by design. Select an existing canonical Track ID before writing.
+- PowerShell may wrap parsed JSON arrays. If a Favorites property view
+  appears blank, use `Invoke-WebRequest` plus `ConvertFrom-Json` and
+  explicitly enumerate items as shown in Section 23.9.
+- `Invalid URI: The hostname could not be parsed` during login often
+  indicates `$baseUrl` was not set in the current terminal session.
+- Capture local passwords with `Read-Host -AsSecureString`. Never commit
+  credentials, JWTs, or private connection strings.
+- `401` on Favorites writes without valid Bearer authorization is
+  expected. Never bypass the shared revocation guard.
+- `500 library_unavailable` can indicate a backend/database failure.
+  Confirm the actual `PGDATABASE` used by `server/.env` matches the
+  database where the tracked Favorites migration was applied.
+- If the Playback Bar heart changes but Library does not update,
+  verify that `App.jsx` provides both `favoritesVersion` and
+  `onFavoritesChanged` to Library and PlaybackBar.
+- If a Library heart changes without updating the Playback Bar, verify
+  the Library mutation-success callback invokes `onFavoritesChanged`.
+- If Album Detail hearts remain stale, check the album route's
+  `accessToken`, `favoritesVersion`, and `onFavoritesChanged` props.
+- A pending write disables repeated heart clicks. A failed GET or
+  mutation should show controlled feedback, not a fabricated success.
+- If older playback tests report unexpected GET calls, check whether
+  `enableFavoriteControl` is explicitly enabled in the test harness.
+- Re-run `npm run test:run`, `npm run lint`, and `npm run build` after
+  resolving a frontend issue.
+
+**Current status:** authenticated Favorites writes (SCRUM-355) and the
+interactive React heart controls (SCRUM-362) have been implemented and
+verified locally. See Sections 23.9 and 23.10 for distinct scope,
+test evidence, and remaining PR/CI limits.
+
+## 30.10 Media-access `503`: missing `revoked_access_tokens` migration
+
+The observed local development error was:
+
+```text
+relation "revoked_access_tokens" does not exist
+PostgreSQL code 42P01
+```
+
+The media-ticket issuance handler calls Christian's existing
+`authorizeRevocableRequest` before issuing anything; every stream
+request also checks the source login session's revocation status. A
+missing table therefore correctly results in HTTP `503`, not a token
+or audio response.
+
+Confirm that `server/.env` and `database/.env` point to the same
+**development** database. In that database, verify:
+
+```sql
+SELECT current_database(), to_regclass('public.revoked_access_tokens');
+```
+
+If the result is `NULL`, use the **already-merged** migration
+`database/migrations/20261008_cmg_001_revoked_access_tokens.sql`.
+Prefer the tracked migration runner, from `database/`:
+
+```bash
+npm run db:migrate
+```
+
+Inspect the table **and** migration history afterward:
+
+```sql
+SELECT to_regclass('public.revoked_access_tokens');
+SELECT * FROM schema_migrations ORDER BY 1;
+```
+
+If the runner says `skip` but the physical table is missing, the
+recorded migration history and actual schema disagree: **stop** and
+coordinate with Christian/database owners before changing history.
+Conversely, applying the SQL manually with `psql -f` may create the
+table without updating `schema_migrations`, so a later runner could
+try to create it again. Do not hand-create replacement tables, reset
+migration history, or run schema changes against production or the test
+database by accident. After resolving the mismatch, retry `/auth/me`
+and the authenticated media-access POST.
+
+## 30.11 Media-ticket startup or playback problems
+
+- `MEDIA_TICKET_SECRET` missing/too short/equal to `JWT_SECRET`:
+  the backend fails to start. Generate a separate development key
+  (Section 9), keep it in the ignored `server/.env`, and run
+  `node --env-file=.env src/server.js`.
+- `JWT_SECRET` missing: restore the existing login secret, not a new
+  one (Section 9). A shell-level `node -e` check without `--env-file`
+  may show both secrets unset even when a separate Node process is
+  correctly reading the file.
+- `401` on native HTML5 audio: Howler's native request does not add
+  the login Bearer header. Verify the frontend first obtained the
+  `sw_media` cookie with the authenticated POST, and that the cookie
+  matches the track URL, origin and expiry. Do not disable auth.
+- `401` after a pause or seek: the media ticket may have expired;
+  renew via the authenticated POST before retrying.
+- `503` after a token request: inspect backend revocation logs,
+  PostgreSQL connectivity and the migration in Section 30.10.
+- `403` applies only to an actual role/permission denial. Do not
+  infer this status from Howler's generic media error.
+- Local development requires cookies usable over local HTTP;
+  `NODE_ENV=production` enables `Secure` cookies, which require
+  a properly configured HTTPS deployment. Test the browser's
+  cookie storage and Vite proxy explicitly.
+
+## 30.12 PlaybackEvent `503` / migration history mismatch (SCRUM-295/296)
+
+A live authenticated playback write can return:
+
+```text
+HTTP 503 {"error":"storage_unavailable"}
+PostgreSQL 42P01: relation "playback_events" does not exist
+```
+
+This means the database **connected to the running server** lacks the
+table, even if the migration passed in a different test database.
+Compare `PGDATABASE`, `PGHOST`, `PGPORT`, and `PGUSER` in the server's
+local environment and the intended migration environment. Against the
+*same* development database, check:
+
+```sql
+SELECT current_database(), current_user;
+SELECT to_regclass('public.playback_events');
+SELECT filename FROM schema_migrations ORDER BY filename;
+```
+
+Apply pending **tracked** migrations only after verifying the correct
+nonproduction target. Do not infer that migrating `soundwave_test` or
+`soundwave_allison_test` also updates a separate server database.
+
+Another observed local error was `42P07: relation
+"revoked_access_tokens" already exists` when a revocation table was
+present without its migration-history entry. Do **not** drop the table
+or blindly insert migration records. First compare the actual columns,
+constraints and indexes against Christian's checked-in migration,
+check for dependent data, and coordinate any history reconciliation
+with the database owner. In Matthew's local development run, the
+existing table matched the SQL (and held zero records), so the missing
+history record was reconciled in that **development database only**;
+the migration runner then applied Favorites and PlaybackEvent normally.
+Do not treat this as a general fix for production or team-shared data.
+
+---
+
+# 31. Git Workflow
+
+Course implementation must reach `main` through peer-reviewed pull
+requests.
+
+## Inspect current branch
+
+```bash
+git branch --show-current
+git status
+```
+
+## Synchronize before major work
+
+```bash
+git fetch origin
+git merge origin/main
+```
+
+Resolve conflicts carefully.
+
+Do not overwrite teammate work blindly.
+
+## Inspect changes
+
+```bash
+git status
+git --no-pager diff
+git diff --check
+```
+
+## Stage only task-related files
+
+```bash
+git add <files>
+```
+
+Inspect:
+
+```bash
+git status
+git --no-pager diff --cached
+git diff --cached --check
+```
+
+## Commit
+
+Example:
+
+```bash
+git commit -m "feat(search): wire track selection into shared playback"
+```
+
+## Push
+
+```bash
+git push origin <your-development-branch>
+```
+
+## Pull request
+
+PRs should:
+
+1. target `main`;
+2. explain what changed;
+3. explain how it was tested;
+4. reference the Jira issue;
+5. request teammate review;
+6. wait for required CI;
+7. merge only after approval.
+
+---
+
+# 32. Pull Request Verification Checklist
+
+Before opening a client-related PR:
+
+```bash
+cd ~/Soundwave-Live-Version/client
+
+npm test -- --run
+npm run lint
+npm run build
+```
+
+Before opening a backend-related PR:
+
+```bash
+cd ~/Soundwave-Live-Version/server
+
+node --test test/media-access.app.test.js
+node --test test/media-streaming.test.js
+node --test \
+  test/playback-events.repository.test.js \
+  test/playback-events.handler.test.js \
+  test/playback-events.routes.test.js
+npm run test:auth
+npm test
+```
+
+For media-ticket changes, additionally verify live cookie issuance
+(`204`) and cookie-only Range streaming (`206`) against PostgreSQL,
+and obtain Emmanuel's browser playback/renewal evidence. Do not commit
+real `MEDIA_TICKET_SECRET` or include response headers containing the
+media cookie in review logs.
+
+For the SCRUM-355 Favorites write-API PR, additionally run from `server/`:
+
+```bash
+node --test test/catalog-favorites.repository.test.js
+node --test test/catalog-favorites-routes.test.js
+npm test
+```
+
+Record the actual test totals, include the documented live development
+PostgreSQL smoke evidence (Section 23.9), and inspect the staged diff
+for unintended changes to other catalog/authorization features. The
+React client is not modified by this backend-only PR; do not claim new
+client lint/build verification without running it.
+
+Before opening a database-related PR:
+
+```bash
+cd ~/Soundwave-Live-Version/database
+
+npm run db:migrate:test
+npm run db:migrate:test
+npm run db:seed:test
+npm run test:integrity
+npm run test:db
+```
+
+Then from the repository root:
+
+```bash
+git status
+git diff --check
+```
+
+After staging:
+
+```bash
+git status
+git diff --cached --stat
+git diff --cached --check
+git --no-pager diff --cached
+```
+
+Only commit files that belong to the intended change.
+
+---
+
+# 33. GitHub Actions
+
+Current shared CI includes checks such as:
+
+```text
+Server Tests
+Client Tests
+Client Lint
+Client Build
+Database Tests
+Authentication Security
+Build Metadata
+Docker Packaging
+Compose Runtime Smoke Test
+```
+
+**Allison Yu's authored Database Tests additions:** migration rerun
+preflight (SCRUM-123 / PR #84), schema and deterministic-fixture
+integrity gate (SCRUM-112 / PR #94), Favorites fixture/PostgreSQL
+integration (SCRUM-230 / PR #123), HTTP cross-user isolation matrix
+(SCRUM-211 / PR #131), and populated-schema upgrade rehearsal
+(SCRUM-283 / PR #136). The last check uses a second disposable
+database and historical Git commit; confirm its hosted workflow result
+on the reviewed PR before claiming it passed in GitHub Actions.
+
+The existing Database Tests PostgreSQL service uses `postgres:16` and
+an isolated `soundwave_allison_test` database for normal integration.
+The historical upgrade runner requires a **different empty database**
+named `soundwave_ayu_forward_test`. Never direct it at the normal
+Database Tests database, which is already migrated and seeded.
+
+CI requirements may expand during later sprints. **Media-ticket
+integration needs an additional environment prerequisite:** the server
+startup now requires `MEDIA_TICKET_SECRET`, independently signed from
+`JWT_SECRET`. Ensure CI jobs or smoke-test services that actually start
+`server/src/server.js` receive a securely provided test/deployment
+value; unit tests that instantiate `createApp()` without the media
+service retain their original Bearer-only behavior. This additional
+configuration is a **pending CI verification**, not a claimed passing
+CI change. Never print these values in GitHub Actions logs or embed
+them in committed workflow files.
+
+Christian McGowan extended the existing Database Tests job to
+install server dependencies and execute the PostgreSQL-backed
+HTTP logout integration check after the database suite:
+
+```bash
+node --env-file=../database/.env.test --test integration/postgres-logout.check.mjs
+```
+
+This uses the job's migrated and seeded test database; it does
+not create a separate workflow or replace Compose smoke checks.
+
+The project also uses build metadata for traceability.
+
+Generated metadata must never contain:
+
+- JWT secrets;
+- database passwords;
+- private keys;
+- authentication tokens;
+- user credentials.
+
+---
+
+# 34. Docker / Compose Packaging
+
+Docker and Docker Compose remain supported for packaging and runtime
+verification. In the local Sprint 3 smoke run, both images built and
+the backend health, unauthenticated protected-Library boundary, client
+availability, and Compose cleanup checks all passed. The initial
+`buildx` missing-plugin warning did not prevent building with the
+classic builder.
+
+**Important media limitation:** the earlier passing Compose smoke check
+does **not** verify protected `GET /api/tracks/3005/stream` inside the
+server container or its new media-ticket cookie path. Ensure the
+backend service receives an independent `MEDIA_TICKET_SECRET` (using
+Compose's established local ignored environment settings or an
+approved deployment secret mechanism) before running it. No updated
+Compose check with this secret has been reported.
+`server/Dockerfile` was observed building with `WORKDIR /app`
+and `COPY . .` from the server context. For an app module located at
+`/app/src/app.js`, the source-relative default media root resolves to
+`/`, not the repository's host-side `mediaFiles/` directory. Container
+media access and the confinement root therefore remain **unverified**.
+Before treating container playback as ready, inspect `compose.yml` and
+`server/Dockerfile`, provide an appropriately restricted media mount,
+configure an absolute container-side `MEDIA_ROOT`, and verify HTTP `206`
+against the running container. Prefer read-only mounting of rights-cleared
+fixtures for development demonstrations rather than copying a music
+library into the image. Do not claim that the current smoke test covers
+container audio.
+
+Packaging files include:
+
+```text
+client/Dockerfile
+server/Dockerfile
+compose.yml
+scripts/compose-smoke-test.mjs
+```
+
+Verify Docker:
+
+```bash
+docker --version
+docker compose version
+```
+
+Start the stack:
+
+```bash
+docker compose up --build
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+Run the automated smoke check:
+
+```bash
+node scripts/compose-smoke-test.mjs
+```
+
+The direct PostgreSQL + Node + Vite workflow documented earlier remains
+the normal local-development path.
+
+Compose reads the local `database/.env` and `server/.env` files in the
+current project configuration. If the smoke test reports an `env file
+.../database/.env not found` error, create the ignored file with valid
+*local* configuration; creating a file by itself does not provision a
+PostgreSQL role or database. When `docker compose` is unknown or the
+Docker socket is unavailable, confirm installation of the Compose
+plugin and availability of Docker Engine before troubleshooting Soundwave.
+
+## 34.1 Client dependency audit note (Sprint 3 local environment)
+
+The local `client/` audit reported two high-severity transitive issues:
+`brace-expansion` via ESLint/minimatch and `source-map-js` via
+jsdom/Vite/PostCSS. The production-only `npm audit --omit=dev` reported
+zero vulnerabilities. `npm audit fix --dry-run` proposed patch updates
+`brace-expansion` `5.0.9` -> `5.0.12` and `source-map-js` `1.2.1` ->
+`1.2.2`; a dry run **does not install** these fixes. Treat dependency
+updates as a separate reviewed change, verify `npm audit`, client tests,
+lint, and build afterward, and do not claim remediation until committed
+and verified.
+
+---
+
+# 35. Environment and Secret Rules
+
+Never commit:
+
+- `.env` files containing real values;
+- database passwords;
+- JWT signing secrets;
+- media-ticket signing secrets and media cookies;
+- access tokens;
+- private keys;
+- API keys;
+- authentication passwords;
+- personal credentials.
+
+Do not expose secrets in:
+
+- logs;
+- screenshots;
+- Jira;
+- README examples;
+- tests;
+- pull-request descriptions.
+
+Use placeholders in documentation.
+
+---
+
+# 36. Current Development Status
+
+## Sprint 1 foundation
+
+Established areas include:
+
+- repository workflow;
+- backend skeleton;
+- PostgreSQL catalog;
+- authentication spike;
+- media streaming spike;
+- React/Vite client shell;
+- Docker packaging;
+- automated tests.
+
+## Sprint 2 integration
+
+Sprint 2 expanded the foundation with:
+
+- PostgreSQL-backed catalog Search;
+- Artist browse/detail;
+- Album browse/detail;
+- account profile;
+- authenticated recently-added Library;
+- integrated PlaybackBar;
+- Track metadata/detail;
+- real HTTP audio streaming;
+- database CI hardening;
+- client test CI;
+- build metadata;
+- Docker/Compose CI.
+
+## Sprint 3 current work
+
+Current Sprint 3 work includes:
+
+- JWT revocation persistence foundation;
+- session/auth hardening integration;
+- protected Bearer streaming merged into `main` (per Christian's
+  October 13 verification); Matthew's short-lived media-cookie issuance
+  and verification implemented and tested locally, with browser and
+  deployment integration still pending;
+- client session integration;
+- Search-to-Playback orchestration;
+- **Allison Yu's authenticated Favorites read API**, schema/migration,
+  React Library UI, and deterministic fixture and CI checks (SCRUM-227
+  through SCRUM-230; PRs #105, #109, #110 and #123);
+- **Allison's HTTP cross-user Favorites disclosure regression**
+  (SCRUM-211 / PR #131), recorded 8/8 local checks;
+- **Allison's populated-database migration upgrade and preservation
+  rehearsal** (SCRUM-283 / PR #136), recorded 7/7 local checks;
+- cross-feature regression coverage;
+- midterm integration preparation.
+
+### Allison Yu — Sprint 3 Favorites (AY-S3-01 / AY-S3-02 / AY-S3-03)
+
+Allison's Sprint 3 vertical slice spans the `favorites` migration,
+principal-scoped PostgreSQL read repository, catalog service and HTTP
+handler, React Library Favorites section, deterministic test fixtures,
+real HTTP isolation testing, and the populated-schema upgrade rehearsal.
+The dedicated PRs are #105 (API), #109 (schema), #110 (client), #123
+(fixtures/CI), #131 (disclosure matrix), and #136 (migration upgrade).
+Jira SCRUM-227 through SCRUM-231, SCRUM-211, and SCRUM-283 were marked
+Done in the supplied midterm board screenshots.
+
+The client reuses existing in-memory session state and the shared
+`onSelectTrack(track.id)` playback interface, rather than duplicating
+Christian's authorization, Konner's navigation, or teammate-owned
+media streaming. The early Favorites UI integration checkpoint recorded
+63/63 client tests, clean lint, and successful build; a later *shared
+midterm* regression snapshot recorded 100/100 client tests. Allison's
+SCRUM-211 tests recorded 8/8 real HTTP isolation checks, while the
+SCRUM-283 fresh PostgreSQL upgrade run recorded 7/7 tests. All counts
+are attributed to their specific runs, not presumed to be current.
+
+At the Sprint 3 checkpoint, the read UI had no add/remove Favorites
+mutation. Sprint 5 SCRUM-362 later implemented track-level filled/outlined
+hearts (Section 23.10); album artwork where available and a dedicated
+Favorites tab remain separate future work. See Sections 23.1-23.8 and 27.1 for contracts,
+commands, scope, and evidence.
+
+Emmanuel's current Sprint 3 Search-to-Playback happy path is implemented
+and verified through:
+
+```text
+Search
+    ↓
+stable Track ID
+    ↓
+App shared selectedTrackId
+    ↓
+PlaybackBar
+    ↓
+Track metadata
+    ↓
+Howler
+    ↓
+HTTP media stream
+```
+
+Protected media-cookie delivery to native Howler, renewal and
+auth-specific player errors remain Emmanuel's separate Sprint 3
+frontend integration work. Matthew's backend ticket tests do not yet
+prove these browser behaviors.
+
+### Allison Yu - individual delivery across Sprints 1-3 and Sprint 5
+
+| Sprint | Authored vertical slice | Jira / PR evidence |
+|---|---|---|
+| S1 (Sep 3-17) | Catalog migration runner, Artists/Albums/Tracks model, deterministic seeds, read API, React catalog-debug view, ERD and setup docs | SCRUM-7, -31, -45 to -48, -63 to -66; PRs #37-40, #44 |
+| S2 (Sep 24-Oct 1) | Artist/Album browse and detail API + UI; PostgreSQL migration preflight and schema/fixture integrity CI | SCRUM-155 to -158, -123, -112; PRs #65-67, #72, #84, #94 |
+| S3 (Oct 8-15) | Authenticated Favorites schema/read API/React UI, deterministic fixtures, principal-isolation checks and historical upgrade | SCRUM-227 to -231, -211, -283; PRs #99, #105, #109, #110, #123, #131, #136 |
+| S5 (Nov 12-19) | Favorites PUT/DELETE API and PostgreSQL tests; Library, Playback Bar, and Album Detail Favorite hearts with cross-view refresh and client regressions | [SCRUM-355](https://491group1.atlassian.net/browse/SCRUM-355), [SCRUM-362](https://491group1.atlassian.net/browse/SCRUM-362); PR status unverified |
+
+**Sprint 1 verified data/test snapshot:** 2 Artists, 2 Albums, 4
+Tracks, 18/18 database tests, and 49/49 server tests. These are
+historical Sprint 1 results, not the current seeded catalog size or
+test total.
+
+**Recorded failures and corrective work:** The first PostgreSQL
+infrastructure PR #32 failed required tests; the corrected work was
+submitted via PR #37 after branch-conflict recovery. In Sprint 1,
+Allison authored SCRUM-41's Auth User/Session persistence migration
+(PR #38) although it had originally been Emmanuel's assignment. This
+was an acknowledged ownership overlap; Emmanuel used that shared
+persistence interface and continued to own authentication behavior.
+Subsequent Jira scoping should be confirmed before work begins.
+
+**Planned at the midterm (historical snapshot):** Sprint 4 core HTTP Range
+/buffering reliability, catalog/media query performance (SCRUM-284)
+and media-reference integrity fault injection (SCRUM-215/-216);
+Sprint 5 broader Favorites persistence/write flow, fixture integrity
+(SCRUM-285, SCRUM-217/-218); Sprint 6 playback statistics and database
+release-readiness/restore checks (SCRUM-286, SCRUM-219/-220).
+These assignments must be implemented as cross-layer contributions,
+not treated as a permanent database-only lane. SCRUM-214 is an older
+unresolved forward-compatibility backlog entry and should be reconciled
+with completed SCRUM-283, not counted as a second feature.
+
+### Matthew Choi — Sprint 3 media-storage and playback verification
+
+Matthew's SCRUM-168 inspection confirmed that the shared
+Track-ID-to-Howler playback path already existed from Sprint 2, avoiding
+duplicate implementation. SCRUM-169 adds configurable `MEDIA_ROOT`,
+source-relative defaults, validated path containment and regression
+tests. SCRUM-170 recorded Track 3005 metadata `200`, Range `206` and
+audible playback **before** media authorization was enforced. Christian
+subsequently confirmed the protected Bearer stream is merged into
+`main`. Matthew's October 13 local media-ticket addition implements a
+track-scoped HttpOnly cookie, independent HMAC signing, issuance,
+revocation checks and renewal; the **nine new application tests and
+all 222 backend tests passed**.
+
+The remaining acceptance work is a live `204` issuance and cookie-only
+`206` against the running PostgreSQL-backed server, Emmanuel's
+Howler client handoff and audible protected playback including seeks
+and renewal, and peer-reviewed PR/CI/Compose verification. Do not
+claim those steps completed from automated tests alone. Actual
+container-media access remains unverified.
+
+The CPSC 490 roadmap assumed a longer streaming timeline, but the CPSC
+491 syllabus governs the six-sprint calendar. Its midterm demonstration
+is October 22, immediately after Sprint 3 (October 8-15), so an actual
+playback path must remain demonstrable by October 15 rather than being
+deferred to the dedicated streaming sprint. Use only rights-cleared
+audio in the midterm and final demonstrations.
+
+## Sprint 4 work — Matthew Choi (October 29–November 5, 2026)
+
+Sprint 4 focuses Matthew's authored **database → authenticated API →
+security tests → evidence/documentation** vertical slice, not primary
+ownership of the team's main media-streaming work. Matthew spiked the
+media pipeline earlier and steps back from the largest streaming slice
+this sprint in accordance with the team's spike-then-step-back rule.
+
+- **SCRUM-295:** Authored `playback_events` migration and schema smoke
+  checks; updated Allison's forward-migration approved-list/count logic
+  to accept the new schema without weakening historical preservation.
+  The isolated DB regression suite passed 36/36 locally; migration
+  bootstrap passed locally. PR/CI status must still be verified.
+- **SCRUM-296:** Implemented authenticated POST and principal-scoped GET
+  endpoints, the PostgreSQL repository, and three focused automated
+  suites. Focused tests passed 20/20 and auth regression passed 107/107;
+  live PostgreSQL-backed POST `201`, GET `200`, duplicate retry `200`
+  and anonymous GET `401` were observed locally. Peer-reviewed PR and
+  all CI checks remain to be confirmed.
+- **SCRUM-297:** Connecting the existing shared React player to event
+  submission is **not** demonstrated by these backend tests and remains
+  separate frontend work requiring implementation and review.
+- **SCRUM-299–304 (SOC 2 CC6.1):** Mock-backed negative authorization,
+  JWT revocation and fail-closed tests provide preliminary evidence,
+  but live cross-user isolation, rejected-write row counts, full
+  credential matrix, and approved evidence capture are not yet complete.
+
+The CPSC 490 roadmap presumed a 16-week implementation, whereas the
+CPSC 491 syllabus controls the actual six-sprint course calendar and
+midterm demo (October 22, immediately after Sprint 3). Soundwave's
+usable playback path therefore had to exist before the roadmap's later
+streaming phase. This Sprint 4 slice builds secure history on that
+existing playback path. Graded demonstrations must use documented
+rights-cleared audio; a seed name such as "No Copyright" is not
+by itself evidence of a license.
+
+## Sprint 5 work — Allison Yu (November 12–19, 2026)
+
+### SCRUM-355 — Authenticated Favorites write API
+
+Implemented `PUT` and `DELETE /api/library/favorites/:trackId` across
+the existing PostgreSQL repository, catalog service, HTTP handler, and
+shared authorization boundary. The mutation owner is derived from the
+server-verified principal, not a client-supplied user ID. The original
+Favorites GET response and tracked table remain unchanged; no new SQL
+migration was necessary.
+
+**Local verification (November 17):** 312/312 backend tests, 36/36
+database integration tests, 2/2 integrity tests, 6/6 focused
+repository tests, and 12/12 focused HTTP route tests passed. Manual
+HTTP/PostgreSQL checks verified repeated PUT/DELETE idempotence,
+persisted insertion and removal of Track 3002 for the local `devuser`
+account, restoration of the original saved set, and `401` for
+anonymous writes. See Section 23.9 for exact evidence, commands, and
+limitations.
+
+A live second-account mutation-isolation check, backend PR
+approval/merge, and hosted CI results have not been confirmed.
+
+### SCRUM-362 — Favorites frontend integration and synchronization
+
+Implemented functional track hearts in Library's Recently Added
+section, Playback Bar, and Album Detail song rows. A shared
+`favoritesVersion` and `onFavoritesChanged` callback in App trigger
+server-confirmed refreshes after successful writes. Library, Playback
+Bar, and Album Detail stay synchronized while their current views
+remain mounted; no page navigation or second player is required.
+
+Favorite actions preserve existing Track-selection, Howler transport,
+seek, buffering, queue, and authentication interfaces. Album Detail
+performs one Favorites GET per refresh for all song-row hearts.
+Authenticated requests use the existing SCRUM-355 API; guest controls
+are disabled where protected access is required.
+
+**Local verification (November 17):** 4/4 Playback Bar Favorites tests,
+2/2 cross-view synchronization tests, 6/6 Album Detail Favorites tests,
+4/4 original Album Detail tests, and the entire client suite at
+**244/244 passing across 46 files**. ESLint and Vite build passed.
+The live browser behavior was confirmed for Playback Bar ↔ Library
+and Playback Bar ↔ Album Detail Favorites synchronization. See Section
+23.10 for detailed contracts and reproduction steps.
+
+This is Allison's authored frontend/testing/documentation integration
+slice, not primary ownership of teammate-maintained playback transport,
+streaming media, or queue navigation. The repository-wide test count
+also contains teammates' tests.
+
+### Sprint 5 delivery status and schedule
+
+Local implementation and recorded verification are complete for the
+features above. Branch synchronization, staged-diff inspection,
+peer-reviewed PR approval, hosted CI, merge, and course submission
+must be confirmed independently before marking those steps done.
+
+The CPSC 491 syllabus's **six-sprint** schedule overrides the CPSC 490
+roadmap's sixteen-week sequence for deadlines and process. The roadmap
+still governs product scope. Sprint 5 closes in class on **Thursday,
+November 19, 2026**; do not infer an extended deadline from the old
+roadmap. Further album-card Favorites, playlist editing, and unrelated
+redesign are out of scope for SCRUM-362.
+
+# 37. Project Direction
+
+Soundwave is being implemented as a secure, responsive, lightweight,
+self-hostable music-streaming application.
+
+The current repository is an incremental shared implementation.
+
+New features should:
+
+- reuse existing stable contracts where practical;
+- preserve the shared Track identity;
+- avoid exposing physical media paths;
+- keep the client separated from PostgreSQL;
+- use automated verification;
+- use peer-reviewed pull requests;
+- avoid duplicating another feature owner's implementation;
+- remain attributable to the developer who authored the change.
+
+The repository will continue to evolve through the remaining CPSC 491
+sprints.
