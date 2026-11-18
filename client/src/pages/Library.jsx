@@ -44,7 +44,9 @@ function mutationError(status, removing) {
 
 export default function Library({
   accessToken,
-  onSelectTrack
+  onSelectTrack,
+  favoritesVersion = 0,
+  onFavoritesChanged
 }) {
   const [recentResult, setRecentResult] = useState({
     token: null,
@@ -56,10 +58,19 @@ export default function Library({
   const [favoritesRevision, setFavoritesRevision] =
     useState(0);
 
+  /*
+   * SCRUM-362:
+   * The Library can refresh because of its own write
+   * or because another view (Playback Bar) changed
+   * the saved Favorites collection.
+   */
+  const favoritesRefreshKey =
+    `${favoritesVersion}:${favoritesRevision}`;
+
   const [favoritesSnapshot, setFavoritesSnapshot] =
     useState({
       token: null,
-      revision: -1,
+      revision: null,
       status: "loading",
       ids: []
     });
@@ -143,7 +154,8 @@ export default function Library({
     };
   }, [accessToken]);
 
-  // Cancel a pending Favorite write on logout or unmount.
+  // Cancel an obsolete Favorite write on logout
+  // or when this Library component unmounts.
   useEffect(() => {
     return () => {
       mutationControllerRef.current?.abort();
@@ -151,7 +163,8 @@ export default function Library({
     };
   }, [accessToken]);
 
-  // FavoritesSection reports the result of its GET.
+  // FavoritesSection reports results of its GET request.
+  // These IDs determine the Recently Added heart states.
   const handleFavoritesResult = useCallback((snapshot) => {
     setFavoritesSnapshot({
       token: snapshot.token,
@@ -163,11 +176,19 @@ export default function Library({
     });
   }, []);
 
-  // Refresh both sections after a successful write.
+  /*
+   * Refresh when a Library heart successfully writes,
+   * or FavoritesSection successfully removes a track.
+   *
+   * Notify App so the Playback Bar also updates.
+   */
   const refreshFavorites = useCallback(() => {
     setMutationFailure(null);
+
     setFavoritesRevision((revision) => revision + 1);
-  }, []);
+
+    onFavoritesChanged?.();
+  }, [onFavoritesChanged]);
 
   const recentStatus =
     recentResult.token === accessToken
@@ -179,9 +200,11 @@ export default function Library({
       ? recentResult.tracks
       : [];
 
+  // A snapshot from an older refresh may not be used
+  // to display an incorrect saved or unsaved heart.
   const currentFavorites =
     favoritesSnapshot.token === accessToken &&
-    favoritesSnapshot.revision === favoritesRevision
+    favoritesSnapshot.revision === favoritesRefreshKey
       ? favoritesSnapshot
       : {
           status: "loading",
@@ -198,9 +221,6 @@ export default function Library({
       ? mutationFailure.message
       : "";
 
-  // SCRUM-362:
-  // An outlined heart adds a Favorite.
-  // A filled heart removes that Favorite.
   async function toggleFavorite(track) {
     if (
       !accessToken ||
@@ -243,8 +263,8 @@ export default function Library({
       }
 
       if (!controller.signal.aborted) {
-        // Do not optimistically toggle the heart.
-        // Confirm the new state through a fresh GET.
+        // The confirmed mutation invalidates every view.
+        // A fresh GET determines the next heart state.
         refreshFavorites();
       }
     } catch (error) {
@@ -272,6 +292,7 @@ export default function Library({
       <section className="library-page">
         <header className="library-page__header">
           <h1>Your Library</h1>
+
           <p>
             Browse tracks recently added to Soundwave.
           </p>
@@ -279,6 +300,7 @@ export default function Library({
 
         <div className="library-status">
           <h2>Login required</h2>
+
           <p>
             Log in to view your recently-added Library.
           </p>
@@ -291,6 +313,7 @@ export default function Library({
     <section className="library-page">
       <header className="library-page__header">
         <h1>Your Library</h1>
+
         <p>
           Browse tracks recently added to Soundwave.
         </p>
@@ -336,8 +359,6 @@ export default function Library({
                 const duration =
                   formatDuration(track.durationMs);
 
-                // Use a distinct accessible name from
-                // the Favorite Tracks Remove button.
                 const actionName = isSaved
                   ? `Unfavorite ${track.title}`
                   : `Add ${track.title} to Favorites`;
@@ -347,7 +368,6 @@ export default function Library({
                     className="library-track"
                     key={track.id}
                   >
-                    {/* Existing playback-selection action */}
                     <button
                       type="button"
                       className="library-track__select"
@@ -378,7 +398,6 @@ export default function Library({
                       </span>
                     </button>
 
-                    {/* Heart and duration match Favorite Tracks */}
                     <span className="library-track__aside">
                       <button
                         type="button"
@@ -437,11 +456,10 @@ export default function Library({
         </p>
       )}
 
-      {/* Existing Favorite Tracks UI stays unchanged. */}
       <FavoritesSection
         accessToken={accessToken}
         onSelectTrack={onSelectTrack}
-        refreshKey={favoritesRevision}
+        refreshKey={favoritesRefreshKey}
         onFavoritesResult={handleFavoritesResult}
         onMutationSuccess={refreshFavorites}
       />

@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useState
@@ -46,41 +45,39 @@ export default function App() {
     loginViewEpoch: 0
   });
 
-  const setAccessToken =
-    useCallback((token) => {
-      setSession((current) => ({
-        ...current,
-        accessToken: token
-      }));
-    }, []);
+  const setAccessToken = useCallback((token) => {
+    setSession((current) => ({
+      ...current,
+      accessToken: token
+    }));
+  }, []);
 
   // An older session cannot invalidate a newer login.
-  const handleSessionInvalidated =
-    useCallback((token) => {
-      setSession((current) =>
-        current.accessToken === token
-          ? {
+  const handleSessionInvalidated = useCallback((token) => {
+    setSession((current) =>
+      current.accessToken === token
+        ? {
             accessToken: "",
-            loginViewEpoch:
-              current.loginViewEpoch + 1
+            loginViewEpoch: current.loginViewEpoch + 1
           }
-          : current
-      );
-    }, []);
+        : current
+    );
+  }, []);
 
   /*
-   * SCRUM-323:
-   * Maintain playback queue state at the application
-   * level so route navigation does not reset it.
+   * Allison Yu — SCRUM-362:
+   * A shared revision tells mounted Favorites consumers to re-read
+   * their state after a successful mutation. The API is authoritative.
    */
-  const [queue, setQueue] = useState(
-    () => createQueue()
-  );
+  const [favoritesVersion, setFavoritesVersion] = useState(0);
 
-  /*
-   * SCRUM-323: Keep selected tracks in a stable queue.
-   * Re-selecting an existing track does not duplicate it.
-   */
+  const handleFavoritesChanged = useCallback(() => {
+    setFavoritesVersion((current) => current + 1);
+  }, []);
+
+  /* SCRUM-323: Keep the selected track and queue stable across routes. */
+  const [queue, setQueue] = useState(() => createQueue());
+
   const handleSelectTrack = useCallback((trackId) => {
     if (!Number.isInteger(trackId) || trackId <= 0) {
       return;
@@ -127,38 +124,25 @@ export default function App() {
       <main className="page-content">
         <SessionStatus
           accessToken={accessToken}
-          onSessionInvalidated={
-            handleSessionInvalidated
-          }
+          onSessionInvalidated={handleSessionInvalidated}
         />
 
         <Routes>
-          <Route
-            path="/"
-            element={<Home />}
-          />
+          <Route path="/" element={<Home />} />
 
           <Route
             path="/search"
-            element={
-              <Search
-                onSelectTrack={
-                  handleSelectTrack
-                }
-              />
-            }
+            element={<Search onSelectTrack={handleSelectTrack} />}
           />
 
           <Route
             path="/library"
             element={
               <Library
-                accessToken={
-                  accessToken
-                }
-                onSelectTrack={
-                  handleSelectTrack
-                }
+                accessToken={accessToken}
+                onSelectTrack={handleSelectTrack}
+                favoritesVersion={favoritesVersion}
+                onFavoritesChanged={handleFavoritesChanged}
               />
             }
           />
@@ -167,82 +151,51 @@ export default function App() {
             path="/login"
             element={
               <Login
-                key={
-                  loginViewEpoch
-                }
-                setAccessToken={
-                  setAccessToken
-                }
+                key={loginViewEpoch}
+                setAccessToken={setAccessToken}
               />
             }
           />
 
           <Route
             path="/profile"
-            element={
-              <Profile
-                accessToken={
-                  accessToken
-                }
-              />
-            }
+            element={<Profile accessToken={accessToken} />}
           />
 
-          <Route
-            path="/artists"
-            element={
-              <Artists />
-            }
-          />
-
-          <Route
-            path="/artists/:id"
-            element={
-              <ArtistDetail />
-            }
-          />
-
-          <Route
-            path="/albums"
-            element={
-              <Albums />
-            }
-          />
+          <Route path="/artists" element={<Artists />} />
+          <Route path="/artists/:id" element={<ArtistDetail />} />
+          <Route path="/albums" element={<Albums />} />
 
           <Route
             path="/albums/:id"
             element={
               <AlbumDetail
-                onSelectTrack={
-                  handleSelectTrack
-                }
+                onSelectTrack={handleSelectTrack}
+                accessToken={accessToken}
+                favoritesVersion={favoritesVersion}
+                onFavoritesChanged={handleFavoritesChanged}
               />
             }
           />
 
           <Route
             path="/catalog-debug"
-            element={
-              <CatalogDebug />
-            }
+            element={<CatalogDebug />}
           />
         </Routes>
       </main>
 
       <PlaybackBar
-        trackId={
-          selectedTrackId
-        }
+        enableFavoriteControl
+        trackId={selectedTrackId}
         onNextTrack={handleNextTrack}
         onPreviousTrack={handlePreviousTrack}
         canGoNext={canGoNext}
         canGoPrevious={canGoPrevious}
-        accessToken={
-          accessToken
-        }
-        onSessionInvalidated={
-          handleSessionInvalidated
-        }
+        accessToken={accessToken}
+        onSessionInvalidated={handleSessionInvalidated}
+        favoritesVersion={favoritesVersion}
+        onFavoritesChanged={handleFavoritesChanged}
       />
     </div>
   );
