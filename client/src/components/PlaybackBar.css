@@ -337,3 +337,246 @@
         height: 20px;
     }
 }
+
+
+/* Matthew Choi - Sprint 5: fullscreen is a view of the SAME player.
+   No duplicated Howler instance or controls are mounted. */
+.playback-end {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+    gap: 14px;
+    min-width: 0;
+}
+
+.playback-end .volume-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.playback-end .volume-placeholder input {
+    max-width: 160px;
+    min-width: 65px;
+}
+
+.playback-expand-button {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    color: var(--color-text-primary, #f8fafc);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.playback-expand-button:hover {
+    background: rgba(167, 139, 250, 0.2);
+}
+
+.playback-expand-button:focus-visible {
+    outline: 2px solid var(--color-accent, #a78bfa);
+    outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+    .playback-bar > .playback-end {
+        grid-area: volume;
+    }
+}
+
+@media (max-width: 480px) {
+    .playback-bar > .playback-end {
+        gap: 8px;
+    }
+
+    .playback-bar .playback-expand-button {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+    }
+}
+
+/* Keep the footer mounted: expansion changes layout only. */
+.playback-bar--expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: clamp(16px, 3vh, 28px);
+    padding: clamp(56px, 8vh, 90px) clamp(18px, 5vw, 70px) 30px;
+    border: none;
+    background: linear-gradient(165deg, #1e2443 0%, #10192d 46%, #0b1324 100%);
+}
+
+.playback-bar--expanded .track-info {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(14px, 2vh, 24px);
+    width: 100%;
+    max-width: 720px;
+    text-align: center;
+    min-height: 0;
+}
+
+.playback-bar--expanded .track-placeholder {
+    width: clamp(150px, 28vh, 260px);
+    height: clamp(150px, 28vh, 260px);
+    flex: 0 0 auto;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #37446b, #202a47);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+}
+
+.playback-bar--expanded .playback-track-copy {
+    flex: 0 1 auto;
+    width: 100%;
+}
+
+.playback-bar--expanded .playback-track-copy strong {
+    display: block;
+    font-size: clamp(22px, 3.7vw, 36px);
+    line-height: 1.2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.playback-bar--expanded .track-info p {
+    font-size: clamp(13px, 2vw, 16px);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.playback-bar--expanded .playback-favorite {
+    margin: 0;
+}
+
+.playback-bar--expanded .playback-center {
+    flex: 0 0 auto;
+    width: min(680px, 100%);
+    margin: 0 auto clamp(12px, 4vh, 42px);
+    gap: 20px;
+}
+
+.playback-bar--expanded .playback-controls {
+    gap: clamp(20px, 4vw, 36px);
+}
+
+.playback-bar--expanded .playback-controls button {
+    font-size: clamp(26px, 4vw, 34px);
+}
+
+.playback-bar--expanded .playback-timeline {
+    grid-template-columns: 46px minmax(0, 1fr) 46px;
+    gap: 12px;
+}
+
+.playback-bar--expanded .playback-end {
+    position: absolute;
+    top: 16px;
+    right: clamp(16px, 3vw, 42px);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.playback-bar--expanded .volume-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 480px) {
+    .playback-bar--expanded {
+        padding-top: 72px;
+        padding-bottom: 20px;
+        gap: 14px;
+    }
+
+    .playback-bar--expanded .track-placeholder {
+        width: clamp(120px, 23vh, 190px);
+        height: clamp(120px, 23vh, 190px);
+    }
+
+    .playback-bar--expanded .playback-end {
+        right: 12px;
+        top: 12px;
+    }
+
+    .playback-bar--expanded .playback-center {
+        width: 100%;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .playback-bar--expanded .playback-timeline {
+        gap: 6px;
+        grid-template-columns: 38px minmax(0, 1fr) 38px;
+    }
+}
+
+
+/* Matthew Choi - Sprint 5: Truthful cache-availability indicator.
+   The actual offline cache provider is a separate Sprint 6 integration. */
+.playback-bar .playback-cache-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    margin-top: 6px;
+    color: #aab6ca;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.playback-bar .playback-cache-status::before {
+    content: "";
+    display: inline-block;
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.playback-bar .playback-cache-status[data-cache-status="loading"] {
+    color: #f6d18b;
+}
+
+.playback-bar .playback-cache-status[data-cache-status="present"] {
+    color: #86efac;
+}
+
+.playback-bar .playback-cache-status[data-cache-status="evicted"] {
+    color: #fbbf24;
+}
+
+.playback-bar--expanded .playback-cache-status {
+    justify-content: center;
+    font-size: 13px;
+}
+
+@media (max-width: 480px) {
+    .playback-bar .playback-cache-status {
+        margin-top: 4px;
+        font-size: 11px;
+    }
+}

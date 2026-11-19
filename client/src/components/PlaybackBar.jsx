@@ -23,6 +23,13 @@ import {
     reportPlaybackEvent
 } from "../playback/playbackEvents.js";
 
+import {
+    CACHE_AVAILABILITY,
+    getCacheAvailabilityLabel,
+    getTrackCacheAvailability,
+    normalizeCacheAvailability
+} from "../playback/cacheStatus.js";
+
 import PlaybackFavoriteButton from "./PlaybackFavoriteButton.jsx";
 
 import "./PlaybackBar.css";
@@ -49,7 +56,8 @@ export default function PlaybackBar({
     canGoPrevious = false,
     enableFavoriteControl = false,
     favoritesVersion = 0,
-    onFavoritesChanged
+    onFavoritesChanged,
+    cacheStatusProvider = getTrackCacheAvailability
 }) {
     const [track, setTrack] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -58,6 +66,69 @@ export default function PlaybackBar({
     const [playbackStatus, setPlaybackStatus] = useState("ready");
     const [volume, setVolume] = useState(0.5);
     const [retryAttempt, setRetryAttempt] = useState(0);
+
+    // Matthew Choi - Sprint 5: Cache availability is informational only.
+    // Scope every result to the selected track, current session, and provider.
+    const [cacheLookup, setCacheLookup] = useState({
+        trackId: null,
+        accessToken: null,
+        provider: null,
+        status: CACHE_AVAILABILITY.UNKNOWN
+    });
+
+    const hasCacheLookupTarget =
+        Number.isInteger(trackId) && trackId > 0 && !!accessToken;
+
+    // A new track/session can never render the previous track's cache label,
+    // even for the render before the lookup effect starts.
+    const cacheAvailability = !hasCacheLookupTarget
+        ? CACHE_AVAILABILITY.UNKNOWN
+        : cacheLookup.trackId === trackId &&
+            cacheLookup.accessToken === accessToken &&
+            cacheLookup.provider === cacheStatusProvider
+        ? cacheLookup.status
+        : CACHE_AVAILABILITY.LOADING;
+
+    useEffect(() => {
+        if (!Number.isInteger(trackId) || trackId <= 0 || !accessToken) {
+            return;
+        }
+
+        let cancelled = false;
+
+        Promise.resolve()
+            .then(() => cacheStatusProvider({ trackId, accessToken }))
+            .then((result) => {
+                if (!cancelled) {
+                    setCacheLookup({
+                        trackId,
+                        accessToken,
+                        provider: cacheStatusProvider,
+                        status: normalizeCacheAvailability(result)
+                    });
+                }
+            })
+            .catch(() => {
+                // An unavailable cache service must never block playback.
+                if (!cancelled) {
+                    setCacheLookup({
+                        trackId,
+                        accessToken,
+                        provider: cacheStatusProvider,
+                        status: CACHE_AVAILABILITY.UNKNOWN
+                    });
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [trackId, accessToken, cacheStatusProvider]);
+
+    // Matthew Choi - Sprint 5: Only the view expands, not the audio player.
+    const [isExpanded, setIsExpanded] = useState(false);
+    const playerRootRef = useRef(null);
+    const expandButtonRef = useRef(null);
 
     // SCRUM-310: Position and duration come from the actual media.
     const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
@@ -76,6 +147,89 @@ export default function PlaybackBar({
     const isPlaying =
         playbackStatus === "playing" ||
         playbackStatus === "buffering";
+
+    // Escape closes the expanded player. Keep keyboard focus inside its
+    // controls while the full-window overlay is open, and restore scroll.
+    useEffect(() => {
+            if (!isExpanded || !trackId) {
+                return;
+            }
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        function handleExpandedKeyDown(event) {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                setIsExpanded(false);
+                expandButtonRef.current?.focus();
+                return;
+            }
+
+            if (event.key !== "Tab" || !playerRootRef.current) {
+                return;
+            }
+
+            const controls = Array.from(
+                playerRootRef.current.querySelectorAll(
+                    'button:not([disabled]), input:not([disabled])'
+                )
+            );
+
+            if (controls.length === 0) {
+                event.preventDefault();
+                return;
+            }
+
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            const focused = document.activeElement;
+
+            if (!playerRootRef.current.contains(focused)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+            } else if (event.shiftKey && focused === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && focused === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+
+        document.addEventListener("keydown", handleExpandedKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", handleExpandedKeyDown);
+        };
+    }, [isExpanded, trackId]);
+
+    const playerClassName = isExpanded && trackId
+        ? "playback-bar playback-bar--expanded"
+        : "playback-bar";
+
+    const expandedAccessibility = isExpanded && trackId
+        ? {
+            role: "dialog",
+            "aria-modal": "true",
+            "aria-label": "Expanded playback player"
+        }
+        : {};
+
+    const expandControl = trackId ? (
+        <button
+            ref={expandButtonRef}
+            type="button"
+            className="playback-expand-button"
+            aria-label={isExpanded ? "Collapse player" : "Expand player"}
+            aria-expanded={isExpanded}
+            title={isExpanded ? "Collapse player (Esc)" : "Expand player"}
+            onClick={() => setIsExpanded((current) => !current)}
+        >
+            {isExpanded ? "✕" : "⛶"}
+        </button>
+    ) : null;
 
     useEffect(() => {
         if (!trackId) {
@@ -500,7 +654,7 @@ export default function PlaybackBar({
             retryingTrackId === trackId;
 
         return (
-            <footer className="playback-bar">
+            <footer ref={playerRootRef} className={playerClassName} {...expandedAccessibility}>
                 <div className="track-info">
                     <div>
                         <strong role="status" aria-live="polite">
@@ -516,13 +670,17 @@ export default function PlaybackBar({
                         )}
                     </div>
                 </div>
+
+                <div className="playback-end">
+                    {expandControl}
+                </div>
             </footer>
         );
     }
 
     if (error) {
         return (
-            <footer className="playback-bar">
+            <footer ref={playerRootRef} className={playerClassName} {...expandedAccessibility}>
                 <div className="track-info">
                     <div>
                         <strong>Playback unavailable</strong>
@@ -540,6 +698,10 @@ export default function PlaybackBar({
                         )}
                     </div>
                 </div>
+
+                <div className="playback-end">
+                    {expandControl}
+                </div>
             </footer>
         );
     }
@@ -553,7 +715,7 @@ export default function PlaybackBar({
         mediaDurationSeconds > 0;
 
     return (
-        <footer className="playback-bar">
+        <footer ref={playerRootRef} className={playerClassName} {...expandedAccessibility}>
             <div className="track-info">
                 <div className="track-placeholder" />
 
@@ -578,6 +740,14 @@ export default function PlaybackBar({
                             : playbackStatus === "finished"
                             ? "Finished"
                             : "Ready to play"}
+                    </p>
+
+                    <p
+                    className="playback-cache-status"
+                    data-cache-status={cacheAvailability}
+                    aria-live="polite"
+                    >
+                    {getCacheAvailabilityLabel(cacheAvailability)}
                     </p>
                 </div>
 
@@ -663,19 +833,23 @@ export default function PlaybackBar({
                 </div>
             </div>
 
-            <label className="volume-placeholder">
-                Volume
+            <div className="playback-end">
+                <label className="volume-placeholder">
+                    Volume
 
-                <input
-                    aria-label="Volume"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={volume}
-                    onChange={handleVolumeChange}
-                />
-            </label>
+                    <input
+                        aria-label="Volume"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={volume}
+                        onChange={handleVolumeChange}
+                    />
+                </label>
+
+                {expandControl}
+            </div>
         </footer>
     );
 }
