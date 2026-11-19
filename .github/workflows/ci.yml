@@ -453,6 +453,10 @@ jobs:
         working-directory: server
         run: node --env-file=../database/.env.test --test integration/postgres-favorites-isolation.check.mjs
 
+      - name: SCRUM-363 Verify PostgreSQL-backed Favorites write concurrency and idempotency
+        working-directory: server
+        run: node --env-file=../database/.env.test --test integration/postgres-favorites-write.check.mjs
+
       - name: Create isolated forward-compatibility database
         working-directory: database
         run: |
