@@ -6,10 +6,13 @@ import {
 import { Link } from "react-router-dom";
 
 import "../styles/profile.css";
+import ProfileEditor from "./ProfileEditor";
 
-export default function Profile({
-  accessToken
-}) {
+export default function Profile({ accessToken }) {
+  return <ProfileView key={accessToken || "guest"} accessToken={accessToken} />;
+}
+
+function ProfileView({ accessToken }) {
   const [profile, setProfile] =
     useState(null);
 
@@ -167,6 +170,11 @@ export default function Profile({
             {preference}
           </strong>
         </div>
+        <ProfileEditor
+          accessToken={accessToken}
+          profile={profile}
+          onProfileChange={setProfile}
+        />
       </section>
     </main>
   );

@@ -42,6 +42,34 @@ export function createCatalogService(repository) {
       }));
     },
 
+    async addFavoriteForPrincipal(principalId, trackId) {
+      if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+        throw new TypeError("Track ID must be a positive integer.");
+      }
+
+      if (typeof repository.addFavoriteForPrincipal !== "function") {
+        throw new TypeError(
+          "Catalog repository does not support favorites additions."
+        );
+      }
+
+      return repository.addFavoriteForPrincipal(principalId, trackId);
+    },
+
+    async removeFavoriteForPrincipal(principalId, trackId) {
+      if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+        throw new TypeError("Track ID must be a positive integer.");
+      }
+
+      if (typeof repository.removeFavoriteForPrincipal !== "function") {
+        throw new TypeError(
+          "Catalog repository does not support favorites removals."
+        );
+      }
+
+      return repository.removeFavoriteForPrincipal(principalId, trackId);
+    },
+
     async listTracks() {
       const rows = await repository.listTracks();
 
@@ -81,9 +109,7 @@ export function createCatalogService(repository) {
       }
 
       const row =
-      await repository.findTrackById(
-        trackId
-      );
+        await repository.findTrackById(trackId);
 
       if (!row) {
         return null;
@@ -92,9 +118,7 @@ export function createCatalogService(repository) {
       return {
         id: Number(row.track_id),
         title: row.track_title,
-        durationMs: Number(
-          row.duration_ms
-        ),
+        durationMs: Number(row.duration_ms),
 
         album: {
           id: Number(row.album_id),
@@ -118,23 +142,23 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-      await repository.listRecentlyAddedTracks(limit);
+        await repository.listRecentlyAddedTracks(limit);
 
       return rows.map((row) => ({
         id: Number(row.track_id),
-                                title: row.track_title,
-                                durationMs: row.duration_ms,
-                                createdAt: row.track_created_at,
+        title: row.track_title,
+        durationMs: row.duration_ms,
+        createdAt: row.track_created_at,
 
-                                album: {
-                                  id: Number(row.album_id),
-                                title: row.album_title
-                                },
+        album: {
+          id: Number(row.album_id),
+          title: row.album_title
+        },
 
-                                artist: {
-                                  id: Number(row.artist_id),
-                                name: row.artist_name
-                                }
+        artist: {
+          id: Number(row.artist_id),
+          name: row.artist_name
+        }
       }));
     },
 
@@ -148,57 +172,55 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-      await repository.listArtists();
+        await repository.listArtists();
 
       return rows.map((row) => ({
         id: Number(row.artist_id),
-                                name: row.artist_name
+        name: row.artist_name
       }));
     },
 
-    async getArtistById(artistId) {
-      if (
-        !Number.isInteger(artistId) ||
-        artistId <= 0
-      ) {
-        throw new TypeError(
-          "Artist ID must be a positive integer."
-        );
-      }
+    
+  async getArtistById(artistId) {
+    if (
+      !Number.isInteger(artistId) ||
+      artistId <= 0
+    ) {
+    throw new TypeError(
+      "Artist ID must be a positive integer."
+    );
+    }
 
-      if (
-        typeof repository.findArtistById !== "function" ||
-        typeof repository.listAlbumsByArtistId !== "function"
-      ) {
-        throw new TypeError(
-          "Catalog repository does not support artist detail queries."
-        );
-      }
+    if (
+      typeof repository.findArtistById !== "function" ||
+      typeof repository.listAlbumsByArtistId !== "function"
+    ) {
+    throw new TypeError(
+      "Catalog repository does not support artist detail queries."
+    );
+    }
 
-      const artistRow =
-      await repository.findArtistById(
-        artistId
-      );
+    const artistRow =
+      await repository.findArtistById(artistId);
 
-      if (!artistRow) {
-        return null;
-      }
+    if (!artistRow) {
+      return null;
+    }
 
-      const albumRows =
-      await repository.listAlbumsByArtistId(
-        artistId
-      );
+    const albumRows =
+      await repository.listAlbumsByArtistId(artistId);
 
-      return {
-        id: Number(artistRow.artist_id),
-        name: artistRow.artist_name,
+    return {
+      id: Number(artistRow.artist_id),
+      name: artistRow.artist_name,
 
-        albums: albumRows.map((row) => ({
-          id: Number(row.album_id),
-                                        title: row.album_title
-        }))
-      };
-    },
+      albums: albumRows.map((row) => ({
+        id: Number(row.album_id),
+        title: row.album_title
+      }))
+    };
+  },
+
 
     async listAlbums() {
       if (
@@ -210,69 +232,64 @@ export function createCatalogService(repository) {
       }
 
       const rows =
-      await repository.listAlbums();
+        await repository.listAlbums();
 
       return rows.map((row) => ({
         id: Number(row.album_id),
-                                title: row.album_title,
+        title: row.album_title,
 
-                                artist: {
-                                  id: Number(row.artist_id),
-                                name: row.artist_name
-                                }
+        artist: {
+          id: Number(row.artist_id),
+          name: row.artist_name
+        }
       }));
     },
 
-    async getAlbumById(albumId) {
-      if (
-        !Number.isInteger(albumId) ||
-        albumId <= 0
-      ) {
-        throw new TypeError(
-          "Album ID must be a positive integer."
-        );
-      }
+    
+  async getAlbumById(albumId) {
+    if (
+      !Number.isInteger(albumId) ||
+      albumId <= 0
+    ) {
+    throw new TypeError(
+      "Album ID must be a positive integer."
+    );
+    }
 
-      if (
-        typeof repository.findAlbumById !== "function" ||
-        typeof repository.listTracksByAlbumId !== "function"
-      ) {
-        throw new TypeError(
-          "Catalog repository does not support album detail queries."
-        );
-      }
+    if (
+      typeof repository.findAlbumById !== "function" ||
+      typeof repository.listTracksByAlbumId !== "function"
+    ) {
+    throw new TypeError(
+      "Catalog repository does not support album detail queries."
+    );
+    }
 
-      const albumRow =
-      await repository.findAlbumById(
-        albumId
-      );
+    const albumRow =
+      await repository.findAlbumById(albumId);
 
-      if (!albumRow) {
-        return null;
-      }
+    if (!albumRow) {
+      return null;
+    }
 
-      const trackRows =
-      await repository.listTracksByAlbumId(
-        albumId
-      );
+    const trackRows =
+      await repository.listTracksByAlbumId(albumId);
 
-      return {
-        id: Number(albumRow.album_id),
-        title: albumRow.album_title,
+    return {
+      id: Number(albumRow.album_id),
+      title: albumRow.album_title,
 
-        artist: {
-          id: Number(albumRow.artist_id),
-          name: albumRow.artist_name
-        },
+      artist: {
+        id: Number(albumRow.artist_id),
+        name: albumRow.artist_name
+      },
 
-        tracks: trackRows.map((row) => ({
-          id: Number(row.track_id),
-                                        title: row.track_title,
-                                        durationMs: Number(
-                                          row.duration_ms
-                                        )
+      tracks: trackRows.map((row) => ({
+        id: Number(row.track_id),
+        title: row.track_title,
+        durationMs: Number(row.duration_ms)
         }))
       };
-    }
+    },
   };
 }

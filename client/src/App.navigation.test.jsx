@@ -1,4 +1,3 @@
-
 import {
     render,
     screen,
@@ -153,7 +152,6 @@ function mockAuthenticatedRequests() {
             return successfulProfile;
         }
 
-
         if (url === "/api/library/recently-added") {
             return {
                 ok: true,
@@ -171,7 +169,6 @@ function mockAuthenticatedRequests() {
         }
 
         throw new Error(`Unexpected request: ${url}`);
-
     });
 }
 
@@ -335,14 +332,18 @@ describe("SCRUM-201 client navigation", () => {
             )
         ).toBeInTheDocument();
 
+        // SCRUM-362:
+        // Allow the AbortSignal while preserving the
+        // existing Bearer authentication assertion.
         expect(fetch).toHaveBeenCalledWith(
             "/api/library/recently-added",
-            {
+            expect.objectContaining({
                 headers: {
                     Authorization:
                         "Bearer navigation-test-token"
-                }
-            }
+                },
+                signal: expect.any(AbortSignal)
+            })
         );
 
         expect(
@@ -361,7 +362,6 @@ describe("SCRUM-201 client navigation", () => {
                 }
             })
         );
-
     });
 
     test("successful login allows authenticated Profile navigation", async () => {

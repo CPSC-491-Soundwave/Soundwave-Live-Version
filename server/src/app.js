@@ -20,6 +20,10 @@ import {
 } from "./account/profile.js";
 
 import {
+  handleAccountProfileUpdate
+} from "./account/profile-update.js";
+
+import {
   streamTrackFile
 } from "./media/streaming.js";
 
@@ -73,7 +77,7 @@ async function resolveMediaFile(mediaRoot, mediaPath) {
   try {
     const [realRoot, realFile] = await Promise.all([
       realpath(mediaRoot),
-                                                   realpath(candidate)
+      realpath(candidate)
     ]);
 
     if (!isInsideDirectory(realRoot, realFile)) {
@@ -100,6 +104,7 @@ export function createApp({
   mediaTicketService,
   findUserByUsername,
   findProfileByUserId,
+  updateProfileByUserId,
   findTrackById,
   handleCatalogRequest,
   handleSearchRequest,
@@ -117,54 +122,66 @@ export function createApp({
   const resolvedMediaRoot = path.resolve(mediaRoot);
 
   const handlePlaybackEventsRequest = playbackEventsRepository
-  ? createPlaybackEventsHandler({
-    playbackEventsRepository,
-    authorizeRevocableRequest,
-    tokenService,
-    tokenRevocationRepository
-  })
-  : null;
+    ? createPlaybackEventsHandler({
+        playbackEventsRepository,
+        authorizeRevocableRequest,
+        tokenService,
+        tokenRevocationRepository
+      })
+    : null;
 
   const handleMediaAccessRequest = mediaTicketService
-  ? createMediaAccessHandler({
-    mediaTicketService,
-    tokenService,
-    tokenRevocationRepository,
-    authorizeRevocableRequest,
-    findTrackById
-  })
-  : null;
+    ? createMediaAccessHandler({
+        mediaTicketService,
+        tokenService,
+        tokenRevocationRepository,
+        authorizeRevocableRequest,
+        findTrackById
+      })
+    : null;
 
   return http.createServer(async (req, res) => {
-
     /*
      * Existing protected endpoints.
      *
      * Media streaming authorization is handled separately
      * inside its dynamic route below.
+     *
+     * SCRUM-355: PUT/DELETE Favorites must also pass
+     * the existing revocation-aware authorization guard.
      */
+    const requestPathname =
+      new URL(req.url, "http://localhost").pathname;
+
+    const isFavoritesMutation =
+      (req.method === "PUT" || req.method === "DELETE") &&
+      /^\/api\/library\/favorites\/[^/]+$/.test(
+        requestPathname
+      );
+
     const isProtectedRoute =
-    req.method === "GET" &&
-    (
-      req.url === "/auth/me" ||
-      req.url === "/account/profile" ||
-      req.url === "/api/library/recently-added" ||
-      req.url === "/api/library/favorites"
-    );
+      isFavoritesMutation ||
+      (req.method === "GET" && (
+        req.url === "/auth/me" ||
+        req.url === "/account/profile" ||
+        req.url === "/api/library/recently-added" ||
+        req.url === "/api/library/favorites"
+      )) ||
+      (req.method === "PATCH" &&
+        req.url === "/account/profile");
+
+    // Reuse the already-verified, revocation-checked principal.
+    let requestPrincipal = null;
 
     if (isProtectedRoute) {
-      const principal =
-      await authorizeRevocableRequest(
-        req,
-        res,
-        {
+      requestPrincipal =
+        await authorizeRevocableRequest(req, res, {
           tokenService,
           tokenRevocationRepository,
           allowedRoles: ["user", "admin"]
-        }
-      );
+        });
 
-      if (!principal) {
+      if (!requestPrincipal) {
         return;
       }
     }
@@ -237,7 +254,7 @@ export function createApp({
         if (!res.headersSent) {
           res.writeHead(503, {
             "Content-Type":
-            "application/json; charset=utf-8",
+              "application/json; charset=utf-8",
             "Cache-Control": "no-store"
           });
 
@@ -314,6 +331,41 @@ export function createApp({
     }
 
     /*
+     * Authenticated self-service account update.
+     * The pre-handler above has already verified
+     * persistent token revocation.
+     */
+    if (
+      req.method === "PATCH" &&
+      req.url === "/account/profile"
+    ) {
+      try {
+        await handleAccountProfileUpdate(req, res, {
+          principal: requestPrincipal,
+          updateProfileByUserId
+        });
+      } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, {
+            "Content-Type":
+              "application/json; charset=utf-8",
+            "Cache-Control": "no-store"
+          });
+
+          res.end(
+            JSON.stringify({
+              error: "internal_error"
+            })
+          );
+        } else {
+          res.destroy();
+        }
+      }
+
+      return;
+    }
+
+    /*
      * Media streaming route:
      *
      * GET /api/tracks/3005/stream
@@ -344,16 +396,16 @@ export function createApp({
     }
 
     const trackStreamRoute =
-    /^\/api\/tracks\/(\d+)\/stream$/.exec(
-      url.pathname
-    );
+      /^\/api\/tracks\/(\d+)\/stream$/.exec(
+        url.pathname
+      );
 
     if (
       req.method === "GET" &&
       trackStreamRoute
     ) {
       const trackId =
-      Number(trackStreamRoute[1]);
+        Number(trackStreamRoute[1]);
 
       if (
         typeof findTrackById !== "function"
@@ -372,13 +424,19 @@ export function createApp({
       }
 
       // Prevent protected media responses from being cached.
-      res.setHeader("Cache-Control", "private, no-store");
-      res.setHeader("Vary", "Authorization, Cookie");
+      res.setHeader(
+        "Cache-Control",
+        "private, no-store"
+      );
+
+      res.setHeader(
+        "Vary",
+        "Authorization, Cookie"
+      );
 
       try {
-
         /*
-         * NEW: Streaming authorization.
+         * Streaming authorization.
          *
          * Reuse the existing revocation-aware
          * authentication system.
@@ -386,17 +444,18 @@ export function createApp({
          * This checks the request before any track
          * metadata or physical audio file is accessed.
          */
-        const principal = await authorizeMediaStreamRequest(
-          req,
-          res,
-          {
-            trackId,
-            mediaTicketService,
-            tokenService,
-            tokenRevocationRepository,
-            authorizeRevocableRequest
-          }
-        );
+        const principal =
+          await authorizeMediaStreamRequest(
+            req,
+            res,
+            {
+              trackId,
+              mediaTicketService,
+              tokenService,
+              tokenRevocationRepository,
+              authorizeRevocableRequest
+            }
+          );
 
         /*
          * When authorization fails, the shared helper
@@ -415,7 +474,7 @@ export function createApp({
          * Continue with the existing streaming logic.
          */
         const track =
-        await findTrackById(trackId);
+          await findTrackById(trackId);
 
         if (!track) {
           res.writeHead(404, {
@@ -452,10 +511,10 @@ export function createApp({
          * the configured media root.
          */
         const filePath =
-        await resolveMediaFile(
-          resolvedMediaRoot,
-          track.media_path
-        );
+          await resolveMediaFile(
+            resolvedMediaRoot,
+            track.media_path
+          );
 
         if (!filePath) {
           res.writeHead(404, {
@@ -477,7 +536,6 @@ export function createApp({
           res,
           filePath
         );
-
       } catch (error) {
         console.error(
           "Media streaming request failed:",
@@ -510,14 +568,13 @@ export function createApp({
      * Search routes.
      */
     if (
-      typeof handleSearchRequest ===
-      "function"
+      typeof handleSearchRequest === "function"
     ) {
       const handled =
-      await handleSearchRequest(
-        req,
-        res
-      );
+        await handleSearchRequest(
+          req,
+          res
+        );
 
       if (handled) {
         return;
@@ -526,16 +583,19 @@ export function createApp({
 
     /*
      * Catalog routes.
+     *
+     * SCRUM-355: Supply the validated principal for
+     * Favorites PUT/DELETE operations.
      */
     if (
-      typeof handleCatalogRequest ===
-      "function"
+      typeof handleCatalogRequest === "function"
     ) {
       const handled =
-      await handleCatalogRequest(
-        req,
-        res
-      );
+        await handleCatalogRequest(
+          req,
+          res,
+          { principal: requestPrincipal }
+        );
 
       if (handled) {
         return;

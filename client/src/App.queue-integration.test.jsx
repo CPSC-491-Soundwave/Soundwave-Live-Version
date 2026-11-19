@@ -1,4 +1,3 @@
-
 import {
     cleanup,
     fireEvent,
@@ -140,8 +139,9 @@ describe("SCRUM-323 application queue integration", () => {
             "Recently added tracks"
         );
 
+        // SCRUM-362: Select the Track instead of adding it.
         fireEvent.click(within(recent).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         expect(await screen.findByText("Fixture Track Four", {
@@ -164,8 +164,9 @@ describe("SCRUM-323 application queue integration", () => {
             "Recently added tracks"
         );
 
+        // SCRUM-362: Explicit playback-selection action.
         fireEvent.click(within(recent).getByRole("button", {
-            name: /Fixture Track Four/i
+            name: /^Select Fixture Track Four$/i
         }));
 
         expect(await screen.findByText("Fixture Track Four", {

@@ -236,35 +236,43 @@ export function loadTrack(
     }
 
     /*
-     * Preserve existing controlled error callbacks.
+     * SOC 2 AC-07:
      *
-     * Stop monitoring before notifying the UI so
-     * a failed track cannot report a later recovery.
+     * Native Howler error objects can contain
+     * sensitive URLs, paths, or request details.
+     *
+     * Never write a raw media error to the console
+     * or forward it through application callbacks.
+     *
+     * Preserve the existing callback event context,
+     * but supply a safe error code and message.
      */
-    function reportError(
-        type,
-        soundId,
-        error
-    ) {
+    function reportError(type, soundId) {
         if (music !== currentHowl) {
             return;
         }
 
         stopMonitor();
 
+        const code = type === "load"
+            ? "MEDIA_LOAD_FAILED"
+            : "MEDIA_PLAY_FAILED";
+
+        const safeError = {
+            code,
+            message: "Unable to play this track."
+        };
+
         console.error(
-            `Track ${trackId} ${type} error:`,
-            error
+            `Track ${trackId} ${type} error: ${code}`
         );
 
-        if (
-            typeof onError === "function"
-        ) {
+        if (typeof onError === "function") {
             onError({
                 type,
                 trackId,
                 soundId,
-                error
+                error: safeError
             });
         }
     }
@@ -346,8 +354,8 @@ export function loadTrack(
         /*
          * Explicit pause.
          *
-         * A paused player must not be classified
-         * as stalled.
+         * Report pause without classifying it
+         * as a buffering failure.
          */
         onpause: () => {
             if (music !== currentHowl) {
@@ -390,29 +398,27 @@ export function loadTrack(
 
         /*
          * Existing media loading failure behavior.
+         *
+         * Intentionally discard the native error
+         * argument so it cannot be leaked.
          */
-        onloaderror: (
-            soundId,
-            error
-        ) => {
+        onloaderror: (soundId) => {
             reportError(
                 "load",
-                soundId,
-                error
+                soundId
             );
         },
 
         /*
          * Existing playback failure behavior.
+         *
+         * Intentionally discard the native error
+         * argument so it cannot be leaked.
          */
-        onplayerror: (
-            soundId,
-            error
-        ) => {
+        onplayerror: (soundId) => {
             reportError(
                 "play",
-                soundId,
-                error
+                soundId
             );
         }
     });

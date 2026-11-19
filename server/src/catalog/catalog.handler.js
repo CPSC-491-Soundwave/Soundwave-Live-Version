@@ -3,19 +3,12 @@ import {
   write401Response
 } from "../auth/auth.js";
 
-function writeJson(
-  response,
-  statusCode,
-  payload
-) {
+function writeJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
-    "Content-Type":
-    "application/json; charset=utf-8"
+    "Content-Type": "application/json; charset=utf-8"
   });
 
-  response.end(
-    JSON.stringify(payload)
-  );
+  response.end(JSON.stringify(payload));
 }
 
 function parsePositiveIntegerId(value) {
@@ -50,8 +43,73 @@ export function createCatalogHandler(
 
   return async function handleCatalogRequest(
     request,
-    response
+    response,
+    { principal = null } = {}
   ) {
+    const mutationMatch =
+      /^\/api\/library\/favorites\/([^/?]+)$/.exec(
+        request.url
+      );
+
+    if (
+      mutationMatch &&
+      (request.method === "PUT" || request.method === "DELETE")
+    ) {
+      // The application authorization gate supplies this principal.
+      // Never accept a caller-provided user ID.
+      if (!principal || !principal.userId) {
+        write401Response(response);
+        return true;
+      }
+
+      const trackId = parsePositiveIntegerId(mutationMatch[1]);
+
+      if (trackId === null) {
+        writeJson(response, 400, {
+          error: "invalid_track_id"
+        });
+        return true;
+      }
+
+      try {
+        if (request.method === "PUT") {
+          const result =
+            await catalogService.addFavoriteForPrincipal(
+              principal.userId,
+              trackId
+            );
+
+          if (!result.trackExists) {
+            writeJson(response, 404, {
+              error: "track_not_found"
+            });
+            return true;
+          }
+        } else {
+          await catalogService.removeFavoriteForPrincipal(
+            principal.userId,
+            trackId
+          );
+        }
+
+        response.writeHead(204, {
+          "Cache-Control": "no-store"
+        });
+        response.end();
+      } catch (error) {
+        console.error(
+          "Favorites mutation request failed:",
+          error
+        );
+
+        writeJson(response, 500, {
+          error: "library_unavailable"
+        });
+      }
+
+      return true;
+    }
+
     if (request.method !== "GET") {
       return false;
     }
@@ -118,7 +176,7 @@ export function createCatalogHandler(
     ) {
       try {
         const tracks =
-        await catalogService.listTracks();
+          await catalogService.listTracks();
 
         writeJson(
           response,
@@ -146,15 +204,15 @@ export function createCatalogHandler(
     }
 
     const trackDetailMatch =
-    request.url.match(
-      /^\/api\/catalog\/tracks\/([^/?]+)$/
-    );
+      request.url.match(
+        /^\/api\/catalog\/tracks\/([^/?]+)$/
+      );
 
     if (trackDetailMatch) {
       const trackId =
-      parsePositiveIntegerId(
-        trackDetailMatch[1]
-      );
+        parsePositiveIntegerId(
+          trackDetailMatch[1]
+        );
 
       if (trackId === null) {
         writeJson(
@@ -179,9 +237,9 @@ export function createCatalogHandler(
         }
 
         const track =
-        await catalogService.getTrackById(
-          trackId
-        );
+          await catalogService.getTrackById(
+            trackId
+          );
 
         if (!track) {
           writeJson(
@@ -227,10 +285,10 @@ export function createCatalogHandler(
 
       try {
         principal =
-        authenticateRequest(
-          request,
-          tokenService
-        );
+          authenticateRequest(
+            request,
+            tokenService
+          );
       } catch (error) {
         console.error(
           "Library authentication configuration failed:",
@@ -264,7 +322,7 @@ export function createCatalogHandler(
         }
 
         const tracks =
-        await catalogService.listRecentlyAddedTracks();
+          await catalogService.listRecentlyAddedTracks();
 
         writeJson(
           response,
@@ -305,7 +363,7 @@ export function createCatalogHandler(
         }
 
         const artists =
-        await catalogService.listArtists();
+          await catalogService.listArtists();
 
         writeJson(
           response,
@@ -333,15 +391,15 @@ export function createCatalogHandler(
     }
 
     const artistDetailMatch =
-    request.url.match(
-      /^\/api\/catalog\/artists\/([^/?]+)$/
-    );
+      request.url.match(
+        /^\/api\/catalog\/artists\/([^/?]+)$/
+      );
 
     if (artistDetailMatch) {
       const artistId =
-      parsePositiveIntegerId(
-        artistDetailMatch[1]
-      );
+        parsePositiveIntegerId(
+          artistDetailMatch[1]
+        );
 
       if (artistId === null) {
         writeJson(
@@ -366,9 +424,9 @@ export function createCatalogHandler(
         }
 
         const artist =
-        await catalogService.getArtistById(
-          artistId
-        );
+          await catalogService.getArtistById(
+            artistId
+          );
 
         if (!artist) {
           writeJson(
@@ -421,7 +479,7 @@ export function createCatalogHandler(
         }
 
         const albums =
-        await catalogService.listAlbums();
+          await catalogService.listAlbums();
 
         writeJson(
           response,
@@ -449,15 +507,15 @@ export function createCatalogHandler(
     }
 
     const albumDetailMatch =
-    request.url.match(
-      /^\/api\/catalog\/albums\/([^/?]+)$/
-    );
+      request.url.match(
+        /^\/api\/catalog\/albums\/([^/?]+)$/
+      );
 
     if (albumDetailMatch) {
       const albumId =
-      parsePositiveIntegerId(
-        albumDetailMatch[1]
-      );
+        parsePositiveIntegerId(
+          albumDetailMatch[1]
+        );
 
       if (albumId === null) {
         writeJson(
@@ -482,9 +540,9 @@ export function createCatalogHandler(
         }
 
         const album =
-        await catalogService.getAlbumById(
-          albumId
-        );
+          await catalogService.getAlbumById(
+            albumId
+          );
 
         if (!album) {
           writeJson(
