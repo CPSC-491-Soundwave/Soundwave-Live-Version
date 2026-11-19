@@ -151,9 +151,9 @@ export default function PlaybackBar({
     // Escape closes the expanded player. Keep keyboard focus inside its
     // controls while the full-window overlay is open, and restore scroll.
     useEffect(() => {
-        if (!isExpanded) {
-            return;
-        }
+            if (!isExpanded || !trackId) {
+                return;
+            }
 
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
@@ -203,13 +203,7 @@ export default function PlaybackBar({
             document.body.style.overflow = previousOverflow;
             document.removeEventListener("keydown", handleExpandedKeyDown);
         };
-    }, [isExpanded]);
-
-    useEffect(() => {
-        if (!trackId) {
-            setIsExpanded(false);
-        }
-    }, [trackId]);
+    }, [isExpanded, trackId]);
 
     const playerClassName = isExpanded && trackId
         ? "playback-bar playback-bar--expanded"
