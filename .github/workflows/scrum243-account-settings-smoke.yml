@@ -1,0 +1,143 @@
+# SCRUM-243 - Independent Account Settings PostgreSQL + HTTP smoke.
+# A separate job/service avoids touching the existing database-test workflow.
+name: SCRUM-243 Account Settings HTTP/DB Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  account-settings-http-db-smoke:
+    name: Account Settings PostgreSQL + HTTP Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: soundwave_app
+          POSTGRES_PASSWORD: soundwave_scrum243_ci_only
+          POSTGRES_DB: soundwave_scrum243_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U soundwave_app -d soundwave_scrum243_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            database/package-lock.json
+            server/package-lock.json
+
+      - name: Install database dependencies
+        working-directory: database
+        run: npm ci
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Create SCRUM-243 disposable PostgreSQL connection
+        working-directory: database
+        run: |
+          cat > .env.test <<'ENVEOF'
+          PGHOST=127.0.0.1
+          PGPORT=5432
+          PGUSER=soundwave_app
+          PGPASSWORD=soundwave_scrum243_ci_only
+          PGDATABASE=soundwave_scrum243_test
+          ENVEOF
+          chmod 600 .env.test
+
+      - name: Verify exact disposable database identity
+        working-directory: database
+        run: |
+          node --env-file=.env.test --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+
+          const client = new pg.Client();
+          try {
+            await client.connect();
+            const { rows } = await client.query(
+              'SELECT current_database() AS database_name, current_user AS role_name'
+            );
+            assert.equal(rows[0]?.database_name, 'soundwave_scrum243_test');
+            assert.equal(rows[0]?.role_name, 'soundwave_app');
+            console.log('PASS: exact SCRUM-243 disposable PostgreSQL identity');
+          } finally {
+            await client.end();
+          }
+          NODE
+
+      - name: Apply existing ordered migrations to isolated database
+        working-directory: database
+        run: npm run db:migrate:test
+
+      - name: Verify smoke rejects an unexpected database identity
+        working-directory: server
+        run: |
+          if node --env-file=../database/.env.test \
+            scripts/scrum358-postgres-http-smoke.mjs soundwave_wrong_test \
+            > "$RUNNER_TEMP/scrum243-database-guard.log" 2>&1; then
+            echo 'FAIL: smoke did not reject an incorrect database name.'
+            exit 1
+          fi
+          if ! grep -Fq 'Database mismatch: refusing to insert any test records' \
+            "$RUNNER_TEMP/scrum243-database-guard.log"; then
+            echo 'FAIL: incorrect database name did not produce the expected refusal.'
+            cat "$RUNNER_TEMP/scrum243-database-guard.log"
+            exit 1
+          fi
+          echo 'PASS: smoke fails closed on incorrect database identity.'
+
+      - name: Run real Account Settings HTTP and PostgreSQL smoke
+        working-directory: server
+        shell: bash
+        run: |
+          node --env-file=../database/.env.test \
+            scripts/scrum358-postgres-http-smoke.mjs soundwave_scrum243_test 2>&1 \
+            | tee "$RUNNER_TEMP/scrum243-account-settings-smoke.log"
+
+      - name: Confirm security and rollback outcomes in smoke evidence
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/scrum243-account-settings-smoke.log"
+          grep -Fq 'PASS: Real POST /auth/login authenticates disposable account' "$LOG"
+          grep -Fq 'PASS: PATCH persists both fields in actual PostgreSQL tables' "$LOG"
+          grep -Fq 'PASS: Fresh GET reflects the persisted update' "$LOG"
+          grep -Fq 'PASS: Unique constraint rejects duplicate username without partial update' "$LOG"
+          grep -Fq 'PASS: Persistently revoked JWT cannot change the profile' "$LOG"
+          grep -Fq 'CLEANUP: Outer transaction rolled back; no test writes committed.' "$LOG"
+          grep -Fq 'PASS: Disposable accounts are absent after rollback.' "$LOG"
+          grep -Fq 'SCRUM-358 PostgreSQL/HTTP smoke PASSED; no database records retained.' "$LOG"
+          echo 'PASS: SCRUM-243 account settings smoke, isolation, and cleanup verified.'
+
+      - name: Upload SCRUM-243 smoke evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrum243-account-settings-http-db-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scrum243-account-settings-smoke.log
+            ${{ runner.temp }}/scrum243-database-guard.log
+          if-no-files-found: warn
+          retention-days: 30
