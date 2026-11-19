@@ -9,6 +9,8 @@
     "db:migrate:test": "node --env-file=.env.test migrate.js",
     "db:seed": "node --env-file=.env seed.js",
     "db:seed:test": "node --env-file=.env.test seed.js",
+    "import:media": "node --env-file=.env import-media.js",
+    "test:import": "node --test test/media-importer.test.js",
     "test:integrity": "node --env-file=.env.test --test test/catalog-integrity.test.js",
     "test:db": "node --env-file=.env.test --test test/catalog-db.integration.test.js test/token-revocation-db.integration.test.js test/favorites-fixture.integration.test.js"
   },
