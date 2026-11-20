@@ -350,7 +350,13 @@ Current shared development fixtures include:
 | 3004 | Fixture Track Four | 2002 | 1002 | 222000 ms | none |
 | 3005 | Kontekst | 2003 | 1003 | 12345 ms | `mediaFiles/test.mp3` |
 
-Track `3005` is the current shared media-backed development fixture.
+Track `3005` is the shared, seeded media-backed development fixture.
+Matthew's November 19 local import also registered Track `3006`
+(`1x02_Goat_Chill.mp3`) and Track `3007`
+(`chicken-on-tree-screaming.mp3`). These IDs were observed in his
+**local development database**, not added to the shared deterministic seed;
+other developers must have authorized source files and run the importer
+against their own configured database to reproduce them.
 
 Production feature logic must not assume a fixture ID always exists.
 
@@ -4286,6 +4292,55 @@ still governs product scope. Sprint 5 closes in class on **Thursday,
 November 19, 2026**; do not infer an extended deadline from the old
 roadmap. Further album-card Favorites, playlist editing, and unrelated
 redesign are out of scope for SCRUM-362.
+
+## Sprint 5 work — Matthew Choi (November 19, 2026)
+
+- **Fullscreen player and cache-availability UI (MC-T51 / SCRUM-278):**
+  The shared `PlaybackBar` supports expand/collapse, Escape-to-close,
+  and continued playback using the same Howler instance. The cache
+  indicator displays Unknown, Loading, Present, or Evicted when supplied
+  by a cache-status provider. The default provider reports **Unknown**;
+  this is **not** an implementation of persistent offline audio caching.
+- **Reusable MP3 batch importer and additional tracks (SCRUM-379/380):**
+  `database/import-media.js` processes MP3 files already under the
+  configured media root, reuses metadata extraction and PostgreSQL
+  catalog storage, skips existing paths and unsupported files, and
+  reports import results. To register newly added files, run from
+  `database/`:
+
+  ```bash
+  npm run test:import
+  npm run import:media
+  ```
+
+  Matthew's local run imported Tracks `3006` and `3007` and reported
+  **2 imported, 2 skipped, 0 failed**. Seven importer tests passed.
+  Adding more MP3 files currently requires rerunning `import:media`;
+  no automatic folder watcher or browser upload was added. Only
+  rights-cleared audio should be used or included in a public demo.
+- **Multi-track switching regression:** The existing App queue and
+  shared PlaybackBar/Howler path were retained. New tests at
+  `client/src/components/PlaybackBar.multitrack.mchoi.test.jsx` and
+  `client/src/playback/playback.multitrack.mchoi.test.js` cover track
+  replacement, correct metadata, stale callbacks, rapid switching,
+  and fullscreen behavior. Matthew reported the focused tests, full
+  frontend suite, lint, production build, and manual switching among
+  Tracks 3005/3006/3007 all **passing locally**.
+
+Run the frontend checks from `client/`:
+
+```bash
+npm run test:run
+npm run lint
+npm run build
+```
+
+These are **local results**, not evidence of a merged pull request,
+peer approval, successful hosted CI, or production deployment. The
+CPSC 491 syllabus governs the six-sprint calendar; the longer CPSC 490
+roadmap remains the product-scope reference.
+
+---
 
 # 37. Project Direction
 
