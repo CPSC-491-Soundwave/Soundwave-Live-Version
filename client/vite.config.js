@@ -1,5 +1,6 @@
+
 import process from "node:process";
-import { defineConfig } from "vite";
+import { defineConfig, configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 const backendTarget =
@@ -32,5 +33,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.js",
+    exclude: [
+      ...configDefaults.exclude,
+      "e2e/**",
+    ],
   },
 });
